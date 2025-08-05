@@ -270,31 +270,15 @@ epubBtn.addEventListener('click', async () => {
   const oebps = zip.folder('OEBPS');
 
   /* 3. download cover */
-/* 3. download cover */
-let coverFileName = '';
-let coverMediaType = '';
-
-if (novelData.metadata.cover) {
-  try {
-    log('Fetching cover image...');
-    const res = await fetch(`${WORKER_URL}/api/raw?url=${encodeURIComponent(novelData.metadata.cover)}`);
-    if (!res.ok) throw new Error(`Cover fetch failed with status ${res.status}`);
-        let mime = res.headers.get('Content-Type');
-    if (!mime || !mime.startsWith('image/')) {
-      log(`Warning: Server sent an invalid MIME type: "${mime}". Falling back to "image/jpeg".`);
-      mime = 'image/jpeg';
-    }
-        const imageBuffer = await res.arrayBuffer();
-    const ext = mime.split('/')[1] || 'jpg';
-    coverFileName = `cover.${ext}`;
-    coverMediaType = mime;
-    oebps.file(coverFileName, imageBuffer); // ✅ Pass the buffer
-    log(`Cover saved as ${coverFileName}`);
-  } catch (e) {
-    log(`Cover image skipped: ${e.message}`);
-    coverFileName = '';
+  let coverFileName = '';
+  if (novelData.metadata.cover) {
+    try {
+      const res  = await fetch(novelData.metadata.cover);
+      const blob = await res.blob();
+      coverFileName = 'cover.jpg';
+      oebps.file(coverFileName, blob, { compression: 'DEFLATE' });
+    } catch { /* ignore missing cover */ }
   }
-}
 
   const toc = [];
 
