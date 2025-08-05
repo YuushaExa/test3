@@ -352,19 +352,19 @@ const tocPage = `<?xml version="1.0" encoding="utf-8"?>
 <head>
   <title>Table of Contents</title>
   <meta charset="utf-8"/>
-  <style type="text/css">
+ <style type="text/css">
     body { font-family: sans-serif; line-height: 1.5; }
     h1 { text-align: center; }
-    ol { list-style-type: none; padding-left: 1em; }
     li { margin: 0.5em 0; }
-    a { text-decoration: none; color: inherit; }
   </style>
 </head>
 <body>
   <h1>Table of Contents</h1>
   <nav epub:type="toc" id="toc">
     <ol>
+      <li><a href="cover.xhtml">Cover</a></li>
       <li><a href="info.xhtml">Information</a></li>
+      <li><a href="toc.xhtml">Table of Contents</a></li>
       ${novelData.chapters.map((ch, idx) => 
         `<li><a href="chap${idx + 1}.xhtml">${ch.title}</a></li>`
       ).join('\n      ')}
@@ -419,7 +419,7 @@ ${novelData.metadata.genres.map(genre => `<dc:subject>${genre}</dc:subject>`).jo
   </manifest>
   <spine toc="nav">
     <itemref idref="cover-page"/>
-   <itemref idref="info-page"/>
+    <itemref idref="info-page"/>
     <itemref idref="toc-page"/>    
   ${toc.map(t => `<itemref idref="${t.id}"/>`).join('\n    ')}
   </spine>
