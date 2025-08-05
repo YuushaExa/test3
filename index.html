@@ -131,49 +131,41 @@
         }
 
         // Fetch novel metadata
-        async function fetchMetadata() {
-            const url = novelUrlInput.value.trim();
-            if (!url) {
-                alert('Please enter a novel URL');
-                return;
-            }
+      async function fetchMetadata() {
+    const url = novelUrlInput.value.trim();
+    if (!url) {
+        alert('Please enter a novel URL');
+        return;
+    }
 
-            try {
-                log(`Fetching metadata from: ${url}`);
-                fetchMetadataBtn.disabled = true;
+    try {
+        log(`Fetching metadata from: ${url}`);
+        console.log('Request payload:', { url }); // Debug log
+        fetchMetadataBtn.disabled = true;
 
-                const response = await fetch(`${WORKER_URL}/api/metadata`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ url })
-                });
+        const response = await fetch(`${WORKER_URL}/api/metadata`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ url })
+        });
 
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-
-                const data = await response.json();
-                novelData.metadata = data.metadata;
-                novelData.chapters = data.chapters;
-
-                log(`\n=== Metadata ===`);
-                log(`Title: ${data.metadata.title}`);
-                log(`Author: ${data.metadata.author}`);
-                log(`Status: ${data.metadata.status}`);
-                log(`Genres: ${data.metadata.genres.join(', ')}`);
-                log(`Description: ${data.metadata.description.substring(0, 100)}...`);
-                log(`\nFound ${data.chapters.length} chapters`);
-                
-                fetchChaptersBtn.disabled = false;
-                log('\nReady to fetch chapters. Click "Fetch Chapters" to begin.');
-
-            } catch (error) {
-                log(`Error fetching metadata: ${error.message}`);
-                fetchMetadataBtn.disabled = false;
-            }
+        console.log('Response status:', response.status); // Debug log
+        const data = await response.json();
+        console.log('Response data:', data); // Debug log
+        
+        if (!response.ok || !data.success) {
+            throw new Error(data.error || 'Failed to fetch metadata');
         }
+
+        // ... rest of your success handling ...
+    } catch (error) {
+        console.error('Full error:', error); // Debug log
+        log(`Error: ${error.message}`);
+        fetchMetadataBtn.disabled = false;
+    }
+}
 
         // Fetch all chapters
         async function fetchChapters() {
