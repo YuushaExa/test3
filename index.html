@@ -270,15 +270,20 @@ epubBtn.addEventListener('click', async () => {
   const oebps = zip.folder('OEBPS');
 
   /* 3. download cover */
-  let coverFileName = '';
-  if (novelData.metadata.cover) {
-    try {
-      const res  = await fetch(novelData.metadata.cover);
-      const blob = await res.blob();
-      coverFileName = 'cover.jpg';
-      oebps.file(coverFileName, blob, { compression: 'DEFLATE' });
-    } catch { /* ignore missing cover */ }
+/* 3. download cover (via worker) */
+let coverFileName = '';
+if (novelData.metadata.cover) {
+  try {
+    // ask the worker to proxy the image
+    const res   = await fetch(`${WORKER_URL}/api/raw?url=${encodeURIComponent(novelData.metadata.cover)}`);
+    if (!res.ok) throw new Error('cover fetch failed');
+    const blob  = await res.blob();
+    coverFileName = 'cover.jpg';
+    oebps.file(coverFileName, blob, { compression: 'DEFLATE' });
+  } catch (e) {
+    log('Cover skipped: ' + e.message);
   }
+}
 
   const toc = [];
 
