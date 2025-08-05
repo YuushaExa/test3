@@ -246,8 +246,11 @@ epubBtn.disabled = true;
 document.querySelector('.container').appendChild(epubBtn);
 
 epubBtn.addEventListener('click', async () => {
-  if (!novelData.metadata?.title) return alert('No data');
+  if (!novelData.metadata?.title || !novelData.chapters[0]?.content) {
+    return alert('No chapter data available to create an EPUB.');
+  }
 
+  log('Starting EPUB generation...');
   const zip = new JSZip();
   const idGen = (() => { let n = 0; return () => `id-${++n}`; })();
 
@@ -266,47 +269,70 @@ epubBtn.addEventListener('click', async () => {
   const oebps = zip.folder('OEBPS');
 
   /* 3. download cover */
-let coverFileName = '';
-if (novelData.metadata.cover) {
-  try {
-    // ask the worker to proxy the image
-    const res   = await fetch(`${WORKER_URL}/api/raw?url=${encodeURIComponent(novelData.metadata.cover)}`);
-    if (!res.ok) throw new Error('cover fetch failed');
-    const blob  = await res.blob();
-    coverFileName = 'cover.jpg';
-    oebps.file(coverFileName, blob, { compression: 'DEFLATE' });
-  } catch (e) {
-    log('Cover skipped: ' + e.message);
+  let coverFileName = '';
+  let coverMediaType = '';
+  if (novelData.metadata.cover) {
+    try {
+      log('Fetching cover image...');
+      const res = await fetch(`${WORKER_URL}/api/raw?url=${encodeURIComponent(novelData.metadata.cover)}`);
+      if (!res.ok) throw new Error(`Cover fetch failed with status ${res.status}`);
+      const blob = await res.blob();
+      
+      // Determine file extension and media type
+      coverMediaType = blob.type;
+      const extension = coverMediaType.split('/')[1] || 'jpg';
+      coverFileName = `cover.${extension}`;
+
+      oebps.file(coverFileName, blob);
+      log('Cover image processed.');
+    } catch (e) {
+      log(`Cover image skipped: ${e.message}`);
+      coverFileName = '';
+    }
   }
-}
+
   const toc = [];
 
-/* ---- 3b. cover page XHTML ---- */
-if (coverFileName) {
-  const coverPage = `<?xml version="1.0" encoding="utf-8"?>
+  /* 3b. cover page XHTML (if cover exists) */
+  if (coverFileName) {
+    const coverPage = `<?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head><title>Cover</title><meta charset="utf-8"/></head>
-<body style="margin:0;text-align:center;">
-  <img style="max-width:100%;height:auto;" src="${coverFileName}" alt="Cover"/>
+<body style="margin:0; text-align:center;">
+  <img style="max-width:100%; height:auto;" src="${coverFileName}" alt="Cover"/>
 </body></html>`;
-  oebps.file('cover.xhtml', coverPage, { compression: 'DEFLATE' });
-  toc.unshift({ id: 'cover-page', href: 'cover.xhtml', title: 'Cover' });
-}
+    oebps.file('cover.xhtml', coverPage);
+    toc.push({ id: 'cover-page', href: 'cover.xhtml', title: 'Cover', isCover: true });
+  }
     
   /* 4. chapters */
+  log('Processing chapters for EPUB...');
   novelData.chapters.forEach((ch, idx) => {
     const file = `chap${idx + 1}.xhtml`;
+
+    // Pre-process chapter content to be well-formed XHTML
+    const processedContent = (ch.content || 'Content not found.')
+      .replace(/&nbsp;/g, '&#160;')      // Use XHTML compliant non-breaking space
+      .replace(/<br\s*>/gi, '<br />'); // Ensure <br> tags are self-closing
+
     const html = `<?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml">
-<head><title>${ch.title}</title><meta charset="utf-8"/></head>
-<body><h1>${ch.title}</h1>${ch.content}</body></html>`;
-    oebps.file(file, html, { compression: 'DEFLATE' });
-    toc.push({ id: idGen(), href: file, title: ch.title });
+<head>
+  <title>${ch.title}</title>
+  <meta charset="utf-8"/>
+</head>
+<body>
+  <h1>${ch.title}</h1>
+  ${processedContent}
+</body>
+</html>`;
+    oebps.file(file, html);
+    toc.push({ id: `ch-${idx + 1}`, href: file, title: ch.title });
   });
 
-  /* 5. OPF */
+  /* 5. OPF (content.opf) */
   const authors = Array.isArray(novelData.metadata.author)
     ? novelData.metadata.author.join(', ')
     : novelData.metadata.author;
@@ -315,52 +341,63 @@ if (coverFileName) {
 <package xmlns="http://www.idpf.org/2007/opf" unique-identifier="BookId" version="2.0">
   <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
     <dc:title>${novelData.metadata.title}</dc:title>
-    <dc:creator>${authors}</dc:creator>
+    <dc:creator>${authors || 'Unknown Author'}</dc:creator>
     <dc:language>en</dc:language>
-    <dc:identifier id="BookId">${Date.now()}</dc:identifier>
-    <dc:description>${novelData.metadata.description || ''}</dc:description>
-    ${coverFileName ? '<meta name="cover" content="cover"/>' : ''}
+    <dc:identifier id="BookId">${'urn:uuid:' + Date.now()}</dc:identifier>
+    <dc:description>${(novelData.metadata.description || '').replace(/&/g, '&amp;').replace(/</g, '&lt;')}</dc:description>
+    ${coverFileName ? '<meta name="cover" content="cover-image"/>' : ''}
   </metadata>
   <manifest>
     <item id="nav" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
-    ${coverFileName ? `<item id="cover" href="${coverFileName}" media-type="image/jpeg"/>` : ''}
-    ${toc.map(t => `<item id="${t.id}" href="${t.href}" media-type="application/xhtml+xml"/>`).join('\n')}
+    ${coverFileName ? `<item id="cover-image" href="${coverFileName}" media-type="${coverMediaType}"/>` : ''}
+    ${toc.map(t => `<item id="${t.id}" href="${t.href}" media-type="application/xhtml+xml"/>`).join('\n    ')}
   </manifest>
   <spine toc="nav">
-  ${coverFileName ? '<itemref idref="cover-page"/>' : ''}
-  ${toc.filter(t => t.href !== 'cover.xhtml').map(t => `<itemref idref="${t.id}"/>`).join('\n')}
+  ${toc.map(t => `<itemref idref="${t.id}"/>`).join('\n    ')}
   </spine>
 </package>`;
-  oebps.file('content.opf', opf, { compression: 'DEFLATE' });
+  oebps.file('content.opf', opf);
 
-  /* 6. NCX */
+  /* 6. NCX (Table of Contents) */
   const ncx = `<?xml version="1.0" encoding="utf-8"?>
 <ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">
-  <head><meta name="dtb:uid" content="${Date.now()}"/></head>
+  <head>
+    <meta name="dtb:uid" content="${'urn:uuid:' + Date.now()}"/>
+    <meta name="dtb:depth" content="1"/>
+    <meta name="dtb:totalPageCount" content="0"/>
+    <meta name="dtb:maxPageNumber" content="0"/>
+  </head>
   <docTitle><text>${novelData.metadata.title}</text></docTitle>
-  <navMap>${toc.map((t,i)=>`<navPoint id="${t.id}" playOrder="${i+1}">
+  <navMap>
+  ${toc.map((t,i) => `<navPoint id="${t.id}" playOrder="${i+1}">
     <navLabel><text>${t.title}</text></navLabel>
     <content src="${t.href}"/>
-  </navPoint>`).join('')}</navMap>
+  </navPoint>`).join('\n  ')}
+  </navMap>
 </ncx>`;
-  oebps.file('toc.ncx', ncx, { compression: 'DEFLATE' });
+  oebps.file('toc.ncx', ncx);
 
-  /* 7. generate blob with correct compression */
+  /* 7. Generate EPUB file */
+  log('Generating EPUB file, please wait...');
   const blob = await zip.generateAsync({
-    type        : 'blob',
-    compression : 'DEFLATE',
+    type: 'blob',
+    mimeType: 'application/epub+zip',
+    compression: 'DEFLATE',
     compressionOptions: { level: 9 }
   });
 
-  /* 8. trigger download (correct filename) */
+  /* 8. Trigger download */
   const link = document.createElement('a');
   link.href = URL.createObjectURL(blob);
   link.download = `${novelData.metadata.title.replace(/[^a-z0-9]/gi, '_')}.epub`;
+  document.body.appendChild(link);
   link.click();
+  document.body.removeChild(link);
   URL.revokeObjectURL(link.href);
 
-  log('EPUB ready!');
+  log('EPUB download initiated!');
 });
+
 
 // enable EPUB button once chapters are loaded
 fetchChaptersBtn.addEventListener('click', () => {
