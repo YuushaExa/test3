@@ -93,9 +93,9 @@
         const title       = $('.col-xs-12.col-sm-8.col-md-8.desc h3.title')?.textContent?.trim();
         const coverPath   = $('.col-xs-12.col-sm-4.col-md-4.info-holder .book img')?.getAttribute('src');
         const cover       = coverPath ? new URL(coverPath, url).href : '';
-        const author      = $$('.info div').find(d => d.querySelector('h3')?.textContent?.trim() === 'Author:')
-                            ?.querySelectorAll('a');
-        const authorNames = author ? [...author].map(a=>a.textContent.trim()).join(', ') : '';
+        const authorNodes = $$('.info div').find(d => d.querySelector('h3')?.textContent?.trim() === 'Author:')
+                     ?.querySelectorAll('a');
+        const authors = authorNodes ? [...authorNodes].map(a => a.textContent.trim()) : [];
         const genres      = $$('.info div').find(d => d.querySelector('h3')?.textContent?.trim() === 'Genre:')
                             ?.querySelectorAll('a');
         const genreNames  = genres ? [...genres].map(a=>a.textContent.trim()) : [];
@@ -105,7 +105,7 @@
                             ?.textContent?.replace('Source:','').trim();
         const description = $('.col-xs-12.col-sm-8.col-md-8.desc .desc-text')?.textContent?.trim();
 
-        novelData.metadata = { title, cover, author:authorNames, genres:genreNames, status, source, description };
+        novelData.metadata = { title, cover, author: authors, genres:genreNames, status, source, description };
 
         // chapter list (main page)
         novelData.chapters = $$('.list-chapter li a').map(a => ({
@@ -146,6 +146,7 @@
         .replace(/<p>\s*<\/p>/g, '')
         .replace(/<img[^>]*>/g, '')
         .replace(/<js[^>]*>/g, '')
+        .replace(/<div\b[^>]*>\s*<\/div>/gis, '') 
         .replace(/<script\b[^>]*>.*?<\/script>/gis, '')
         .replace(/<noscript\b[^>]*>.*?<\/noscript>/gis, '')
         .replace(/<div[^>]*class\s*=\s*["']ads[^>]*>.*?<\/div>/gis, '')
