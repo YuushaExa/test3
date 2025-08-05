@@ -241,6 +241,8 @@
     fetchChaptersBtn.addEventListener('click', fetchChapters);
     downloadBtn.addEventListener('click', downloadJson);
 
+const epub = window.epubGen.default;
+                                            
     const epubBtn = document.createElement('button');
 epubBtn.textContent = 'Download EPUB';
 epubBtn.disabled = true;
@@ -249,13 +251,11 @@ document.querySelector('.container').appendChild(epubBtn);
 epubBtn.addEventListener('click', async () => {
   if (!novelData.metadata?.title) return alert('No data');
 
-  // --- 1.  Prepare chapter objects for epub-gen-memory ---
   const chapters = novelData.chapters.map(ch => ({
     title: ch.title,
     data: ch.content || '<p>Empty chapter</p>'
   }));
 
-  // --- 2.  Download cover image as Blob ---
   let coverBlob = null;
   if (novelData.metadata.cover) {
     try {
@@ -266,23 +266,21 @@ epubBtn.addEventListener('click', async () => {
     }
   }
 
-  // --- 3.  Build EPUB options ---
   const options = {
     title: novelData.metadata.title,
     author: Array.isArray(novelData.metadata.author)
       ? novelData.metadata.author.join(', ')
       : novelData.metadata.author,
     description: novelData.metadata.description || '',
-    cover: coverBlob,          // Blob → embedded cover
+    cover: coverBlob,
     chapters,
     tocTitle: 'Table of Contents',
     lang: 'en'
   };
 
-  // --- 4.  Generate & download ---
   try {
     log('Building EPUB…');
-    const epubBlob = await epubGen(options);   // <- epub-gen-memory call
+    const epubBlob = await window.epubGen.default(options); // <- correct call
     const link = document.createElement('a');
     link.href = URL.createObjectURL(epubBlob);
     link.download = `${novelData.metadata.title.replace(/[^a-z0-9]/gi, '_')}.epub`;
@@ -293,6 +291,7 @@ epubBtn.addEventListener('click', async () => {
     log('EPUB error: ' + err.message);
   }
 });
+
 // enable EPUB button once chapters are loaded
 fetchChaptersBtn.addEventListener('click', () => {
   const check = setInterval(() => {
