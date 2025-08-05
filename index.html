@@ -245,6 +245,7 @@ epubBtn.textContent = 'Download EPUB';
 epubBtn.disabled = true;
 document.querySelector('.container').appendChild(epubBtn);
 
+// ---- export EPUB ----
 epubBtn.addEventListener('click', async () => {
   if (!novelData.metadata?.title || !novelData.chapters[0]?.content) {
     return alert('No chapter data available to create an EPUB.');
@@ -298,15 +299,34 @@ epubBtn.addEventListener('click', async () => {
     const coverPage = `<?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml">
-<head><title>Cover</title><meta charset="utf-8"/></head>
+<head><title>${novelData.metadata.title}</title><meta charset="utf-8"/></head>
 <body style="margin:0; text-align:center;">
-  <img style="max-width:100%; height:auto;" src="${coverFileName}" alt="Cover"/>
+  <img style="height:auto;width:100%;border-radius:5px;" src="${coverFileName}" alt="Cover"/>
+    <h1>${novelData.metadata.title}</h1>
+    <p><strong>Author:</strong> ${novelData.metadata.author.join(', ')}</p>
 </body></html>`;
     oebps.file('cover.xhtml', coverPage);
     toc.push({ id: 'cover-page', href: 'cover.xhtml', title: 'Cover', isCover: true });
   }
-    
-  /* 4. chapters */
+
+  /* 4. Information page */
+  const infoPage = `<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head><title>Information</title><meta charset="utf-8"/></head>
+<body>
+  <h1>${novelData.metadata.title}</h1>
+  <p><strong>Author:</strong> ${novelData.metadata.author.join(', ')}</p>
+  <p><strong>Status:</strong> ${novelData.metadata.status}</p>
+  ${novelData.metadata.genres.length ? `<p><strong>Genres:</strong> ${novelData.metadata.genres.join(', ')}</p>` : ''}
+  <h3>Description</h3>
+  <p>${novelData.metadata.description}</p>
+</body>
+</html>`;
+  oebps.file('info.xhtml', infoPage);
+  toc.push({ id: 'info-page', href: 'info.xhtml', title: 'Information' });
+
+  /* 5. chapters */
   log('Processing chapters for EPUB...');
   novelData.chapters.forEach((ch, idx) => {
     const file = `chap${idx + 1}.xhtml`;
@@ -332,7 +352,7 @@ epubBtn.addEventListener('click', async () => {
     toc.push({ id: `ch-${idx + 1}`, href: file, title: ch.title });
   });
 
-  /* 5. OPF (content.opf) */
+  /* 6. OPF (content.opf) */
   const authors = Array.isArray(novelData.metadata.author)
     ? novelData.metadata.author.join(', ')
     : novelData.metadata.author;
@@ -358,7 +378,7 @@ epubBtn.addEventListener('click', async () => {
 </package>`;
   oebps.file('content.opf', opf);
 
-  /* 6. NCX (Table of Contents) */
+  /* 7. NCX (Table of Contents) */
   const ncx = `<?xml version="1.0" encoding="utf-8"?>
 <ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">
   <head>
@@ -369,7 +389,7 @@ epubBtn.addEventListener('click', async () => {
   </head>
   <docTitle><text>${novelData.metadata.title}</text></docTitle>
   <navMap>
-  ${toc.map((t,i) => `<navPoint id="${t.id}" playOrder="${i+1}">
+  ${toc.map((t, i) => `<navPoint id="${t.id}" playOrder="${i + 1}">
     <navLabel><text>${t.title}</text></navLabel>
     <content src="${t.href}"/>
   </navPoint>`).join('\n  ')}
@@ -377,7 +397,7 @@ epubBtn.addEventListener('click', async () => {
 </ncx>`;
   oebps.file('toc.ncx', ncx);
 
-  /* 7. Generate EPUB file */
+  /* 8. Generate EPUB file */
   log('Generating EPUB file, please wait...');
   const blob = await zip.generateAsync({
     type: 'blob',
@@ -386,7 +406,7 @@ epubBtn.addEventListener('click', async () => {
     compressionOptions: { level: 9 }
   });
 
-  /* 8. Trigger download */
+  /* 9. Trigger download */
   const link = document.createElement('a');
   link.href = URL.createObjectURL(blob);
   link.download = `${novelData.metadata.title.replace(/[^a-z0-9]/gi, '_')}.epub`;
