@@ -116,7 +116,7 @@
         log(`\n=== Metadata ===`);
         log(`Title: ${title}`);
         log(`Cover: ${cover}`);
-        log(`Author: ${authors}`);
+        log(`Author: ${authors.join(', ')}`);
         log(`Status: ${status}`);
         log(`Genres: ${genreNames.join(', ')}`);
         log(`\nFound ${novelData.chapters.length} chapters`);
