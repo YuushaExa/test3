@@ -403,7 +403,7 @@ const opf = `<?xml version="1.0" encoding="utf-8"?>
     <dc:title>${novelData.metadata.title}</dc:title>
     <dc:creator>${novelData.metadata.author.join(', ')}</dc:creator>
     <dc:language>en</dc:language>
-      <dc:subject>${novelData.metadata.genres.join(', ')}</dc:subject>
+${novelData.metadata.genres.map(genre => `<dc:subject>${genre}</dc:subject>`).join('\n')}
 <dc:identifier id="BookId">urn:uuid:${crypto.randomUUID()}</dc:identifier>
     <dc:description>${(novelData.metadata.description || '').replace(/&/g, '&amp;').replace(/</g, '&lt;')}</dc:description>
       <meta property="dcterms:modified">${new Date().toISOString()}</meta>
