@@ -45,6 +45,7 @@
             border-radius: 4px;
             cursor: pointer;
             font-size: 16px;
+            margin-right: 10px;
         }
         button:disabled {
             background-color: #cccccc;
@@ -62,6 +63,7 @@
         }
         .progress-container {
             margin-top: 15px;
+            display: none;
         }
         progress {
             width: 100%;
@@ -86,7 +88,7 @@
         <button id="fetchChaptersBtn" disabled>Fetch Chapters</button>
         <button id="downloadBtn" disabled>Download as JSON</button>
         
-        <div class="progress-container" id="progressContainer" style="display: none;">
+        <div class="progress-container" id="progressContainer">
             <div class="status" id="statusText">Processing...</div>
             <progress id="progressBar" value="0" max="100"></progress>
         </div>
@@ -95,6 +97,7 @@
     </div>
 
     <script>
+        // Get DOM elements
         const consoleOutput = document.getElementById('console');
         const novelUrlInput = document.getElementById('novelUrl');
         const fetchMetadataBtn = document.getElementById('fetchMetadataBtn');
@@ -104,22 +107,30 @@
         const progressBar = document.getElementById('progressBar');
         const statusText = document.getElementById('statusText');
 
+        // Worker URL - replace with your actual worker URL
+        const WORKER_URL = 'https://curly-pond-9050.yuush.workers.dev/';
+        
+        // Novel data storage
         let novelData = {
             metadata: null,
             chapters: []
         };
 
+        // Log messages to console output
         function log(message) {
             consoleOutput.textContent += message + '\n';
             consoleOutput.scrollTop = consoleOutput.scrollHeight;
+            console.log(message);
         }
 
+        // Update progress bar
         function updateProgress(current, total) {
             const percent = Math.round((current / total) * 100);
             progressBar.value = percent;
             statusText.textContent = `Processing ${current} of ${total} (${percent}%)`;
         }
 
+        // Fetch novel metadata
         async function fetchMetadata() {
             const url = novelUrlInput.value.trim();
             if (!url) {
@@ -131,7 +142,7 @@
                 log(`Fetching metadata from: ${url}`);
                 fetchMetadataBtn.disabled = true;
 
-                const response = await fetch('/api/metadata', {
+                const response = await fetch(`${WORKER_URL}/api/metadata`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -164,6 +175,7 @@
             }
         }
 
+        // Fetch all chapters
         async function fetchChapters() {
             if (!novelData.chapters.length) {
                 alert('No chapters found. Please fetch metadata first.');
@@ -214,11 +226,12 @@
             }
         }
 
+        // Fetch individual chapter content
         async function fetchChapterContent(chapter, current, total) {
             try {
                 log(`Fetching ${current}/${total} - ${chapter.title}`);
 
-                const response = await fetch('/api/chapter', {
+                const response = await fetch(`${WORKER_URL}/api/chapter`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -239,6 +252,7 @@
             }
         }
 
+        // Download novel as JSON
         function downloadJson() {
             if (!novelData.chapters.length || !novelData.chapters[0].content) {
                 alert('No chapter content available. Please fetch chapters first.');
@@ -259,6 +273,7 @@
             URL.revokeObjectURL(url);
         }
 
+        // Event listeners
         fetchMetadataBtn.addEventListener('click', fetchMetadata);
         fetchChaptersBtn.addEventListener('click', fetchChapters);
         downloadBtn.addEventListener('click', downloadJson);
