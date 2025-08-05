@@ -78,57 +78,84 @@
 
     // ---- fetch metadata (browser-side) ----
     async function fetchMetadata() {
-      const url = novelUrlInput.value.trim();
-      if (!url) return alert('Please enter a novel URL');
-      try {
-        log('Fetching novel page…');
-        fetchMetadataBtn.disabled = true;
+  const url = novelUrlInput.value.trim();
+  if (!url) return alert('Please enter a novel URL');
 
-        const html = await fetchRawHTML(url);
-        const doc  = new DOMParser().parseFromString(html, 'text/html');
-        const $    = sel => doc.querySelector(sel);
-        const $$   = sel => [...doc.querySelectorAll(sel)];
+  try {
+    log('Fetching novel page…');
+    fetchMetadataBtn.disabled = true;
 
-        // metadata
-        const title       = $('.col-xs-12.col-sm-8.col-md-8.desc h3.title')?.textContent?.trim();
-        const coverPath   = $('.col-xs-12.col-sm-4.col-md-4.info-holder .book img')?.getAttribute('src');
-        const cover       = coverPath ? new URL(coverPath, url).href : '';
-const authorNodes = $$('.info div').find(d => d.querySelector('h3')?.textContent?.trim() === 'Author:')
-                     ?.querySelectorAll('a');
-const authors = authorNodes ? [...authorNodes].map(a => a.textContent.trim()) : [];
-        const genres      = $$('.info div').find(d => d.querySelector('h3')?.textContent?.trim() === 'Genre:')
-                            ?.querySelectorAll('a');
-        const genreNames  = genres ? [...genres].map(a=>a.textContent.trim()) : [];
-        const status      = $$('.info div').find(d => d.querySelector('h3')?.textContent?.trim() === 'Status:')
-                            ?.querySelector('a')?.textContent?.trim();
-        const source      = $$('.info div').find(d => d.querySelector('h3')?.textContent?.trim() === 'Source:')
-                            ?.textContent?.replace('Source:','').trim();
-        const description = $('.col-xs-12.col-sm-8.col-md-8.desc .desc-text')?.textContent?.trim();
+    const chapters = [];               // local collector
 
-        novelData.metadata = { title, cover, author:authors, genres:genreNames, status, source, description };
+    // helper: scrape one page
+    async function scrapeOne(pageUrl) {
+      const html = await fetchRawHTML(pageUrl);
+      const doc  = new DOMParser().parseFromString(html, 'text/html');
+      const $$   = sel => [...doc.querySelectorAll(sel)];
 
-        // chapter list (main page)
-        novelData.chapters = $$('.list-chapter li a').map(a => ({
+      // chapters on this page
+      $$('.list-chapter li a').forEach(a =>
+        chapters.push({
           title: a.getAttribute('title') || a.textContent.trim(),
-          url: new URL(a.getAttribute('href'), url).href
-        }));
+          url:   new URL(a.getAttribute('href'), url).href
+        })
+      );
 
-        log(`\n=== Metadata ===`);
-        log(`Title: ${title}`);
-        log(`Cover: ${cover}`);
-        log(`Author: ${authors.join(', ')}`);
-        log(`Status: ${status}`);
-        log(`Genres: ${genreNames.join(', ')}`);
-        log(`Description: ${description}`);
-        log(`\nFound ${novelData.chapters.length} chapters`);
-
-        fetchChaptersBtn.disabled = false;
-      } catch (err) {
-        log(`Error: ${err.message}`);
-        fetchMetadataBtn.disabled = false;
-      }
+      // next link
+      const next = $$('.pagination li.next a')[0]?.getAttribute('href');
+      return next ? new URL(next, url).href : null;
     }
 
+    // crawl all pages
+    let nextPage = url;
+    while (nextPage) {
+      log(`Scraping chapter list page → ${nextPage}`);
+      nextPage = await scrapeOne(nextPage);
+    }
+
+    // metadata from first page
+    const html = await fetchRawHTML(url);   // already cached by browser
+    const doc  = new DOMParser().parseFromString(html, 'text/html');
+    const $    = sel => doc.querySelector(sel);
+    const $$   = sel => [...doc.querySelectorAll(sel)];
+
+    const title       = $('.col-xs-12.col-sm-8.col-md-8.desc h3.title')?.textContent?.trim();
+    const coverPath   = $('.col-xs-12.col-sm-4.col-md-4.info-holder .book img')?.getAttribute('src');
+    const cover       = coverPath ? new URL(coverPath, url).href : '';
+
+    const authorNodes = $$('.info div').find(d => d.querySelector('h3')?.textContent?.trim() === 'Author:')
+                         ?.querySelectorAll('a');
+    const authors     = authorNodes ? [...authorNodes].map(a => a.textContent.trim()) : [];
+
+    const genres      = $$('.info div').find(d => d.querySelector('h3')?.textContent?.trim() === 'Genre:')
+                         ?.querySelectorAll('a');
+    const genreNames  = genres ? [...genres].map(a => a.textContent.trim()) : [];
+
+    const status      = $$('.info div').find(d => d.querySelector('h3')?.textContent?.trim() === 'Status:')
+                         ?.querySelector('a')?.textContent?.trim();
+
+    const source      = $$('.info div').find(d => d.querySelector('h3')?.textContent?.trim() === 'Source:')
+                         ?.textContent?.replace('Source:', '').trim();
+
+    const description = $('.col-xs-12.col-sm-8.col-md-8.desc .desc-text')?.textContent?.trim();
+
+    novelData.metadata = { title, cover, author: authors, genres: genreNames, status, source, description };
+    novelData.chapters = chapters;
+
+    log(`\n=== Metadata ===`);
+    log(`Title: ${title}`);
+    log(`Cover: ${cover}`);
+    log(`Author: ${authors.join(', ')}`);
+    log(`Status: ${status}`);
+    log(`Genres: ${genreNames.join(', ')}`);
+    log(`\nTotal chapters found: ${chapters.length}`);
+
+    fetchChaptersBtn.disabled = false;
+  } catch (err) {
+    log(`Error: ${err.message}`);
+    fetchMetadataBtn.disabled = false;
+  }
+    }
     // ---- fetch chapter content (browser-side) ----
     async function fetchChapterContent(chapterUrl) {
       const html = await fetchRawHTML(chapterUrl);
