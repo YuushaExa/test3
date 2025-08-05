@@ -238,6 +238,125 @@
     fetchMetadataBtn.addEventListener('click', fetchMetadata);
     fetchChaptersBtn.addEventListener('click', fetchChapters);
     downloadBtn.addEventListener('click', downloadJson);
+
+    const epubBtn = document.createElement('button');
+epubBtn.textContent = 'Download EPUB';
+epubBtn.disabled = true;
+document.querySelector('.container').appendChild(epubBtn);
+
+epubBtn.addEventListener('click', async () => {
+  if (!novelData.metadata?.title) return alert('No data');
+
+  const zip = new JSZip();
+  const id = (() => {
+    let n = 0;
+    return () => `id-${++n}`;
+  })();
+
+  // ---- mimetype (must be first & uncompressed) ----
+  zip.file('mimetype', 'application/epub+zip', { compression: 'STORE' });
+
+  // ---- META-INF/container.xml ----
+  zip.folder('META-INF').file('container.xml', `<?xml version="1.0"?>
+<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+  <rootfiles>
+    <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>
+  </rootfiles>
+</container>`);
+
+  const oebps = zip.folder('OEBPS');
+
+  // ---- cover (optional) ----
+  if (novelData.metadata.cover) {
+    try {
+      const cover = await fetch(novelData.metadata.cover);
+      const blob  = await cover.blob();
+      oebps.file('cover.jpg', blob);
+    } catch {}
+  }
+
+  // ---- chapters (xhtml) ----
+  const toc = [];
+  novelData.chapters.forEach((ch, idx) => {
+    const fileName = `chap${idx + 1}.xhtml`;
+    const html =
+`<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title>${ch.title}</title>
+  <meta charset="utf-8"/>
+</head>
+<body>
+  <h1>${ch.title}</h1>
+  ${ch.content}
+</body>
+</html>`;
+    oebps.file(fileName, html);
+    toc.push({ id: id(), href: fileName, title: ch.title });
+  });
+
+  // ---- content.opf ----
+  const authors = Array.isArray(novelData.metadata.author)
+    ? novelData.metadata.author.join(', ')
+    : novelData.metadata.author;
+  const opf =
+`<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" unique-identifier="BookId" version="2.0">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:title>${novelData.metadata.title}</dc:title>
+    <dc:creator>${authors}</dc:creator>
+    <dc:language>en</dc:language>
+    <dc:identifier id="BookId">${Date.now()}</dc:identifier>
+    <dc:description>${novelData.metadata.description || ''}</dc:description>
+    <meta name="cover" content="cover"/>
+  </metadata>
+  <manifest>
+    <item id="nav" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
+    <item id="cover" href="cover.jpg" media-type="image/jpeg"/>
+    ${toc.map(t => `<item id="${t.id}" href="${t.href}" media-type="application/xhtml+xml"/>`).join('\n')}
+  </manifest>
+  <spine toc="nav">
+    ${toc.map(t => `<itemref idref="${t.id}"/>`).join('\n')}
+  </spine>
+</package>`;
+  oebps.file('content.opf', opf);
+
+  // ---- toc.ncx ----
+  const ncx =
+`<?xml version="1.0" encoding="utf-8"?>
+<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">
+  <head><meta name="dtb:uid" content="${Date.now()}"/></head>
+  <docTitle><text>${novelData.metadata.title}</text></docTitle>
+  <navMap>
+    ${toc.map((t, idx) => `<navPoint id="${t.id}" playOrder="${idx + 1}">
+      <navLabel><text>${t.title}</text></navLabel>
+      <content src="${t.href}"/>
+    </navPoint>`).join('')}
+  </navMap>
+</ncx>`;
+  oebps.file('toc.ncx', ncx);
+
+  // ---- final zip → EPUB ----
+  const blob = await zip.generateAsync({ type: 'blob' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `${novelData.metadata.title.replace(/[^a-z0-9]/gi, '_')}.epub`;
+  link.click();
+  URL.revokeObjectURL(link.href);
+
+  log('EPUB ready!');
+});
+
+// enable EPUB button once chapters are loaded
+fetchChaptersBtn.addEventListener('click', () => {
+  const check = setInterval(() => {
+    if (novelData.chapters.length && novelData.chapters[0]?.content) {
+      epubBtn.disabled = false;
+      clearInterval(check);
+    }
+  }, 500);
+});
   </script>
 </body>
 </html>
