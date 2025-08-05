@@ -18,6 +18,7 @@
     progress{width:100%}
     .status{text-align:center;margin:10px 0;font-weight:bold}
   </style>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 </head>
 <body>
   <div class="container">
@@ -193,7 +194,7 @@
         fetchChaptersBtn.disabled = true;
         progressContainer.style.display = 'block';
 
-        const batchSize = 5;
+        const batchSize = 10;
         const total = novelData.chapters.length;
         let done = 0;
 
