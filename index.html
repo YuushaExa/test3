@@ -265,14 +265,31 @@ epubBtn.addEventListener('click', async () => {
 
   const oebps = zip.folder('OEBPS');
 
-  /* 3. download cover */
+  /* 3. download cover and create cover.xhtml */
   let coverFileName = '';
+  let coverXhtml = '';
   if (novelData.metadata.cover) {
     try {
       const res  = await fetch(novelData.metadata.cover);
       const blob = await res.blob();
       coverFileName = 'cover.jpg';
       oebps.file(coverFileName, blob, { compression: 'DEFLATE' });
+
+      coverXhtml = `<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+<head>
+  <title>Cover</title>
+  <style type="text/css">
+    body { margin: 0; padding: 0; }
+    img { max-width: 100%; height: auto; }
+  </style>
+</head>
+<body>
+  <img src="${coverFileName}" alt="Cover Image"/>
+</body>
+</html>`;
+      oebps.file('cover.xhtml', coverXhtml, { compression: 'DEFLATE' });
     } catch { /* ignore missing cover */ }
   }
 
@@ -302,14 +319,16 @@ epubBtn.addEventListener('click', async () => {
     <dc:language>en</dc:language>
     <dc:identifier id="BookId">${Date.now()}</dc:identifier>
     <dc:description>${novelData.metadata.description || ''}</dc:description>
-    ${coverFileName ? '<meta name="cover" content="cover"/>' : ''}
+    ${coverFileName ? '<meta name="cover" content="cover-image"/>' : ''}
   </metadata>
   <manifest>
     <item id="nav" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
-    ${coverFileName ? `<item id="cover" href="${coverFileName}" media-type="image/jpeg"/>` : ''}
+    ${coverFileName ? `<item id="cover-image" href="${coverFileName}" media-type="image/jpeg"/>` : ''}
+    ${coverXhtml ? '<item id="cover" href="cover.xhtml" media-type="application/xhtml+xml"/>' : ''}
     ${toc.map(t => `<item id="${t.id}" href="${t.href}" media-type="application/xhtml+xml"/>`).join('\n')}
   </manifest>
   <spine toc="nav">
+    ${coverXhtml ? '<itemref idref="cover"/>' : ''}
     ${toc.map(t => `<itemref idref="${t.id}"/>`).join('\n')}
   </spine>
 </package>`;
@@ -320,16 +339,20 @@ epubBtn.addEventListener('click', async () => {
 <ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">
   <head><meta name="dtb:uid" content="${Date.now()}"/></head>
   <docTitle><text>${novelData.metadata.title}</text></docTitle>
-  <navMap>${toc.map((t,i)=>`<navPoint id="${t.id}" playOrder="${i+1}">
+  <navMap>
+  ${coverXhtml ? `<navPoint id="navpoint-1" playOrder="1"><navLabel><text>Cover</text></navLabel><content src="cover.xhtml"/></navPoint>` : ''}
+  ${toc.map((t,i)=>`<navPoint id="${t.id}" playOrder="${i + (coverXhtml ? 2 : 1)}">
     <navLabel><text>${t.title}</text></navLabel>
     <content src="${t.href}"/>
-  </navPoint>`).join('')}</navMap>
+  </navPoint>`).join('')}
+  </navMap>
 </ncx>`;
   oebps.file('toc.ncx', ncx, { compression: 'DEFLATE' });
 
-  /* 7. generate blob with correct compression */
+  /* 7. generate blob with correct mimetype */
   const blob = await zip.generateAsync({
     type        : 'blob',
+    mimeType    : 'application/epub+zip',
     compression : 'DEFLATE',
     compressionOptions: { level: 6 }
   });
