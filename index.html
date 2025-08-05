@@ -19,6 +19,7 @@
     .status{text-align:center;margin:10px 0;font-weight:bold}
   </style>
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <script src="https://unpkg.com/epub-gen-memory@1.1.2/dist/bundle.min.js"></script>
 </head>
 <body>
   <div class="container">
@@ -248,122 +249,49 @@ document.querySelector('.container').appendChild(epubBtn);
 epubBtn.addEventListener('click', async () => {
   if (!novelData.metadata?.title) return alert('No data');
 
-  const zip = new JSZip();
-  const idGen = (() => { let n = 0; return () => `id-${++n}`; })();
+  // --- 1.  Prepare chapter objects for epub-gen-memory ---
+  const chapters = novelData.chapters.map(ch => ({
+    title: ch.title,
+    data: ch.content || '<p>Empty chapter</p>'
+  }));
 
-  /* 0. cover filename */
-  let coverFileName = '';
-  let coverMime     = 'image/jpeg';
+  // --- 2.  Download cover image as Blob ---
+  let coverBlob = null;
   if (novelData.metadata.cover) {
     try {
-      const res  = await fetch(novelData.metadata.cover);
-      const blob = await res.blob();
-      /* choose extension from MIME */
-      const mime = blob.type;
-      if (mime === 'image/png')  { coverFileName = 'cover.png'; coverMime = 'image/png'; }
-      else                       { coverFileName = 'cover.jpg'; coverMime = 'image/jpeg'; }
-      zip.folder('OEBPS').file(coverFileName, blob, { compression: 'DEFLATE' });
+      const res = await fetch(novelData.metadata.cover);
+      coverBlob = await res.blob();
     } catch (e) {
-      console.warn('Cover fetch failed', e);
+      console.warn('Cover download failed:', e);
     }
   }
 
-  /* 1. mimetype (uncompressed) */
-  zip.file('mimetype', 'application/epub+zip', { compression: 'STORE' });
+  // --- 3.  Build EPUB options ---
+  const options = {
+    title: novelData.metadata.title,
+    author: Array.isArray(novelData.metadata.author)
+      ? novelData.metadata.author.join(', ')
+      : novelData.metadata.author,
+    description: novelData.metadata.description || '',
+    cover: coverBlob,          // Blob → embedded cover
+    chapters,
+    tocTitle: 'Table of Contents',
+    lang: 'en'
+  };
 
-  /* 2. META-INF/container.xml */
-  zip.folder('META-INF').file('container.xml', `<?xml version="1.0"?>
-<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
-  <rootfiles>
-    <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>
-  </rootfiles>
-</container>`);
-
-  const oebps = zip.folder('OEBPS');
-
-  /* 3. cover.xhtml (real page) */
-  if (coverFileName) {
-    const coverXhtml = `<?xml version="1.0" encoding="utf-8"?>
-<!DOCTYPE html>
-<html xmlns="http://www.w3.org/1999/xhtml">
-<head><title>Cover</title><meta charset="utf-8"/></head>
-<body style="margin:0;padding:0;text-align:center;">
-  <img style="max-width:100%;height:auto;" src="${coverFileName}" alt="Cover"/>
-</body>
-</html>`;
-    oebps.file('cover.xhtml', coverXhtml, { compression: 'DEFLATE' });
+  // --- 4.  Generate & download ---
+  try {
+    log('Building EPUB…');
+    const epubBlob = await epubGen(options);   // <- epub-gen-memory call
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(epubBlob);
+    link.download = `${novelData.metadata.title.replace(/[^a-z0-9]/gi, '_')}.epub`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+    log('EPUB saved!');
+  } catch (err) {
+    log('EPUB error: ' + err.message);
   }
-
-  /* 4. chapters */
-  const toc = [];
-  if (coverFileName) {
-    toc.push({ id: 'cover-page', href: 'cover.xhtml', title: 'Cover' });
-  }
-  novelData.chapters.forEach((ch, idx) => {
-    const file = `chap${idx + 1}.xhtml`;
-    const html =
-`<?xml version="1.0" encoding="utf-8"?>
-<!DOCTYPE html>
-<html xmlns="http://www.w3.org/1999/xhtml">
-<head><title>${ch.title}</title><meta charset="utf-8"/></head>
-<body>
-<h1>${ch.title}</h1>
-${ch.content}
-</body>
-</html>`;
-    oebps.file(file, html, { compression: 'DEFLATE' });
-    toc.push({ id: idGen(), href: file, title: ch.title });
-  });
-
-  /* 5. content.opf */
-  const authors = Array.isArray(novelData.metadata.author)
-    ? novelData.metadata.author.join(', ')
-    : novelData.metadata.author;
-  const opf = `<?xml version="1.0" encoding="utf-8"?>
-<package xmlns="http://www.idpf.org/2007/opf" unique-identifier="BookId" version="2.0">
-  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
-    <dc:title>${novelData.metadata.title}</dc:title>
-    <dc:creator>${authors}</dc:creator>
-    <dc:language>en</dc:language>
-    <dc:identifier id="BookId">${Date.now()}</dc:identifier>
-    <dc:description>${novelData.metadata.description || ''}</dc:description>
-    ${coverFileName ? `<meta name="cover" content="cover"/>` : ''}
-  </metadata>
-  <manifest>
-    <item id="nav" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
-    ${coverFileName ? `<item id="cover" href="${coverFileName}" media-type="${coverMime}"/>` : ''}
-    ${coverFileName ? `<item id="cover-page" href="cover.xhtml" media-type="application/xhtml+xml"/>` : ''}
-    ${toc.filter(t => t.href !== 'cover.xhtml').map(t => `<item id="${t.id}" href="${t.href}" media-type="application/xhtml+xml"/>`).join('\n')}
-  </manifest>
-  <spine toc="nav">
-    ${toc.map(t => `<itemref idref="${t.id}"/>`).join('\n')}
-  </spine>
-</package>`;
-  oebps.file('content.opf', opf, { compression: 'DEFLATE' });
-
-  /* 6. toc.ncx */
-  const ncx = `<?xml version="1.0" encoding="utf-8"?>
-<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">
-  <head><meta name="dtb:uid" content="${Date.now()}"/></head>
-  <docTitle><text>${novelData.metadata.title}</text></docTitle>
-  <navMap>
-    ${toc.map((t, i) => `<navPoint id="${t.id}" playOrder="${i + 1}">
-      <navLabel><text>${t.title}</text></navLabel>
-      <content src="${t.href}"/>
-    </navPoint>`).join('')}
-  </navMap>
-</ncx>`;
-  oebps.file('toc.ncx', ncx, { compression: 'DEFLATE' });
-
-  /* 7. final EPUB */
-  const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 } });
-  const link = document.createElement('a');
-  link.href = URL.createObjectURL(blob);
-  link.download = `${novelData.metadata.title.replace(/[^a-z0-9]/gi, '_')}.epub`;
-  link.click();
-  URL.revokeObjectURL(link.href);
-
-  log('EPUB ready!');
 });
 // enable EPUB button once chapters are loaded
 fetchChaptersBtn.addEventListener('click', () => {
