@@ -1,317 +1,213 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Novel Crawler</title>
-    <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-            background-color: #f5f5f5;
-        }
-        h1 {
-            color: #333;
-            text-align: center;
-        }
-        .container {
-            background-color: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        .form-group {
-            margin-bottom: 15px;
-        }
-        label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
-        }
-        input[type="text"] {
-            width: 100%;
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            box-sizing: border-box;
-        }
-        button {
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            padding: 10px 15px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 16px;
-            margin-right: 10px;
-        }
-        button:disabled {
-            background-color: #cccccc;
-        }
-        #console {
-            background-color: #1e1e1e;
-            color: #d4d4d4;
-            padding: 15px;
-            border-radius: 4px;
-            font-family: 'Courier New', Courier, monospace;
-            height: 300px;
-            overflow-y: auto;
-            margin-top: 20px;
-            white-space: pre-wrap;
-        }
-        .progress-container {
-            margin-top: 15px;
-            display: none;
-        }
-        progress {
-            width: 100%;
-        }
-        .status {
-            text-align: center;
-            margin: 10px 0;
-            font-weight: bold;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Novel Crawler</title>
+  <style>
+    body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;max-width:800px;margin:0 auto;padding:20px;background:#f5f5f5}
+    h1{color:#333;text-align:center}
+    .container{background:#fff;padding:20px;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,.1)}
+    .form-group{margin-bottom:15px}
+    label{display:block;margin-bottom:5px;font-weight:bold}
+    input[type=text]{width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;box-sizing:border-box}
+    button{background:#4CAF50;color:#fff;border:none;padding:10px 15px;border-radius:4px;cursor:pointer;font-size:16px;margin-right:10px}
+    button:disabled{background:#ccc}
+    #console{background:#1e1e1e;color:#d4d4d4;padding:15px;border-radius:4px;font-family:'Courier New',Courier,monospace;height:300px;overflow-y:auto;white-space:pre-wrap;margin-top:20px}
+    .progress-container{margin-top:15px;display:none}
+    progress{width:100%}
+    .status{text-align:center;margin:10px 0;font-weight:bold}
+  </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Novel Crawler</h1>
-        
-        <div class="form-group">
-            <label for="novelUrl">Novel URL:</label>
-            <input type="text" id="novelUrl" placeholder="https://www.novlove.com/novel/humanitys-great-sage">
-        </div>
-        
-        <button id="fetchMetadataBtn">Fetch Metadata</button>
-        <button id="fetchChaptersBtn" disabled>Fetch Chapters</button>
-        <button id="downloadBtn" disabled>Download as JSON</button>
-        
-        <div class="progress-container" id="progressContainer">
-            <div class="status" id="statusText">Processing...</div>
-            <progress id="progressBar" value="0" max="100"></progress>
-        </div>
-        
-        <div id="console"></div>
+  <div class="container">
+    <h1>Novel Crawler</h1>
+
+    <div class="form-group">
+      <label for="novelUrl">Novel URL:</label>
+      <input type="text" id="novelUrl" placeholder="https://www.novlove.com/novel/humanitys-great-sage">
     </div>
 
-    <script>
-        // Get DOM elements
-        const consoleOutput = document.getElementById('console');
-        const novelUrlInput = document.getElementById('novelUrl');
-        const fetchMetadataBtn = document.getElementById('fetchMetadataBtn');
-        const fetchChaptersBtn = document.getElementById('fetchChaptersBtn');
-        const downloadBtn = document.getElementById('downloadBtn');
-        const progressContainer = document.getElementById('progressContainer');
-        const progressBar = document.getElementById('progressBar');
-        const statusText = document.getElementById('statusText');
+    <button id="fetchMetadataBtn">Fetch Metadata</button>
+    <button id="fetchChaptersBtn" disabled>Fetch Chapters</button>
+    <button id="downloadBtn" disabled>Download as JSON</button>
 
-        // Worker URL - replace with your actual worker URL
-        const WORKER_URL = 'https://curly-pond-9050.yuush.workers.dev';
-        
-        // Novel data storage
-        let novelData = {
-            metadata: null,
-            chapters: []
-        };
+    <div class="progress-container" id="progressContainer">
+      <div class="status" id="statusText">Processing...</div>
+      <progress id="progressBar" value="0" max="100"></progress>
+    </div>
 
-        // Log messages to console output
-        function log(message) {
-            consoleOutput.textContent += message + '\n';
-            consoleOutput.scrollTop = consoleOutput.scrollHeight;
-            console.log(message);
+    <div id="console"></div>
+  </div>
+
+  <script>
+    // ---- DOM refs ----
+    const consoleOutput   = document.getElementById('console');
+    const novelUrlInput   = document.getElementById('novelUrl');
+    const fetchMetadataBtn= document.getElementById('fetchMetadataBtn');
+    const fetchChaptersBtn= document.getElementById('fetchChaptersBtn');
+    const downloadBtn     = document.getElementById('downloadBtn');
+    const progressContainer = document.getElementById('progressContainer');
+    const progressBar     = document.getElementById('progressBar');
+    const statusText      = document.getElementById('statusText');
+
+    // ---- config ----
+    const WORKER_URL = 'https://curly-pond-9050.yuush.workers.dev';
+
+    // ---- helpers ----
+    function log(msg) {
+      consoleOutput.textContent += msg + '\n';
+      consoleOutput.scrollTop = consoleOutput.scrollHeight;
+    }
+
+    function updateProgress(current, total) {
+      const pct = Math.round((current / total) * 100);
+      progressBar.value = pct;
+      statusText.textContent = `Processing ${current}/${total} (${pct}%)`;
+    }
+
+    // ---- data store ----
+    let novelData = { metadata: null, chapters: [] };
+
+    // ---- fetch raw html via worker ----
+    async function fetchRawHTML(targetUrl) {
+      const res = await fetch(`${WORKER_URL}/api/raw?url=${encodeURIComponent(targetUrl)}`);
+      if (!res.ok) throw new Error(`raw fetch ${res.status}`);
+      return res.text();
+    }
+
+    // ---- fetch metadata (browser-side) ----
+    async function fetchMetadata() {
+      const url = novelUrlInput.value.trim();
+      if (!url) return alert('Please enter a novel URL');
+      try {
+        log('Fetching novel page…');
+        fetchMetadataBtn.disabled = true;
+
+        const html = await fetchRawHTML(url);
+        const doc  = new DOMParser().parseFromString(html, 'text/html');
+        const $    = sel => doc.querySelector(sel);
+        const $$   = sel => [...doc.querySelectorAll(sel)];
+
+        // metadata
+        const title       = $('.col-xs-12.col-sm-8.col-md-8.desc h3.title')?.textContent?.trim();
+        const coverPath   = $('.col-xs-12.col-sm-4.col-md-4.info-holder .book img')?.getAttribute('src');
+        const cover       = coverPath ? new URL(coverPath, url).href : '';
+        const author      = $$('.info div').find(d => d.querySelector('h3')?.textContent?.trim() === 'Author:')
+                            ?.querySelectorAll('a');
+        const authorNames = author ? [...author].map(a=>a.textContent.trim()).join(', ') : '';
+        const genres      = $$('.info div').find(d => d.querySelector('h3')?.textContent?.trim() === 'Genre:')
+                            ?.querySelectorAll('a');
+        const genreNames  = genres ? [...genres].map(a=>a.textContent.trim()) : [];
+        const status      = $$('.info div').find(d => d.querySelector('h3')?.textContent?.trim() === 'Status:')
+                            ?.querySelector('a')?.textContent?.trim();
+        const source      = $$('.info div').find(d => d.querySelector('h3')?.textContent?.trim() === 'Source:')
+                            ?.textContent?.replace('Source:','').trim();
+        const description = $('.col-xs-12.col-sm-8.col-md-8.desc .desc-text')?.textContent?.trim();
+
+        novelData.metadata = { title, cover, author:authorNames, genres:genreNames, status, source, description };
+
+        // chapter list (main page)
+        novelData.chapters = $$('.list-chapter li a').map(a => ({
+          title: a.getAttribute('title') || a.textContent.trim(),
+          url: new URL(a.getAttribute('href'), url).href
+        }));
+
+        log(`\n=== Metadata ===`);
+        log(`Title: ${title}`);
+        log(`Cover: ${cover}`);
+        log(`Author: ${authorNames}`);
+        log(`Status: ${status}`);
+        log(`Genres: ${genreNames.join(', ')}`);
+        log(`\nFound ${novelData.chapters.length} chapters`);
+
+        fetchChaptersBtn.disabled = false;
+      } catch (err) {
+        log(`Error: ${err.message}`);
+        fetchMetadataBtn.disabled = false;
+      }
+    }
+
+    // ---- fetch chapter content (browser-side) ----
+    async function fetchChapterContent(chapterUrl) {
+      const html = await fetchRawHTML(chapterUrl);
+      const doc  = new DOMParser().parseFromString(html, 'text/html');
+
+      const novelTitle = doc.querySelector('.col-xs-12 a.truyen-title')?.textContent?.trim() || '';
+      const chTitle    = doc.querySelector('.col-xs-12 h2')?.textContent?.trim() || '';
+      const title      = `${novelTitle} - ${chTitle}`;
+
+      let content = doc.querySelector('#chapter-content')?.innerHTML || 'Chapter not found';
+
+      // cleanup
+      content = content
+        .replace(/<iframe[^>]*>.*?<\/iframe>/gis, '')
+        .replace(/<!--.*?-->/gs, '')
+        .replace(/<p>\s*<\/p>/g, '')
+        .replace(/<img[^>]*>/g, '')
+        .replace(/<js[^>]*>/g, '')
+        .replace(/<script\b[^>]*>.*?<\/script>/gis, '')
+        .replace(/<noscript\b[^>]*>.*?<\/noscript>/gis, '')
+        .replace(/<div[^>]*class\s*=\s*["']ads[^>]*>.*?<\/div>/gis, '')
+        .replace(/<div[^>]*>\s*<\/div>/gis, '')
+        .replace(/<p>Source: .*?novlove\.com<\/p>/gi, '')
+        .trim();
+
+      return { title, content };
+    }
+
+    // ---- fetch all chapters ----
+    async function fetchChapters() {
+      if (!novelData.chapters.length) return alert('No chapters found');
+      try {
+        fetchChaptersBtn.disabled = true;
+        progressContainer.style.display = 'block';
+
+        const batchSize = 5;
+        const total = novelData.chapters.length;
+        let done = 0;
+
+        for (let i = 0; i < total; i += batchSize) {
+          const slice = novelData.chapters.slice(i, i + batchSize);
+          const promises = slice.map(async (ch, idx) => {
+            log(`Fetching ${i + idx + 1}/${total} - ${ch.title}`);
+            const data = await fetchChapterContent(ch.url);
+            return { ...ch, ...data };
+          });
+
+          const results = await Promise.all(promises);
+          results.forEach((r, idx) => (novelData.chapters[i + idx] = r));
+
+          done += results.length;
+          updateProgress(done, total);
+          await new Promise(r => setTimeout(r, 500)); // polite delay
         }
 
-        // Update progress bar
-        function updateProgress(current, total) {
-            const percent = Math.round((current / total) * 100);
-            progressBar.value = percent;
-            statusText.textContent = `Processing ${current} of ${total} (${percent}%)`;
-        }
+        log('\nAll chapters fetched!');
+        downloadBtn.disabled = false;
+        progressContainer.style.display = 'none';
+      } catch (err) {
+        log(`Error: ${err.message}`);
+        fetchChaptersBtn.disabled = false;
+        progressContainer.style.display = 'none';
+      }
+    }
 
-        // Fetch novel metadata
-async function fetchMetadata() {
-  const url = novelUrlInput.value.trim();
-  if (!url) {
-    alert('Please enter a novel URL');
-    return;
-  }
+    // ---- export JSON ----
+    function downloadJson() {
+      if (!novelData.metadata?.title) return alert('No data to save');
+      const blob = new Blob([JSON.stringify(novelData, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `${novelData.metadata.title.replace(/[^a-z0-9]/gi, '_')}.json`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
 
-  try {
-    log(`Fetching metadata from: ${url}`);
-    fetchMetadataBtn.disabled = true;
-
-    // Fetch raw HTML
-    const res = await fetch(`${WORKER_URL}/api/raw?url=${encodeURIComponent(url)}`);
-    if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-    const html = await res.text();
-
-    // Parse DOM in browser
-    const doc = new DOMParser().parseFromString(html, 'text/html');
-
-    // Helper
-    const $ = (sel) => doc.querySelector(sel);
-    const $$ = (sel) => [...doc.querySelectorAll(sel)];
-
-    // Extract fields
-    const title = $('.col-xs-12.col-sm-8.col-md-8.desc h3.title')?.textContent?.trim();
-    const coverPath = $('.col-xs-12.col-sm-4.col-md-4.info-holder .book img')?.getAttribute('src');
-    const cover = coverPath ? new URL(coverPath, url).href : '';
-    const author = $$('.info div:has(> h3)')
-      .find(div => div.querySelector('h3')?.textContent?.trim() === 'Author:')
-      ?.querySelectorAll('a');
-    const authorNames = author ? [...author].map(a => a.textContent.trim()).join(', ') : '';
-    const genres = $$('.info div:has(> h3)')
-      .find(div => div.querySelector('h3')?.textContent?.trim() === 'Genre:')
-      ?.querySelectorAll('a');
-    const genreNames = genres ? [...genres].map(a => a.textContent.trim()) : [];
-    const status = $$('.info div:has(> h3)')
-      .find(div => div.querySelector('h3')?.textContent?.trim() === 'Status:')
-      ?.querySelector('a')?.textContent?.trim();
-    const source = $$('.info div:has(> h3)')
-      .find(div => div.querySelector('h3')?.textContent?.trim() === 'Source:')
-      ?.textContent?.replace('Source:', '').trim();
-    const descEl = $('.col-xs-12.col-sm-8.col-md-8.desc .desc-text');
-    const description = descEl?.textContent?.trim();
-
-    // Populate
-    novelData.metadata = {
-      title,
-      cover,
-      author: authorNames,
-      genres: genreNames,
-      status,
-      source,
-      description
-    };
-
-    // Chapters
-    novelData.chapters = $$('.list-chapter li a').map(a => ({
-      title: a.getAttribute('title') || a.textContent.trim(),
-      url: new URL(a.getAttribute('href'), url).href
-    }));
-
-    log(`\n=== Metadata ===`);
-    log(`Title: ${title}`);
-    log(`Cover: ${cover}`);
-    log(`Author: ${authorNames}`);
-    log(`Status: ${status}`);
-    log(`Genres: ${genreNames.join(', ')}`);
-    log(`Description: ${description?.substring(0, 100)}...`);
-    log(`\nFound ${novelData.chapters.length} chapters`);
-
-    fetchChaptersBtn.disabled = false;
-    log('\nReady to fetch chapters.');
-
-  } catch (err) {
-    log(`Error: ${err.message}`);
-    fetchMetadataBtn.disabled = false;
-  }
-}
-
-        // Fetch all chapters
-        async function fetchChapters() {
-            if (!novelData.chapters.length) {
-                alert('No chapters found. Please fetch metadata first.');
-                return;
-            }
-
-            try {
-                fetchChaptersBtn.disabled = true;
-                progressContainer.style.display = 'block';
-                
-                const batchSize = 5; // Number of chapters to process at once
-                const totalChapters = novelData.chapters.length;
-                let processed = 0;
-
-                log(`\nStarting to fetch ${totalChapters} chapters...`);
-
-                for (let i = 0; i < totalChapters; i += batchSize) {
-                    const batchEnd = Math.min(i + batchSize, totalChapters);
-                    log(`\nProcessing items ${i + 1} to ${batchEnd} of ${totalChapters}`);
-
-                    const batch = novelData.chapters.slice(i, batchEnd);
-                    const promises = batch.map((chapter, index) => 
-                        fetchChapterContent(chapter, i + index + 1, totalChapters)
-                    );
-
-                    const results = await Promise.all(promises);
-                    
-                    // Update chapters with content
-                    results.forEach((result, idx) => {
-                        novelData.chapters[i + idx] = result;
-                    });
-
-                    processed += results.length;
-                    updateProgress(processed, totalChapters);
-                    
-                    // Small delay between batches
-                    await new Promise(resolve => setTimeout(resolve, 500));
-                }
-
-                log('\nAll chapters fetched successfully!');
-                downloadBtn.disabled = false;
-                progressContainer.style.display = 'none';
-
-            } catch (error) {
-                log(`Error fetching chapters: ${error.message}`);
-                fetchChaptersBtn.disabled = false;
-                progressContainer.style.display = 'none';
-            }
-        }
-
-        // Fetch individual chapter content
-        async function fetchChapterContent(chapter, current, total) {
-            try {
-                log(`Fetching ${current}/${total} - ${chapter.title}`);
-
-                const response = await fetch(`${WORKER_URL}/api/chapter`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ url: chapter.url })
-                });
-
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-
-                const data = await response.json();
-                return { ...chapter, content: data.content };
-
-            } catch (error) {
-                log(`Failed chapter ${current}: ${error.message}`);
-                return { ...chapter, content: 'Failed to load content' };
-            }
-        }
-
-        // Download novel as JSON
-        function downloadJson() {
-            if (!novelData.chapters.length || !novelData.chapters[0].content) {
-                alert('No chapter content available. Please fetch chapters first.');
-                return;
-            }
-
-            const sanitizedTitle = novelData.metadata.title.replace(/[^a-z0-9]/gi, '_');
-            const jsonStr = JSON.stringify(novelData, null, 2);
-            const blob = new Blob([jsonStr], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `${sanitizedTitle}.json`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        }
-
-        // Event listeners
-        fetchMetadataBtn.addEventListener('click', fetchMetadata);
-        fetchChaptersBtn.addEventListener('click', fetchChapters);
-        downloadBtn.addEventListener('click', downloadJson);
-    </script>
+    // ---- events ----
+    fetchMetadataBtn.addEventListener('click', fetchMetadata);
+    fetchChaptersBtn.addEventListener('click', fetchChapters);
+    downloadBtn.addEventListener('click', downloadJson);
+  </script>
 </body>
 </html>
