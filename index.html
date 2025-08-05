@@ -381,7 +381,7 @@ const opf = `<?xml version="1.0" encoding="utf-8"?>
   </metadata>
   <manifest>
     <item id="nav" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
-  ${coverFileName ? `<item id="cover-image" href="${coverFileName}" media-type="${coverMediaType}"/>` : ''}
+  ${coverFileName ? `<item id="cover-image" href="${coverFileName}" media-type="image/jpg"/>` : ''}
   <item id="cover-page" href="cover.xhtml" media-type="application/xhtml+xml"/>
   ${toc.map(t => `<item id="${t.id}" href="${t.href}" media-type="application/xhtml+xml"/>`).join('\n    ')}
   </manifest>
