@@ -270,27 +270,28 @@ epubBtn.addEventListener('click', async () => {
   const oebps = zip.folder('OEBPS');
 
   /* 3. download cover */
-  let coverFileName = '';
-  let coverMediaType = '';
-  if (novelData.metadata.cover) {
-    try {
-      log('Fetching cover image...');
-      const res = await fetch(`${WORKER_URL}/api/raw?url=${encodeURIComponent(novelData.metadata.cover)}`);
-      if (!res.ok) throw new Error(`Cover fetch failed with status ${res.status}`);
-      const blob = await res.blob();
-      
-      // Determine file extension and media type
-      coverMediaType = blob.type;
-      const extension = coverMediaType.split('/')[1] || 'jpg';
-      coverFileName = `cover.${extension}`;
+let coverFileName = '';
+let coverMediaType = '';
 
-      oebps.file(coverFileName, blob);
-      log('Cover image processed.');
-    } catch (e) {
-      log(`Cover image skipped: ${e.message}`);
-      coverFileName = '';
-    }
+if (novelData.metadata.cover) {
+  try {
+    log('Fetching cover image...');
+    const res = await fetch(`${WORKER_URL}/api/raw?url=${encodeURIComponent(novelData.metadata.cover)}`);
+    if (!res.ok) throw new Error(`Cover fetch failed with status ${res.status}`);
+    
+    const blob = await res.blob();
+    const mime = blob.type || 'image/jpeg'; // Fallback to JPEG if MIME unknown
+    const ext = mime.split('/')[1] || 'jpg';
+    coverFileName = `cover.${ext}`;
+    coverMediaType = mime;
+
+    oebps.file(coverFileName, blob); // ✅ Save as binary, NOT as HTML
+    log(`Cover saved as ${coverFileName}`);
+  } catch (e) {
+    log(`Cover image skipped: ${e.message}`);
+    coverFileName = '';
   }
+}
 
   const toc = [];
 
@@ -388,10 +389,12 @@ const opf = `<?xml version="1.0" encoding="utf-8"?>
   </metadata>
   <manifest>
     <item id="nav" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
-    ${coverFileName ? `<item id="cover-image" href="${coverFileName}" media-type="${coverMediaType}"/>` : ''}
-    ${toc.map(t => `<item id="${t.id}" href="${t.href}" media-type="application/xhtml+xml"/>`).join('\n    ')}
+  ${coverFileName ? `<item id="cover-image" href="${coverFileName}" media-type="${coverMediaType}"/>` : ''}
+  <item id="cover-page" href="cover.xhtml" media-type="application/xhtml+xml"/>
+  ${toc.map(t => `<item id="${t.id}" href="${t.href}" media-type="application/xhtml+xml"/>`).join('\n    ')}
   </manifest>
   <spine toc="nav">
+    <itemref idref="cover-page"/>
   ${toc.map(t => `<itemref idref="${t.id}"/>`).join('\n    ')}
   </spine>
 </package>`;
