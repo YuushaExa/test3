@@ -249,16 +249,14 @@ epubBtn.addEventListener('click', async () => {
   if (!novelData.metadata?.title) return alert('No data');
 
   const zip = new JSZip();
-  const id = (() => {
-    let n = 0;
-    return () => `id-${++n}`;
-  })();
+  const idGen = (() => { let n = 0; return () => `id-${++n}`; })();
 
-  // ---- mimetype (must be first & uncompressed) ----
+  /* 1. mimetype (must be first & uncompressed) */
   zip.file('mimetype', 'application/epub+zip', { compression: 'STORE' });
 
-  // ---- META-INF/container.xml ----
-  zip.folder('META-INF').file('container.xml', `<?xml version="1.0"?>
+  /* 2. META-INF & OEBPS folders */
+  const meta = zip.folder('META-INF');
+  meta.file('container.xml', `<?xml version="1.0"?>
 <container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
   <rootfiles>
     <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>
@@ -267,42 +265,36 @@ epubBtn.addEventListener('click', async () => {
 
   const oebps = zip.folder('OEBPS');
 
-  // ---- cover (optional) ----
+  /* 3. download cover */
+  let coverFileName = '';
   if (novelData.metadata.cover) {
     try {
-      const cover = await fetch(novelData.metadata.cover);
-      const blob  = await cover.blob();
-      oebps.file('cover.jpg', blob);
-    } catch {}
+      const res  = await fetch(novelData.metadata.cover);
+      const blob = await res.blob();
+      coverFileName = 'cover.jpg';
+      oebps.file(coverFileName, blob, { compression: 'DEFLATE' });
+    } catch { /* ignore missing cover */ }
   }
 
-  // ---- chapters (xhtml) ----
+  /* 4. chapters */
   const toc = [];
   novelData.chapters.forEach((ch, idx) => {
-    const fileName = `chap${idx + 1}.xhtml`;
-    const html =
-`<?xml version="1.0" encoding="utf-8"?>
+    const file = `chap${idx + 1}.xhtml`;
+    const html = `<?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml">
-<head>
-  <title>${ch.title}</title>
-  <meta charset="utf-8"/>
-</head>
-<body>
-  <h1>${ch.title}</h1>
-  ${ch.content}
-</body>
-</html>`;
-    oebps.file(fileName, html);
-    toc.push({ id: id(), href: fileName, title: ch.title });
+<head><title>${ch.title}</title><meta charset="utf-8"/></head>
+<body><h1>${ch.title}</h1>${ch.content}</body></html>`;
+    oebps.file(file, html, { compression: 'DEFLATE' });
+    toc.push({ id: idGen(), href: file, title: ch.title });
   });
 
-  // ---- content.opf ----
+  /* 5. OPF */
   const authors = Array.isArray(novelData.metadata.author)
     ? novelData.metadata.author.join(', ')
     : novelData.metadata.author;
-  const opf =
-`<?xml version="1.0" encoding="utf-8"?>
+
+  const opf = `<?xml version="1.0" encoding="utf-8"?>
 <package xmlns="http://www.idpf.org/2007/opf" unique-identifier="BookId" version="2.0">
   <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
     <dc:title>${novelData.metadata.title}</dc:title>
@@ -310,36 +302,39 @@ epubBtn.addEventListener('click', async () => {
     <dc:language>en</dc:language>
     <dc:identifier id="BookId">${Date.now()}</dc:identifier>
     <dc:description>${novelData.metadata.description || ''}</dc:description>
-    <meta name="cover" content="cover"/>
+    ${coverFileName ? '<meta name="cover" content="cover"/>' : ''}
   </metadata>
   <manifest>
     <item id="nav" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
-    <item id="cover" href="cover.jpg" media-type="image/jpeg"/>
+    ${coverFileName ? `<item id="cover" href="${coverFileName}" media-type="image/jpeg"/>` : ''}
     ${toc.map(t => `<item id="${t.id}" href="${t.href}" media-type="application/xhtml+xml"/>`).join('\n')}
   </manifest>
   <spine toc="nav">
     ${toc.map(t => `<itemref idref="${t.id}"/>`).join('\n')}
   </spine>
 </package>`;
-  oebps.file('content.opf', opf);
+  oebps.file('content.opf', opf, { compression: 'DEFLATE' });
 
-  // ---- toc.ncx ----
-  const ncx =
-`<?xml version="1.0" encoding="utf-8"?>
+  /* 6. NCX */
+  const ncx = `<?xml version="1.0" encoding="utf-8"?>
 <ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">
   <head><meta name="dtb:uid" content="${Date.now()}"/></head>
   <docTitle><text>${novelData.metadata.title}</text></docTitle>
-  <navMap>
-    ${toc.map((t, idx) => `<navPoint id="${t.id}" playOrder="${idx + 1}">
-      <navLabel><text>${t.title}</text></navLabel>
-      <content src="${t.href}"/>
-    </navPoint>`).join('')}
-  </navMap>
+  <navMap>${toc.map((t,i)=>`<navPoint id="${t.id}" playOrder="${i+1}">
+    <navLabel><text>${t.title}</text></navLabel>
+    <content src="${t.href}"/>
+  </navPoint>`).join('')}</navMap>
 </ncx>`;
-  oebps.file('toc.ncx', ncx);
+  oebps.file('toc.ncx', ncx, { compression: 'DEFLATE' });
 
-  // ---- final zip → EPUB ----
-  const blob = await zip.generateAsync({ type: 'blob' });
+  /* 7. generate blob with correct compression */
+  const blob = await zip.generateAsync({
+    type        : 'blob',
+    compression : 'DEFLATE',
+    compressionOptions: { level: 6 }
+  });
+
+  /* 8. trigger download (correct filename) */
   const link = document.createElement('a');
   link.href = URL.createObjectURL(blob);
   link.download = `${novelData.metadata.title.replace(/[^a-z0-9]/gi, '_')}.epub`;
