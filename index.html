@@ -211,7 +211,7 @@
 
           done += results.length;
           updateProgress(done, total);
-          await new Promise(r => setTimeout(r, 500)); // polite delay
+          await new Promise(r => setTimeout(r, 300)); // polite delay
         }
 
         log('\nAll chapters fetched!');
