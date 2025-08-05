@@ -279,6 +279,7 @@ if (novelData.metadata.cover) {
     log('Cover skipped: ' + e.message);
   }
 }
+  const toc = [];
 
 /* ---- 3b. cover page XHTML ---- */
 if (coverFileName) {
@@ -294,7 +295,6 @@ if (coverFileName) {
 }
     
   /* 4. chapters */
-  const toc = [];
   novelData.chapters.forEach((ch, idx) => {
     const file = `chap${idx + 1}.xhtml`;
     const html = `<?xml version="1.0" encoding="utf-8"?>
