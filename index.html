@@ -241,10 +241,38 @@
     fetchChaptersBtn.addEventListener('click', fetchChapters);
     downloadBtn.addEventListener('click', downloadJson);
 
-       const epubBtn = document.createElement('button');
-epubBtn.textContent = 'Download EPUB';
-epubBtn.disabled = true;
-document.querySelector('.container').appendChild(epubBtn);
+     // Create EPUB button
+    const epubBtn = document.createElement('button');
+    epubBtn.textContent = 'Download EPUB';
+    epubBtn.disabled = true;
+    document.querySelector('.container').appendChild(epubBtn);
+
+    // EPUB download handler
+    epubBtn.addEventListener('click', async () => {
+      if (!novelData.metadata?.title || !novelData.chapters[0]?.content) {
+        return alert('No chapter data available to create an EPUB.');
+      }
+      
+      try {
+        epubBtn.disabled = true;
+        const generator = new EpubGenerator(novelData);
+        await generator.download(log);
+      } catch (err) {
+        log(`EPUB generation error: ${err.message}`);
+      } finally {
+        epubBtn.disabled = false;
+      }
+    });
+
+    // enable EPUB button once chapters are loaded
+    fetchChaptersBtn.addEventListener('click', () => {
+      const check = setInterval(() => {
+        if (novelData.chapters.length && novelData.chapters[0]?.content) {
+          epubBtn.disabled = false;
+          clearInterval(check);
+        }
+      }, 500);
+    });
   </script>
 </body>
 </html>
