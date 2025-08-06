@@ -436,13 +436,16 @@ async function openNuSearch() {
           const imageUrl = detailedDoc.querySelector('.seriesimg img')?.src || 'Image not found';
           const type = detailedDoc.querySelector('#showtype a')?.textContent || 'Type not found';
           const genres = Array.from(detailedDoc.querySelectorAll('#seriesgenre a')).map(a => a.textContent).join(', ') || 'Genres not found';
-          const authors = Array.from(detailedDoc.querySelectorAll('#showauthors a')).map(a => a.textContent).join(', ') || 'Authors not found';
+const authors = Array.from(detailedDoc.querySelectorAll('#showauthors a')).map(a => ({
+  name: a.textContent,
+  url: a.href
+})).join(', ') || 'Authors not found';
           const year = detailedDoc.querySelector('#edityear')?.textContent || 'Year not found';
           const status = detailedDoc.querySelector('#editstatus')?.textContent || 'Status not found';
           const originalPublisher = detailedDoc.querySelector('#showopublisher a')?.textContent || 'Original Publisher not found';
           const englishPublisher = detailedDoc.querySelector('#showepublisher span')?.textContent || 'English Publisher not found';
           const description = detailedDoc.querySelector('#editdescription p')?.textContent || 'Description not found';
-const associatedNames = detailedDoc.querySelector('#editassociated')?.innerHTML || 'Associated Names not found';
+         const associatedNames = detailedDoc.querySelector('#editassociated')?.innerHTML || 'Associated Names not found';
 
           const relatedSeries = Array.from(detailedDoc.querySelectorAll('h5.seriesother + div a')).map(a => `<a class="genre" href="${a.href}">${a.textContent}</a>`).join('<br>') || 'Related Series not found';
           const recommendations = Array.from(detailedDoc.querySelectorAll('h5.seriesother + div a')).map(a => `<a class="genre" href="${a.href}">${a.textContent}</a>`).join('<br>') || 'Recommendations not found';
@@ -468,9 +471,12 @@ const associatedNames = detailedDoc.querySelector('#editassociated')?.innerHTML 
 </div>
             <h5 class="seriesother">Author(s)</h5>
             <span class="editmsg">One entry per line</span>
-            <div id="showauthors">
-              ${authors.split(', ').map(author => `<a class="genre" href="#">${author}</a>`).join(', ')}
-            </div>
+<div id="showauthors">
+  ${authors.split(', ').map(author => {
+    const { name, url } = JSON.parse(author);
+    return `<a class="genre" href="${url}" target="_blank">${name}</a>`;
+  }).join(', ')}
+</div>
             <h5 class="seriesother">Year</h5>
             <div id="edityear">${year}</div>
             <h5 class="seriesother" title="Status in Country of Origin">Status in COO</h5>
