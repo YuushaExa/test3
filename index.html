@@ -443,11 +443,9 @@ async function openNuSearch() {
           const englishPublisher = detailedDoc.querySelector('#showepublisher span')?.textContent || 'English Publisher not found';
           const description = detailedDoc.querySelector('#editdescription p')?.textContent || 'Description not found';
           const associatedNames = detailedDoc.querySelector('#editassociated')?.textContent || 'Associated Names not found';
-const relatedSeries = Array.from(detailedDoc.querySelectorAll('h5.seriesother:nth-of-type(1) + a')).map(a => `<a class="genre" href="${a.href}">${a.textContent}</a>`).join('<br>') || 'Related Series not found';
-const recommendations = Array.from(detailedDoc.querySelectorAll('h5.seriesother:nth-of-type(2) + a')).map(a => `<a class="genre" href="${a.href}">${a.textContent}</a>`).join('<br>') || 'Recommendations not found';
 
           // Format associated names by new line
-const formattedAssociatedNames = associatedNames.split('<br>').join(', ');
+          const formattedAssociatedNames = associatedNames.split('<br>').map(name => `<div>${name}</div>`).join('');
 
           const detailedContent = `
             <div class="seriestitlenu" style="font-size:18px; margin-top: 10px; color: #292e33;">${title}</div>
@@ -474,7 +472,7 @@ const formattedAssociatedNames = associatedNames.split('<br>').join(', ');
             <div id="editstatus">${status}</div>
             <h5 class="seriesother">Original Publisher</h5>
             <div id="showopublisher">
-              <a class="genre" href="#">${originalPublisher}</a>
+              <a class="genre">${originalPublisher}</a>
             </div>
             <h5 class="seriesother">English Publisher</h5>
             <div id="showepublisher">
@@ -482,14 +480,10 @@ const formattedAssociatedNames = associatedNames.split('<br>').join(', ');
             </div>
             <h5 class="seriesother">Language</h5>
             <div id="showlang">
-              <a class="genre lang" href="#">${language}</a>
+              <a class="genre lang">${language}</a>
             </div>
             <h5 class="seriesother">Associated Names</h5>
             <div id="editassociated">${formattedAssociatedNames}</div>
-            <h5 class="seriesother">Related Series</h5>
-            <div id="relatedseries">${relatedSeries}</div>
-            <h5 class="seriesother">Recommendations</h5>
-            <div id="recommendations">${recommendations}</div>
             <div id="editdescription">${description}</div>
           `;
 
