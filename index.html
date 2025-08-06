@@ -448,6 +448,8 @@ const associatedNames = detailedDoc.querySelector('#editassociated')?.innerHTML 
           const recommendations = Array.from(detailedDoc.querySelectorAll('h5.seriesother + div a')).map(a => `<a class="genre" href="${a.href}">${a.textContent}</a>`).join('<br>') || 'Recommendations not found';
           const language = detailedDoc.querySelector('#showlang a')?.textContent || 'Language not found';
 
+          const formattedAssociatedNames = associatedNames.split(/<br\s*\/?>/gi).join(', ');
+
           // Format associated names by new line
           const detailedContent = `
             <div class="seriestitlenu" style="font-size:18px; margin-top: 10px; color: #292e33;">${title}</div>
@@ -486,7 +488,7 @@ const associatedNames = detailedDoc.querySelector('#editassociated')?.innerHTML 
               <a class="genre lang" href="#">${language}</a>
             </div>
             <h5 class="seriesother">Associated Names</h5>
-            <div id="editassociated">${associatedNames}</div>
+            <div id="editassociated">${formattedAssociatedNames}</div>
             <h5 class="descripti">Description</h5>
             <div id="editdescription">${description}</div>
           `;
