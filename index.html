@@ -372,6 +372,7 @@ fetchMetadataBtn.addEventListener('click', () => {
 </body>
 <!-- ===== NUInfo button + results container ===== -->
 <button id="nuInfoBtn" disabled>NUInfo</button>
+<button id="autoFillBtn" disabled>AutoFill</button>
 
 <div id="nuInfo" style="display:none; margin-top:10px; border:1px solid #ccc; border-radius:4px; overflow:hidden; padding:10px;">
   <div id="nuInfoHeader" style="background:#eee;padding:4px;font-size:12px">
@@ -384,8 +385,19 @@ fetchMetadataBtn.addEventListener('click', () => {
 <script>
 /* ---------- helpers ---------- */
 const nuBtn = document.getElementById('nuInfoBtn');
+const autoFillBtn = document.getElementById('autoFillBtn');
 const nuInfo = document.getElementById('nuInfo');
 const nuInfoResults = document.getElementById('nuInfoResults');
+const metadataForm = document.getElementById('metadataForm');
+const editTitle = document.getElementById('editTitle');
+const editCover = document.getElementById('editCover');
+const editAuthors = document.getElementById('editAuthors');
+const editGenres = document.getElementById('editGenres');
+const editStatus = document.getElementById('editStatus');
+const editSource = document.getElementById('editSource');
+const editDescription = document.getElementById('editDescription');
+const editAltTitle = document.getElementById('editaltitile');
+const editDate = document.getElementById('editdate');
 
 function closeNuInfo() {
   nuInfo.style.display = 'none';
@@ -494,6 +506,7 @@ async function openNuSearch() {
           `;
 
           nuInfoResults.innerHTML = detailedContent;
+          autoFillBtn.disabled = false;
         } catch (e) {
           log(`Error fetching detailed info: ${e.message}`);
         }
@@ -505,6 +518,32 @@ async function openNuSearch() {
     nuBtn.disabled = false;
   }
 }
+
+/* ---------- AutoFill button click event ---------- */
+autoFillBtn.addEventListener('click', () => {
+  const title = nuInfoResults.querySelector('.seriestitlenu')?.textContent || '';
+  const coverUrl = nuInfoResults.querySelector('.seriesimg img')?.src || '';
+  const authors = nuInfoResults.querySelector('#showauthors')?.textContent || '';
+  const genres = nuInfoResults.querySelector('#seriesgenre')?.textContent || '';
+  const status = nuInfoResults.querySelector('#editstatus')?.textContent || '';
+  const source = nuInfoResults.querySelector('#showopublisher')?.textContent || '';
+  const description = nuInfoResults.querySelector('#editdescription')?.textContent || '';
+  const altTitle = nuInfoResults.querySelector('#editassociated')?.textContent || '';
+  const date = nuInfoResults.querySelector('#edityear')?.textContent || '';
+
+  editTitle.value = title;
+  editCover.value = coverUrl;
+  editAuthors.value = authors;
+  editGenres.value = genres;
+  editStatus.value = status;
+  editSource.value = source;
+  editDescription.value = description;
+  editAltTitle.value = altTitle;
+  editDate.value = date;
+
+  // Trigger the form submission if needed
+  // metadataForm.submit();
+});
 
 /* ---------- enable/disable button ---------- */
 fetchMetadataBtn.addEventListener('click', () => {
