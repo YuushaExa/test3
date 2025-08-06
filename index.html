@@ -406,40 +406,16 @@ async function openNuSearch() {
     const html = await fetchRawHTML(searchUrl);
 
     const doc = new DOMParser().parseFromString(html, 'text/html');
-    const series = [...doc.querySelectorAll('.search_main_box_nu')];
+    const series = doc.querySelectorAll('.search_main_box_nu');
     if (!series.length) {
       log('No results found on NovelUpdates.');
       return;
     }
 
-    const resultsHtml = series.map(box => {
-      const link = box.querySelector('a[title]');
-      const img = box.querySelector('img[src]');
-      const genre = box.querySelector('.search_genre')?.textContent.trim() || '';
-      const stats = box.querySelectorAll('.ss_desk');
-      const description = box.querySelector('.search_desc')?.textContent.trim() || '';
-
-      let statsHtml = '';
-      if (stats && stats.length > 0) {
-        statsHtml = Array.from(stats).map(stat => {
-          const icon = stat.querySelector('i');
-          const text = stat.textContent.trim();
-          return `<span class="ss_desk">${icon ? icon.outerHTML : ''} ${text}</span>`;
-        }).join('');
-      }
-
-      return `
-        <div class="search_body_nu">
-          <div class="search_title">
-            <span class="rl_icons_en"></span>
-            <a href="${link.href}" target="_blank">${link.textContent.trim()}</a>
-          </div>
-          <div class="search_stats">${statsHtml}</div>
-          <div class="search_genre">${genre}</div>
-          <div class="search_desc">${description}</div>
-        </div>
-      `;
-    }).join('');
+    let resultsHtml = '';
+    series.forEach(box => {
+      resultsHtml += box.outerHTML;
+    });
 
     nuInfoResults.innerHTML = resultsHtml;
     nuInfo.style.display = 'block';
