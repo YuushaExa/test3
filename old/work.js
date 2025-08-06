@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Novel Crawler</title>
+  <style>
+    body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;max-width:800px;margin:0 auto;padding:20px;background:#f5f5f5}
+    h1{color:#333;text-align:center}
+    .container{background:#fff;padding:20px;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,.1)}
+    .form-group{margin-bottom:15px}
+    label{display:block;margin-bottom:5px;font-weight:bold}
+    input[type=text]{width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;box-sizing:border-box}
+    button{background:#4CAF50;color:#fff;border:none;padding:10px 15px;border-radius:4px;cursor:pointer;font-size:16px;margin-right:10px}
+    button:disabled{background:#ccc}
+    #console{background:#1e1e1e;color:#d4d4d4;padding:15px;border-radius:4px;font-family:'Courier New',Courier,monospace;height:300px;overflow-y:auto;white-space:pre-wrap;margin-top:20px}
+    .progress-container{margin-top:15px;display:none}
+    progress{width:100%}
+    .status{text-align:center;margin:10px 0;font-weight:bold}
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+</head>
+<body>
+  <div class="container">
+    <h1>Novel Crawler</h1>
+
+    <div class="form-group">
+      <label for="novelUrl">Novel URL:</label>
+      <input type="text" id="novelUrl" placeholder="https://www.novlove.com/novel/humanitys-great-sage">
+    </div>
+
+    <button id="fetchMetadataBtn">Fetch Metadata</button>
+    <button id="fetchChaptersBtn" disabled>Fetch Chapters</button>
+    <button id="downloadBtn" disabled>Download as JSON</button>
+
+    <div class="progress-container" id="progressContainer">
+      <div class="status" id="statusText">Processing...</div>
+      <progress id="progressBar" value="0" max="100"></progress>
+    </div>
+
+    <div id="console"></div>
+  </div>
+
+  <script>
+    // ---- DOM refs ----
+    const consoleOutput   = document.getElementById('console');
+    const novelUrlInput   = document.getElementById('novelUrl');
+    const fetchMetadataBtn= document.getElementById('fetchMetadataBtn');
+    const fetchChaptersBtn= document.getElementById('fetchChaptersBtn');
+    const downloadBtn     = document.getElementById('downloadBtn');
+    const progressContainer = document.getElementById('progressContainer');
+    const progressBar     = document.getElementById('progressBar');
+    const statusText      = document.getElementById('statusText');
+
+    // ---- config ----
+    const WORKER_URL = 'https://curly-pond-9050.yuush.workers.dev';
+
+    // ---- helpers ----
+    function log(msg) {
+      consoleOutput.textContent += msg + '\n';
+      consoleOutput.scrollTop = consoleOutput.scrollHeight;
+    }
+
+    function updateProgress(current, total) {
+      const pct = Math.round((current / total) * 100);
+      progressBar.value = pct;
+      statusText.textContent = `Processing ${current}/${total} (${pct}%)`;
+    }
+
+    // ---- data store ----
+    let novelData = { metadata: null, chapters: [] };
+
+    // ---- fetch raw html via worker ----
+    async function fetchRawHTML(targetUrl) {
+      const res = await fetch(`${WORKER_URL}/api/raw?url=${encodeURIComponent(targetUrl)}`);
+      if (!res.ok) throw new Error(`raw fetch ${res.status}`);
+      return res.text();
+    }
+
+    // ---- fetch metadata (browser-side) ----
+    async function fetchMetadata() {
+  const url = novelUrlInput.value.trim();
+  if (!url) return alert('Please enter a novel URL');
+
+  try {
+    log('Fetching novel page…');
+    fetchMetadataBtn.disabled = true;
+
+    const chapters = [];               // local collector
+
+    // helper: scrape one page
+    async function scrapeOne(pageUrl) {
+      const html = await fetchRawHTML(pageUrl);
+      const doc  = new DOMParser().parseFromString(html, 'text/html');
+      const $$   = sel => [...doc.querySelectorAll(sel)];
+
+      // chapters on this page
+      $$('.list-chapter li a').forEach(a =>
+        chapters.push({
+          title: a.getAttribute('title') || a.textContent.trim(),
+          url:   new URL(a.getAttribute('href'), url).href
+        })
+      );
+
+      // next link
+      const next = $$('.pagination li.next a')[0]?.getAttribute('href');
+      return next ? new URL(next, url).href : null;
+    }
+
+    // crawl all pages
+    let nextPage = url;
+    while (nextPage) {
+      log(`Scraping chapter list page → ${nextPage}`);
+      nextPage = await scrapeOne(nextPage);
+    }
+
+    // metadata from first page
+    const html = await fetchRawHTML(url);   // already cached by browser
+    const doc  = new DOMParser().parseFromString(html, 'text/html');
+    const $    = sel => doc.querySelector(sel);
+    const $$   = sel => [...doc.querySelectorAll(sel)];
+
+    const title       = $('.col-xs-12.col-sm-8.col-md-8.desc h3.title')?.textContent?.trim();
+    const coverPath   = $('.col-xs-12.col-sm-4.col-md-4.info-holder .book img')?.getAttribute('src');
+    const cover       = coverPath ? new URL(coverPath, url).href : '';
+
+    const authorNodes = $$('.info div').find(d => d.querySelector('h3')?.textContent?.trim() === 'Author:')
+                         ?.querySelectorAll('a');
+    const authors     = authorNodes ? [...authorNodes].map(a => a.textContent.trim()) : [];
+
+    const genres      = $$('.info div').find(d => d.querySelector('h3')?.textContent?.trim() === 'Genre:')
+                         ?.querySelectorAll('a');
+    const genreNames  = genres ? [...genres].map(a => a.textContent.trim()) : [];
+
+    const status      = $$('.info div').find(d => d.querySelector('h3')?.textContent?.trim() === 'Status:')
+                         ?.querySelector('a')?.textContent?.trim();
+
+    const source      = $$('.info div').find(d => d.querySelector('h3')?.textContent?.trim() === 'Source:')
+                         ?.textContent?.replace('Source:', '').trim();
+
+    const description = $('.col-xs-12.col-sm-8.col-md-8.desc .desc-text')?.textContent?.trim();
+
+    novelData.metadata = { title, cover, author: authors, genres: genreNames, status, source, description };
+    novelData.chapters = chapters;
+
+    log(`\n=== Metadata ===`);
+    log(`Title: ${title}`);
+    log(`Cover: ${cover}`);
+    log(`Author: ${authors.join(', ')}`);
+    log(`Status: ${status}`);
+    log(`Genres: ${genreNames.join(', ')}`);
+    log(`Description: ${description}`);
+    log(`\nTotal chapters found: ${chapters.length}`);
+
+    fetchChaptersBtn.disabled = false;
+  } catch (err) {
+    log(`Error: ${err.message}`);
+    fetchMetadataBtn.disabled = false;
+  }
+    }
+    // ---- fetch chapter content (browser-side) ----
+    async function fetchChapterContent(chapterUrl) {
+      const html = await fetchRawHTML(chapterUrl);
+      const doc  = new DOMParser().parseFromString(html, 'text/html');
+
+      const novelTitle = doc.querySelector('.col-xs-12 a.truyen-title')?.textContent?.trim() || '';
+      const chTitle    = doc.querySelector('.col-xs-12 h2')?.textContent?.trim() || '';
+      const title      = `${novelTitle} - ${chTitle}`;
+
+      let content = doc.querySelector('#chapter-content')?.innerHTML || 'Chapter not found';
+
+      // cleanup
+      content = content
+        .replace(/<iframe[^>]*>.*?<\/iframe>/gis, '')
+        .replace(/<!--.*?-->/gs, '')
+        .replace(/<p>\s*<\/p>/g, '')
+        .replace(/<img[^>]*>/g, '')
+        .replace(/<js[^>]*>/g, '')
+        .replace(/<div\b[^>]*>\s*<\/div>/gis, '')
+        .replace(/<script\b[^>]*>.*?<\/script>/gis, '')
+        .replace(/<noscript\b[^>]*>.*?<\/noscript>/gis, '')
+        .replace(/<div[^>]*class\s*=\s*["']ads[^>]*>.*?<\/div>/gis, '')
+        .replace(/<div[^>]*>\s*<\/div>/gis, '')
+        .replace(/<p>Source: .*?novlove\.com<\/p>/gi, '')
+        .trim();
+
+      return { title, content };
+    }
+
+    // ---- fetch all chapters ----
+    async function fetchChapters() {
+      if (!novelData.chapters.length) return alert('No chapters found');
+      try {
+        fetchChaptersBtn.disabled = true;
+        progressContainer.style.display = 'block';
+
+        const batchSize = 10;
+        const total = novelData.chapters.length;
+        let done = 0;
+
+        for (let i = 0; i < total; i += batchSize) {
+          const slice = novelData.chapters.slice(i, i + batchSize);
+          const promises = slice.map(async (ch, idx) => {
+            log(`Fetching ${i + idx + 1}/${total} - ${ch.title}`);
+            const data = await fetchChapterContent(ch.url);
+            return { ...ch, ...data };
+          });
+
+          const results = await Promise.all(promises);
+          results.forEach((r, idx) => (novelData.chapters[i + idx] = r));
+
+          done += results.length;
+          updateProgress(done, total);
+          await new Promise(r => setTimeout(r, 300)); // polite delay
+        }
+
+        log('\nAll chapters fetched!');
+        downloadBtn.disabled = false;
+        progressContainer.style.display = 'none';
+      } catch (err) {
+        log(`Error: ${err.message}`);
+        fetchChaptersBtn.disabled = false;
+        progressContainer.style.display = 'none';
+      }
+    }
+
+    // ---- export JSON ----
+    function downloadJson() {
+      if (!novelData.metadata?.title) return alert('No data to save');
+      const blob = new Blob([JSON.stringify(novelData, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `${novelData.metadata.title.replace(/[^a-z0-9]/gi, '_')}.json`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    // ---- events ----
+    fetchMetadataBtn.addEventListener('click', fetchMetadata);
+    fetchChaptersBtn.addEventListener('click', fetchChapters);
+    downloadBtn.addEventListener('click', downloadJson);
+
+    const epubBtn = document.createElement('button');
+epubBtn.textContent = 'Download EPUB';
+epubBtn.disabled = true;
+document.querySelector('.container').appendChild(epubBtn);
+
+// ---- export EPUB ----
+epubBtn.addEventListener('click', async () => {
+  if (!novelData.metadata?.title || !novelData.chapters[0]?.content) {
+    return alert('No chapter data available to create an EPUB.');
+  }
+
+  log('Starting EPUB generation...');
+  const zip = new JSZip();
+  const idGen = (() => { let n = 0; return () => `id-${++n}`; })();
+
+  /* 1. mimetype (must be first & uncompressed) */
+  zip.file('mimetype', 'application/epub+zip', { compression: 'STORE' });
+
+  /* 2. META-INF & OEBPS folders */
+  const meta = zip.folder('META-INF');
+  meta.file('container.xml', `<?xml version="1.0"?>
+<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+  <rootfiles>
+    <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>
+  </rootfiles>
+</container>`);
+
+  const oebps = zip.folder('OEBPS');
+
+  /* 3. download cover */
+/* 3. download cover (via worker) */
+let coverFileName = '';
+if (novelData.metadata.cover) {
+  try {
+    // ask the worker to proxy the image
+    const res   = await fetch(`${WORKER_URL}/api/raw?url=${encodeURIComponent(novelData.metadata.cover)}`);
+    if (!res.ok) throw new Error('cover fetch failed');
+    const blob  = await res.blob();
+    coverFileName = 'cover.jpg';
+    oebps.file(coverFileName, blob, { compression: 'DEFLATE' });
+  } catch (e) {
+    log('Cover skipped: ' + e.message);
+  }
+}
+
+  const toc = [];
+
+  /* 3b. cover page XHTML (if cover exists) */
+  if (coverFileName) {
+    const coverPage = `<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head><title>${novelData.metadata.title}</title><meta charset="utf-8"/></head>
+<body style="margin:0; text-align:center;">
+  <img style="height:auto;width:100%;border-radius:5px;" src="${coverFileName}" alt="Cover"/>
+    <h1>${novelData.metadata.title}</h1>
+    <p><strong>Author:</strong> ${novelData.metadata.author.join(', ')}</p>
+</body></html>`;
+    oebps.file('cover.xhtml', coverPage);
+    toc.push({ id: 'cover-page', href: 'cover.xhtml', title: 'Cover', isCover: true });
+  }
+
+  /* 4. Information page */
+  const infoPage = `<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head><title>Information</title><meta charset="utf-8"/></head>
+<body>
+  <h1>${novelData.metadata.title}</h1>
+  <p><strong>Author:</strong> ${novelData.metadata.author.join(', ')}</p>
+  <p><strong>Status:</strong> ${novelData.metadata.status}</p>
+  ${novelData.metadata.genres.length ? `<p><strong>Genres:</strong> ${novelData.metadata.genres.join(', ')}</p>` : ''}
+  <h3>Description</h3>
+  <p>${novelData.metadata.description}</p>
+</body>
+</html>`;
+  oebps.file('info.xhtml', infoPage);
+  toc.push({ id: 'info-page', href: 'info.xhtml', title: 'Information' });
+
+  /* 5. chapters */
+  log('Processing chapters for EPUB...');
+  novelData.chapters.forEach((ch, idx) => {
+    const file = `chap${idx + 1}.xhtml`;
+
+    // Pre-process chapter content to be well-formed XHTML
+    const processedContent = (ch.content || 'Content not found.')
+      .replace(/&nbsp;/g, '&#160;')      // Use XHTML compliant non-breaking space
+      .replace(/<br\s*>/gi, '<br />'); // Ensure <br> tags are self-closing
+
+    const html = `<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title>${ch.title}</title>
+  <meta charset="utf-8"/>
+</head>
+<body>
+  <h1>${ch.title}</h1>
+  ${processedContent}
+</body>
+</html>`;
+    oebps.file(file, html);
+    toc.push({ id: `ch-${idx + 1}`, href: file, title: ch.title });
+  });
+
+/* 5a. Create TOC page (XHTML) */
+const tocPage = `<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
+<head>
+  <title>Table of Contents</title>
+  <meta charset="utf-8"/>
+ <style type="text/css">
+    body { font-family: sans-serif; line-height: 1.5; }
+    h1 { text-align: center; }
+    li { margin: 0.5em 0; }
+  </style>
+</head>
+<body>
+  <h1>Table of Contents</h1>
+  <nav epub:type="toc" id="toc">
+    <ol>
+      <li><a href="cover.xhtml">Cover</a></li>
+      <li><a href="info.xhtml">Information</a></li>
+      <li><a href="toc.xhtml">Table of Contents</a></li>
+      ${novelData.chapters.map((ch, idx) => 
+        `<li><a href="chap${idx + 1}.xhtml">${ch.title}</a></li>`
+      ).join('\n      ')}
+    </ol>
+  </nav>
+</body>
+</html>`;
+
+oebps.file('toc.xhtml', tocPage);
+toc.push({ id: 'toc-page', href: 'toc.xhtml', title: 'Table of Contents' });
+  
+/* 7. NCX (Table of Contents) */
+const ncx = `<?xml version="1.0" encoding="utf-8"?>
+<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">
+  <head>
+    <meta name="dtb:uid" content="${'urn:uuid:' + Date.now()}"/>
+    <meta name="dtb:depth" content="1"/>
+    <meta name="dtb:totalPageCount" content="0"/>
+    <meta name="dtb:maxPageNumber" content="0"/>
+  </head>
+  <docTitle><text>${novelData.metadata.title}</text></docTitle>
+  <navMap>
+    ${toc.map((t, i) => `<navPoint id="${t.id}" playOrder="${i + 1}">
+      <navLabel><text>${t.title}</text></navLabel>
+      <content src="${t.href}"/>
+    </navPoint>`).join('\n  ')}
+  </navMap>
+</ncx>`;
+oebps.file('toc.ncx', ncx);
+
+/* 6. OPF (content.opf) */
+
+const opf = `<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" unique-identifier="BookId" version="2.0">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:title>${novelData.metadata.title}</dc:title>
+    <dc:creator>${novelData.metadata.author.join(', ')}</dc:creator>
+    <dc:language>en</dc:language>
+${novelData.metadata.genres.map(genre => `<dc:subject>${genre}</dc:subject>`).join('\n')}
+<dc:identifier id="BookId">urn:uuid:${crypto.randomUUID()}</dc:identifier>
+    <dc:description>${(novelData.metadata.description || '').replace(/&/g, '&amp;').replace(/</g, '&lt;')}</dc:description>
+      <meta property="dcterms:modified">${new Date().toISOString()}</meta>
+    <meta property="nav">toc.xhtml</meta>
+    ${coverFileName ? '<meta name="cover" content="cover-image"/>' : ''}
+  </metadata>
+  <manifest>
+    <item id="nav" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
+     <item id="nav" href="toc.xhtml" media-type="application/xhtml+xml" properties="nav"/>
+  ${coverFileName ? `<item id="cover-image" href="${coverFileName}" media-type="image/jpg"/>` : ''}
+  <item id="cover-page" href="cover.xhtml" media-type="application/xhtml+xml"/>
+  ${toc.map(t => `<item id="${t.id}" href="${t.href}" media-type="application/xhtml+xml"/>`).join('\n    ')}
+  </manifest>
+  <spine toc="nav">
+    <itemref idref="cover-page"/>
+    <itemref idref="info-page"/>
+    <itemref idref="toc-page"/>    
+  ${toc.map(t => `<itemref idref="${t.id}"/>`).join('\n    ')}
+  </spine>
+</package>`;
+oebps.file('content.opf', opf);
+
+  /* 8. Generate EPUB file */
+  log('Generating EPUB file, please wait...');
+  const blob = await zip.generateAsync({
+    type: 'blob',
+    mimeType: 'application/epub+zip',
+    compression: 'DEFLATE',
+    compressionOptions: { level: 9 }
+  });
+
+  /* 9. Trigger download */
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `${novelData.metadata.title.replace(/[^a-z0-9]/gi, '_')}.epub`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(link.href);
+
+  log('EPUB download initiated!');
+});
+
+
+// enable EPUB button once chapters are loaded
+fetchChaptersBtn.addEventListener('click', () => {
+  const check = setInterval(() => {
+    if (novelData.chapters.length && novelData.chapters[0]?.content) {
+      epubBtn.disabled = false;
+      clearInterval(check);
+    }
+  }, 500);
+});
+  </script>
+</body>
+</html>
