@@ -443,6 +443,9 @@ async function openNuSearch() {
           const englishPublisher = detailedDoc.querySelector('#showepublisher span')?.textContent || 'English Publisher not found';
           const description = detailedDoc.querySelector('#editdescription p')?.textContent || 'Description not found';
           const associatedNames = detailedDoc.querySelector('#editassociated')?.textContent || 'Associated Names not found';
+          const relatedSeries = Array.from(detailedDoc.querySelectorAll('h5.seriesother + div a')).map(a => `<a class="genre" href="${a.href}">${a.textContent}</a>`).join('<br>') || 'Related Series not found';
+          const recommendations = Array.from(detailedDoc.querySelectorAll('h5.seriesother + div a')).map(a => `<a class="genre" href="${a.href}">${a.textContent}</a>`).join('<br>') || 'Recommendations not found';
+          const language = detailedDoc.querySelector('#showlang a')?.textContent || 'Language not found';
 
           // Format associated names by new line
           const formattedAssociatedNames = associatedNames.split('<br>').map(name => `<div>${name}</div>`).join('');
@@ -455,16 +458,17 @@ async function openNuSearch() {
             <h5 class="seriesother">Type</h5>
             <span class="typelmsg"></span>
             <div id="showtype">
-              <a class="genre type">${type}</a> <span style="color:#8D8D8D;">(CN)</span><br>
+              <a class="genre type" href="#">${type}</a> <span style="color:#8D8D8D;">(CN)</span><br>
             </div>
             <h5 class="seriesother">Genre</h5>
             <span class="genremsg"></span>
             <div id="seriesgenre">
-              ${genres.split(', ').map(genre => `<a class="genre">${genre}</a>`).join(' ')}
+              ${genres.split(', ').map(genre => `<a class="genre" href="#">${genre}</a>`).join(' ')}
             </div>
             <h5 class="seriesother">Author(s)</h5>
+            <span class="editmsg">One entry per line</span>
             <div id="showauthors">
-              ${authors.split(', ').map(author => `<a class="genre">${author}</a>`).join('<br>')}
+              ${authors.split(', ').map(author => `<a class="genre" href="#">${author}</a>`).join('<br>')}
             </div>
             <h5 class="seriesother">Year</h5>
             <div id="edityear">${year}</div>
@@ -472,7 +476,7 @@ async function openNuSearch() {
             <div id="editstatus">${status}</div>
             <h5 class="seriesother">Original Publisher</h5>
             <div id="showopublisher">
-              <a class="genre">${originalPublisher}</a>
+              <a class="genre" href="#">${originalPublisher}</a>
             </div>
             <h5 class="seriesother">English Publisher</h5>
             <div id="showepublisher">
@@ -480,10 +484,14 @@ async function openNuSearch() {
             </div>
             <h5 class="seriesother">Language</h5>
             <div id="showlang">
-              <a class="genre lang">${language}</a>
+              <a class="genre lang" href="#">${language}</a>
             </div>
             <h5 class="seriesother">Associated Names</h5>
             <div id="editassociated">${formattedAssociatedNames}</div>
+            <h5 class="seriesother">Related Series</h5>
+            <div id="relatedseries">${relatedSeries}</div>
+            <h5 class="seriesother">Recommendations</h5>
+            <div id="recommendations">${recommendations}</div>
             <div id="editdescription">${description}</div>
           `;
 
