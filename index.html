@@ -241,6 +241,10 @@
     fetchChaptersBtn.addEventListener('click', fetchChapters);
     downloadBtn.addEventListener('click', downloadJson);
 
+       const epubBtn = document.createElement('button');
+epubBtn.textContent = 'Download EPUB';
+epubBtn.disabled = true;
+document.querySelector('.container').appendChild(epubBtn);
   </script>
 </body>
 </html>
