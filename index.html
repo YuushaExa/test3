@@ -226,15 +226,21 @@
     }
 
     // ---- export JSON ----
-    function downloadJson() {
-      if (!novelData.metadata?.title) return alert('No data to save');
-      const blob = new Blob([JSON.stringify(novelData, null, 2)], { type: 'application/json' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `${novelData.metadata.title.replace(/[^a-z0-9]/gi, '_')}.json`;
-      a.click();
-      URL.revokeObjectURL(a.href);
-    }
+function downloadJson() {
+  if (!novelData.metadata?.title) return alert('No data to save');
+  
+  const cleanData = {
+    ...novelData,
+    chapters: novelData.chapters.map(({ url, ...rest }) => rest) // Exclude 'url'
+  };
+  
+  const blob = new Blob([JSON.stringify(cleanData, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${novelData.metadata.title.replace(/[^a-z0-9]/gi, '_')}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
 
     // ---- events ----
     fetchMetadataBtn.addEventListener('click', fetchMetadata);
