@@ -436,7 +436,7 @@ async function openNuSearch() {
           const imageUrl = detailedDoc.querySelector('.seriesimg img')?.src || 'Image not found';
           const type = detailedDoc.querySelector('#showtype a')?.textContent || 'Type not found';
           const genres = Array.from(detailedDoc.querySelectorAll('#seriesgenre a')).map(a => a.textContent).join(', ') || 'Genres not found';
-     const authorLink = document.querySelector('#showauthors a');
+     const authorLink = detailedDoc.querySelector('#showauthors a')?.textContent || 'Type not found';
 const authorName = authorLink ? authorLink.innerHTML : 'Author not found';
 const authorUrl = authorLink ? authorLink.href : 'URL not found';
           const year = detailedDoc.querySelector('#edityear')?.textContent || 'Year not found';
