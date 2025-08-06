@@ -318,6 +318,14 @@ function showEditMetadataForm() {
         <label for="editDescription">Description:</label>
         <textarea id="editDescription" name="description" rows="5">${metadata.description}</textarea>
       </div>
+      <div class="form-group">
+        <label for="editaltitile">Alt Title:</label>
+        <input type="text" id="editaltitile" name="altitile" value="${metadata.altitile || ''}">
+      </div>
+      <div class="form-group">
+        <label for="editdate">Date:</label>
+        <input type="text" id="editdate" name="date" value="${metadata.date || ''}">
+      </div>
       <button type="submit">Save Changes</button>
       <button type="button" onclick="document.getElementById('metadataForm').remove()">Cancel</button>
     </form>
@@ -337,7 +345,9 @@ function showEditMetadataForm() {
       genres: formData.get('genres').split(',').map(genre => genre.trim()),
       status: formData.get('status'),
       source: formData.get('source'),
-      description: formData.get('description')
+      description: formData.get('description'),
+      altitile: formData.get('altitile'),
+      date: formData.get('date')
     };
 
     novelData.metadata = newMetadata;
