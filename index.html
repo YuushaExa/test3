@@ -388,16 +388,6 @@ const nuBtn = document.getElementById('nuInfoBtn');
 const autoFillBtn = document.getElementById('autoFillBtn');
 const nuInfo = document.getElementById('nuInfo');
 const nuInfoResults = document.getElementById('nuInfoResults');
-const metadataForm = document.getElementById('metadataForm');
-const editTitle = document.getElementById('editTitle');
-const editCover = document.getElementById('editCover');
-const editAuthors = document.getElementById('editAuthors');
-const editGenres = document.getElementById('editGenres');
-const editStatus = document.getElementById('editStatus');
-const editSource = document.getElementById('editSource');
-const editDescription = document.getElementById('editDescription');
-const editAltTitle = document.getElementById('editaltitile');
-const editDate = document.getElementById('editdate');
 
 function closeNuInfo() {
   nuInfo.style.display = 'none';
@@ -531,18 +521,25 @@ autoFillBtn.addEventListener('click', () => {
   const altTitle = nuInfoResults.querySelector('#editassociated')?.textContent || '';
   const date = nuInfoResults.querySelector('#edityear')?.textContent || '';
 
-  editTitle.value = title;
-  editCover.value = coverUrl;
-  editAuthors.value = authors;
-  editGenres.value = genres;
-  editStatus.value = status;
-  editSource.value = source;
-  editDescription.value = description;
-  editAltTitle.value = altTitle;
-  editDate.value = date;
+  const editTitle = document.getElementById('editTitle');
+  const editCover = document.getElementById('editCover');
+  const editAuthors = document.getElementById('editAuthors');
+  const editGenres = document.getElementById('editGenres');
+  const editStatus = document.getElementById('editStatus');
+  const editSource = document.getElementById('editSource');
+  const editDescription = document.getElementById('editDescription');
+  const editAltTitle = document.getElementById('editaltitile');
+  const editDate = document.getElementById('editdate');
 
-  // Trigger the form submission if needed
-  // metadataForm.submit();
+  if (editTitle) editTitle.value = title;
+  if (editCover) editCover.value = coverUrl;
+  if (editAuthors) editAuthors.value = authors;
+  if (editGenres) editGenres.value = genres;
+  if (editStatus) editStatus.value = status;
+  if (editSource) editSource.value = source;
+  if (editDescription) editDescription.value = description;
+  if (editAltTitle) editAltTitle.value = altTitle;
+  if (editDate) editDate.value = date;
 });
 
 /* ---------- enable/disable button ---------- */
