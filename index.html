@@ -349,7 +349,7 @@ function showEditMetadataForm() {
       altitile: formData.get('altitile'),
       date: formData.get('date')
     };
-
+  
     novelData.metadata = newMetadata;
     log('Metadata updated successfully');
     document.getElementById('metadataForm').remove();
@@ -442,16 +442,8 @@ async function openNuSearch() {
           const originalPublisher = detailedDoc.querySelector('#showopublisher a')?.textContent || 'Original Publisher not found';
           const englishPublisher = detailedDoc.querySelector('#showepublisher span')?.textContent || 'English Publisher not found';
           const description = detailedDoc.querySelector('#editdescription p')?.textContent || 'Description not found';
-const associatedNamesElement = detailedDoc.querySelector('#editassociated');
-let associatedNames;
+const associatedNames = detailedDoc.querySelector('#editassociated')?.textContent || 'Associated Names not found';
 
-if (associatedNamesElement) {
-  associatedNames = associatedNamesElement.innerText.split('\n').join(', ');
-} else {
-  associatedNames = 'Associated Names not found';
-}
-
-document.getElementById('editassociated').innerHTML = associatedNames;
           const relatedSeries = Array.from(detailedDoc.querySelectorAll('h5.seriesother + div a')).map(a => `<a class="genre" href="${a.href}">${a.textContent}</a>`).join('<br>') || 'Related Series not found';
           const recommendations = Array.from(detailedDoc.querySelectorAll('h5.seriesother + div a')).map(a => `<a class="genre" href="${a.href}">${a.textContent}</a>`).join('<br>') || 'Recommendations not found';
           const language = detailedDoc.querySelector('#showlang a')?.textContent || 'Language not found';
@@ -515,33 +507,15 @@ document.getElementById('editassociated').innerHTML = associatedNames;
 
 /* ---------- AutoFill button click event ---------- */
 autoFillBtn.addEventListener('click', () => {
-  const title = nuInfoResults.querySelector('.seriestitlenu')?.textContent || '';
   const coverUrl = nuInfoResults.querySelector('.seriesimg img')?.src || '';
-  const authors = nuInfoResults.querySelector('#showauthors')?.textContent || '';
-  const genres = nuInfoResults.querySelector('#seriesgenre')?.textContent || '';
-  const status = nuInfoResults.querySelector('#editstatus')?.textContent || '';
-  const source = nuInfoResults.querySelector('#showopublisher')?.textContent || '';
-  const description = nuInfoResults.querySelector('#editdescription')?.textContent || '';
   const altTitle = nuInfoResults.querySelector('#editassociated')?.textContent || '';
   const date = nuInfoResults.querySelector('#edityear')?.textContent || '';
 
-  const editTitle = document.getElementById('editTitle');
   const editCover = document.getElementById('editCover');
-  const editAuthors = document.getElementById('editAuthors');
-  const editGenres = document.getElementById('editGenres');
-  const editStatus = document.getElementById('editStatus');
-  const editSource = document.getElementById('editSource');
-  const editDescription = document.getElementById('editDescription');
   const editAltTitle = document.getElementById('editaltitile');
   const editDate = document.getElementById('editdate');
 
-  if (editTitle) editTitle.value = title;
   if (editCover) editCover.value = coverUrl;
-  if (editAuthors) editAuthors.value = authors;
-  if (editGenres) editGenres.value = genres;
-  if (editStatus) editStatus.value = status;
-  if (editSource) editSource.value = source;
-  if (editDescription) editDescription.value = description;
   if (editAltTitle) editAltTitle.value = altTitle;
   if (editDate) editDate.value = date;
 });
