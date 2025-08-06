@@ -419,11 +419,14 @@ async function openNuSearch() {
       const stats = box.querySelectorAll('.ss_desk');
       const description = box.querySelector('.search_desc')?.textContent.trim() || '';
 
-      const statsHtml = stats.map(stat => {
-        const icon = stat.querySelector('i');
-        const text = stat.textContent.trim();
-        return `<span class="ss_desk">${icon.outerHTML} ${text}</span>`;
-      }).join('');
+      let statsHtml = '';
+      if (stats && stats.length > 0) {
+        statsHtml = Array.from(stats).map(stat => {
+          const icon = stat.querySelector('i');
+          const text = stat.textContent.trim();
+          return `<span class="ss_desk">${icon ? icon.outerHTML : ''} ${text}</span>`;
+        }).join('');
+      }
 
       return `
         <div class="search_body_nu">
