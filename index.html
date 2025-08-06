@@ -33,7 +33,7 @@
     <button id="fetchMetadataBtn">Fetch Metadata</button>
     <button id="fetchChaptersBtn" disabled>Fetch Chapters</button>
     <button id="downloadBtn" disabled>Download as JSON</button>
-
+  <button id="editMetadataBtn" disabled>Edit Metadata</button>
     <div class="progress-container" id="progressContainer">
       <div class="status" id="statusText">Processing...</div>
       <progress id="progressBar" value="0" max="100"></progress>
@@ -279,6 +279,85 @@ function downloadJson() {
         }
       }, 500);
     });
+
+// ---- Edit metadata ----
+const editMetadataBtn = document.getElementById('editMetadataBtn');
+
+// ---- helpers ----
+function showEditMetadataForm() {
+  const metadata = novelData.metadata;
+  if (!metadata) return alert('No metadata available to edit');
+
+  const formHTML = `
+    <form id="metadataForm">
+      <div class="form-group">
+        <label for="editTitle">Title:</label>
+        <input type="text" id="editTitle" name="title" value="${metadata.title}" required>
+      </div>
+      <div class="form-group">
+        <label for="editCover">Cover URL:</label>
+        <input type="text" id="editCover" name="cover" value="${metadata.cover}">
+      </div>
+      <div class="form-group">
+        <label for="editAuthors">Authors (comma-separated):</label>
+        <input type="text" id="editAuthors" name="authors" value="${metadata.author.join(', ')}">
+      </div>
+      <div class="form-group">
+        <label for="editGenres">Genres (comma-separated):</label>
+        <input type="text" id="editGenres" name="genres" value="${metadata.genres.join(', ')}">
+      </div>
+      <div class="form-group">
+        <label for="editStatus">Status:</label>
+        <input type="text" id="editStatus" name="status" value="${metadata.status}">
+      </div>
+      <div class="form-group">
+        <label for="editSource">Source:</label>
+        <input type="text" id="editSource" name="source" value="${metadata.source}">
+      </div>
+      <div class="form-group">
+        <label for="editDescription">Description:</label>
+        <textarea id="editDescription" name="description" rows="5">${metadata.description}</textarea>
+      </div>
+      <button type="submit">Save Changes</button>
+      <button type="button" onclick="document.getElementById('metadataForm').remove()">Cancel</button>
+    </form>
+  `;
+
+  const formContainer = document.createElement('div');
+  formContainer.innerHTML = formHTML;
+  document.body.appendChild(formContainer);
+
+  document.getElementById('metadataForm').addEventListener('submit', function(event) {
+    event.preventDefault();
+    const formData = new FormData(event.target);
+    const newMetadata = {
+      title: formData.get('title'),
+      cover: formData.get('cover'),
+      author: formData.get('authors').split(',').map(author => author.trim()),
+      genres: formData.get('genres').split(',').map(genre => genre.trim()),
+      status: formData.get('status'),
+      source: formData.get('source'),
+      description: formData.get('description')
+    };
+
+    novelData.metadata = newMetadata;
+    log('Metadata updated successfully');
+    document.getElementById('metadataForm').remove();
+  });
+}
+
+// ---- events ----
+editMetadataBtn.addEventListener('click', showEditMetadataForm);
+
+// Enable the edit metadata button after fetching metadata
+fetchMetadataBtn.addEventListener('click', () => {
+  const check = setInterval(() => {
+    if (novelData.metadata) {
+      editMetadataBtn.disabled = false;
+      clearInterval(check);
+    }
+  }, 500);
+});
   </script>
 </body>
 </html>
