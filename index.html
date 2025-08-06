@@ -446,7 +446,7 @@ async function openNuSearch() {
           const language = detailedDoc.querySelector('#showlang a')?.textContent || 'Language not found';
 
           // Format associated names by new line
-          const formattedAssociatedNames = associatedNames.split('\n').join('<br>');
+          const formattedAssociatedNames = associatedNames.split('<br>').map(name => `<div>${name}</div>`).join('');
 
           const detailedContent = `
             <div class="seriestitlenu" style="font-size:18px; margin-top: 10px; color: #292e33;">${title}</div>
