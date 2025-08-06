@@ -436,7 +436,9 @@ async function openNuSearch() {
           const imageUrl = detailedDoc.querySelector('.seriesimg img')?.src || 'Image not found';
           const type = detailedDoc.querySelector('#showtype a')?.textContent || 'Type not found';
           const genres = Array.from(detailedDoc.querySelectorAll('#seriesgenre a')).map(a => a.textContent).join(', ') || 'Genres not found';
-          const authors = Array.from(detailedDoc.querySelectorAll('#showauthors a')).map(a => a.innerHTML).join(', ') || 'Authors not found';
+     const authorLink = document.querySelector('#showauthors a');
+const authorName = authorLink ? authorLink.innerHTML : 'Author not found';
+const authorUrl = authorLink ? authorLink.href : 'URL not found';
           const year = detailedDoc.querySelector('#edityear')?.textContent || 'Year not found';
           const status = detailedDoc.querySelector('#editstatus')?.textContent || 'Status not found';
           const originalPublisher = detailedDoc.querySelector('#showopublisher a')?.textContent || 'Original Publisher not found';
@@ -469,7 +471,7 @@ const associatedNames = detailedDoc.querySelector('#editassociated')?.innerHTML 
             <h5 class="seriesother">Author(s)</h5>
             <span class="editmsg">One entry per line</span>
             <div id="showauthors">
-              ${authors.split(', ').map(author => `<a class="genre" href="#">${author}</a>`).join(', ')}
+              <a class="genre" href="${authorUrl}">${authorName}</a>
             </div>
             <h5 class="seriesother">Year</h5>
             <div id="edityear">${year}</div>
