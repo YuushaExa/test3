@@ -443,12 +443,11 @@ async function openNuSearch() {
           const englishPublisher = detailedDoc.querySelector('#showepublisher span')?.textContent || 'English Publisher not found';
           const description = detailedDoc.querySelector('#editdescription p')?.textContent || 'Description not found';
           const associatedNames = detailedDoc.querySelector('#editassociated')?.textContent || 'Associated Names not found';
-          const relatedSeries = Array.from(detailedDoc.querySelectorAll('h5.seriesother + div a')).map(a => `<a class="genre" href="${a.href}">${a.textContent}</a>`).join('<br>') || 'Related Series not found';
-          const recommendations = Array.from(detailedDoc.querySelectorAll('h5.seriesother + div a')).map(a => `<a class="genre" href="${a.href}">${a.textContent}</a>`).join('<br>') || 'Recommendations not found';
-          const language = detailedDoc.querySelector('#showlang a')?.textContent || 'Language not found';
+const relatedSeries = Array.from(detailedDoc.querySelectorAll('h5.seriesother + a')).map(a => `<a class="genre" href="${a.href}">${a.textContent}</a>`).join('<br>') || 'Related Series not found';
+const recommendations = Array.from(detailedDoc.querySelectorAll('h5.recommendations + a')).map(a => `<a class="genre" href="${a.href}">${a.textContent}</a>`).join('<br>') || 'Recommendations not found';          const language = detailedDoc.querySelector('#showlang a')?.textContent || 'Language not found';
 
           // Format associated names by new line
-          const formattedAssociatedNames = associatedNames.split('<br>').map(name => `<div>${name}</div>`).join('');
+const formattedAssociatedNames = associatedNames.split('<br>').join(', ');
 
           const detailedContent = `
             <div class="seriestitlenu" style="font-size:18px; margin-top: 10px; color: #292e33;">${title}</div>
@@ -458,17 +457,16 @@ async function openNuSearch() {
             <h5 class="seriesother">Type</h5>
             <span class="typelmsg"></span>
             <div id="showtype">
-              <a class="genre type" href="#">${type}</a> <span style="color:#8D8D8D;">(CN)</span><br>
+              <a class="genre type">${type}</a> <span style="color:#8D8D8D;">(CN)</span><br>
             </div>
             <h5 class="seriesother">Genre</h5>
             <span class="genremsg"></span>
             <div id="seriesgenre">
-              ${genres.split(', ').map(genre => `<a class="genre" href="#">${genre}</a>`).join(' ')}
+              ${genres.split(', ').map(genre => `<a class="genre">${genre}</a>`).join(' ')}
             </div>
             <h5 class="seriesother">Author(s)</h5>
-            <span class="editmsg">One entry per line</span>
             <div id="showauthors">
-              ${authors.split(', ').map(author => `<a class="genre" href="#">${author}</a>`).join('<br>')}
+              ${authors.split(', ').map(author => `<a class="genre">${author}</a>`).join('<br>')}
             </div>
             <h5 class="seriesother">Year</h5>
             <div id="edityear">${year}</div>
