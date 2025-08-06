@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Novel Crawler</title>
+  <style>
+    body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;max-width:800px;margin:0 auto;padding:20px;background:#f5f5f5}
+    h1{color:#333;text-align:center}
+    .container{background:#fff;padding:20px;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,.1)}
+    .form-group{margin-bottom:15px}
+    label{display:block;margin-bottom:5px;font-weight:bold}
+    input[type=text]{width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;box-sizing:border-box}
+    button{background:#4CAF50;color:#fff;border:none;padding:10px 15px;border-radius:4px;cursor:pointer;font-size:16px;margin-right:10px}
+    button:disabled{background:#ccc}
+    #console{background:#1e1e1e;color:#d4d4d4;padding:15px;border-radius:4px;font-family:'Courier New',Courier,monospace;height:300px;overflow-y:auto;white-space:pre-wrap;margin-top:20px}
+    .progress-container{margin-top:15px;display:none}
+    progress{width:100%}
+    .status{text-align:center;margin:10px 0;font-weight:bold}
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+    <script src="ep.js"></script>
+</head>
+<body>
+  <div class="container">
+    <h1>Novel Crawler</h1>
+
+    <div class="form-group">
+      <label for="novelUrl">Novel URL:</label>
+      <input type="text" id="novelUrl" placeholder="link">
+    </div>
+
+    <button id="fetchMetadataBtn">Fetch Metadata</button>
+    <button id="fetchChaptersBtn" disabled>Fetch Chapters</button>
+    <button id="downloadBtn" disabled>Download as JSON</button>
+  <button id="editMetadataBtn" disabled>Edit Metadata</button>
+    <div class="progress-container" id="progressContainer">
+      <div class="status" id="statusText">Processing...</div>
+      <progress id="progressBar" value="0" max="100"></progress>
+    </div>
+
+    <div id="console"></div>
+  </div>
+
+  <script>
+    // ---- DOM refs ----
+    const consoleOutput   = document.getElementById('console');
+    const novelUrlInput   = document.getElementById('novelUrl');
+    const fetchMetadataBtn= document.getElementById('fetchMetadataBtn');
+    const fetchChaptersBtn= document.getElementById('fetchChaptersBtn');
+    const downloadBtn     = document.getElementById('downloadBtn');
+    const progressContainer = document.getElementById('progressContainer');
+    const progressBar     = document.getElementById('progressBar');
+    const statusText      = document.getElementById('statusText');
+
+    // ---- config ----
+    const WORKER_URL = 'https://curly-pond-9050.yuush.workers.dev';
+
+    // ---- helpers ----
+    function log(msg) {
+      consoleOutput.textContent += msg + '\n';
+      consoleOutput.scrollTop = consoleOutput.scrollHeight;
+    }
+
+    function updateProgress(current, total) {
+      const pct = Math.round((current / total) * 100);
+      progressBar.value = pct;
+      statusText.textContent = `Processing ${current}/${total} (${pct}%)`;
+    }
+
+    // ---- data store ----
+    let novelData = { metadata: null, chapters: [] };
+
+    // ---- fetch raw html via worker ----
+    async function fetchRawHTML(targetUrl) {
+      const res = await fetch(`${WORKER_URL}/api/raw?url=${encodeURIComponent(targetUrl)}`);
+      if (!res.ok) throw new Error(`raw fetch ${res.status}`);
+      return res.text();
+    }
+
+    // ---- fetch metadata (browser-side) ----
+    async function fetchMetadata() {
+  const url = novelUrlInput.value.trim();
+  if (!url) return alert('Please enter a novel URL');
+
+  try {
+    log('Fetching novel page…');
+    fetchMetadataBtn.disabled = true;
+
+    const chapters = [];               // local collector
+
+    // helper: scrape one page
+    async function scrapeOne(pageUrl) {
+      const html = await fetchRawHTML(pageUrl);
+      const doc  = new DOMParser().parseFromString(html, 'text/html');
+      const $$   = sel => [...doc.querySelectorAll(sel)];
+
+      // chapters on this page
+      $$('.list-chapter li a').forEach(a =>
+        chapters.push({
+          title: a.getAttribute('title') || a.textContent.trim(),
+          url:   new URL(a.getAttribute('href'), url).href
+        })
+      );
+
+      // next link
+      const next = $$('.pagination li.next a')[0]?.getAttribute('href');
+      return next ? new URL(next, url).href : null;
+    }
+
+    // crawl all pages
+    let nextPage = url;
+    while (nextPage) {
+      log(`Scraping chapter list page → ${nextPage}`);
+      nextPage = await scrapeOne(nextPage);
+    }
+
+    // metadata from first page
+    const html = await fetchRawHTML(url);   // already cached by browser
+    const doc  = new DOMParser().parseFromString(html, 'text/html');
+    const $    = sel => doc.querySelector(sel);
+    const $$   = sel => [...doc.querySelectorAll(sel)];
+
+    const title       = $('.col-xs-12.col-sm-8.col-md-8.desc h3.title')?.textContent?.trim();
+    const coverPath   = $('.col-xs-12.col-sm-4.col-md-4.info-holder .book img')?.getAttribute('src');
+    const cover       = coverPath ? new URL(coverPath, url).href : '';
+
+    const authorNodes = $$('.info div').find(d => d.querySelector('h3')?.textContent?.trim() === 'Author:')
+                         ?.querySelectorAll('a');
+    const authors     = authorNodes ? [...authorNodes].map(a => a.textContent.trim()) : [];
+
+    const genres      = $$('.info div').find(d => d.querySelector('h3')?.textContent?.trim() === 'Genre:')
+                         ?.querySelectorAll('a');
+    const genreNames  = genres ? [...genres].map(a => a.textContent.trim()) : [];
+
+    const status      = $$('.info div').find(d => d.querySelector('h3')?.textContent?.trim() === 'Status:')
+                         ?.querySelector('a')?.textContent?.trim();
+
+    const source      = $$('.info div').find(d => d.querySelector('h3')?.textContent?.trim() === 'Source:')
+                         ?.textContent?.replace('Source:', '').trim();
+
+    const description = $('.col-xs-12.col-sm-8.col-md-8.desc .desc-text')?.textContent?.trim();
+
+    novelData.metadata = { title, cover, author: authors, genres: genreNames, status, source, description };
+    novelData.chapters = chapters;
+
+    log(`\n=== Metadata ===`);
+    log(`Title: ${title}`);
+    log(`Cover: ${cover}`);
+    log(`Author: ${authors.join(', ')}`);
+    log(`Status: ${status}`);
+    log(`Genres: ${genreNames.join(', ')}`);
+    log(`Description: ${description}`);
+    log(`\nTotal chapters found: ${chapters.length}`);
+
+    fetchChaptersBtn.disabled = false;
+  } catch (err) {
+    log(`Error: ${err.message}`);
+    fetchMetadataBtn.disabled = false;
+  }
+    }
+    // ---- fetch chapter content (browser-side) ----
+    async function fetchChapterContent(chapterUrl) {
+      const html = await fetchRawHTML(chapterUrl);
+      const doc  = new DOMParser().parseFromString(html, 'text/html');
+
+      const novelTitle = doc.querySelector('.col-xs-12 a.truyen-title')?.textContent?.trim() || '';
+      const chTitle    = doc.querySelector('.col-xs-12 h2')?.textContent?.trim() || '';
+      const title      = `${novelTitle} - ${chTitle}`;
+
+      let content = doc.querySelector('#chapter-content')?.innerHTML || 'Chapter not found';
+
+      // cleanup
+      content = content
+        .replace(/<iframe[^>]*>.*?<\/iframe>/gis, '')
+        .replace(/<!--.*?-->/gs, '')
+        .replace(/<p>\s*<\/p>/g, '')
+        .replace(/<img[^>]*>/g, '')
+        .replace(/<js[^>]*>/g, '')
+        .replace(/<div\b[^>]*>\s*<\/div>/gis, '')
+        .replace(/<script\b[^>]*>.*?<\/script>/gis, '')
+        .replace(/<noscript\b[^>]*>.*?<\/noscript>/gis, '')
+        .replace(/<div[^>]*class\s*=\s*["']ads[^>]*>.*?<\/div>/gis, '')
+        .replace(/<div[^>]*>\s*<\/div>/gis, '')
+        .replace(/<p>Source: .*?novlove\.com<\/p>/gi, '')
+        .trim();
+
+      return { title, content };
+    }
+
+    // ---- fetch all chapters ----
+    async function fetchChapters() {
+      if (!novelData.chapters.length) return alert('No chapters found');
+      try {
+        fetchChaptersBtn.disabled = true;
+        progressContainer.style.display = 'block';
+
+        const batchSize = 10;
+        const total = novelData.chapters.length;
+        let done = 0;
+
+        for (let i = 0; i < total; i += batchSize) {
+          const slice = novelData.chapters.slice(i, i + batchSize);
+          const promises = slice.map(async (ch, idx) => {
+            log(`Fetching ${i + idx + 1}/${total} - ${ch.title}`);
+            const data = await fetchChapterContent(ch.url);
+            return { ...ch, ...data };
+          });
+
+          const results = await Promise.all(promises);
+          results.forEach((r, idx) => (novelData.chapters[i + idx] = r));
+
+          done += results.length;
+          updateProgress(done, total);
+          await new Promise(r => setTimeout(r, 300)); // polite delay
+        }
+
+        log('\nAll chapters fetched!');
+        downloadBtn.disabled = false;
+        progressContainer.style.display = 'none';
+      } catch (err) {
+        log(`Error: ${err.message}`);
+        fetchChaptersBtn.disabled = false;
+        progressContainer.style.display = 'none';
+      }
+    }
+
+    // ---- export JSON ----
+function downloadJson() {
+  if (!novelData.metadata?.title) return alert('No data to save');
+  
+  const cleanData = {
+    ...novelData,
+    chapters: novelData.chapters.map(({ url, ...rest }) => rest) // Exclude 'url'
+  };
+  
+  const blob = new Blob([JSON.stringify(cleanData, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${novelData.metadata.title.replace(/[^a-z0-9]/gi, '_')}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+    // ---- events ----
+    fetchMetadataBtn.addEventListener('click', fetchMetadata);
+    fetchChaptersBtn.addEventListener('click', fetchChapters);
+    downloadBtn.addEventListener('click', downloadJson);
+
+     // Create EPUB button
+    const epubBtn = document.createElement('button');
+    epubBtn.textContent = 'Download EPUB';
+    epubBtn.disabled = true;
+    document.querySelector('.container').appendChild(epubBtn);
+
+    // EPUB download handler
+    epubBtn.addEventListener('click', async () => {
+      if (!novelData.metadata?.title || !novelData.chapters[0]?.content) {
+        return alert('No chapter data available to create an EPUB.');
+      }
+      
+      try {
+        epubBtn.disabled = true;
+        const generator = new EpubGenerator(novelData);
+        await generator.download(log);
+      } catch (err) {
+        log(`EPUB generation error: ${err.message}`);
+      } finally {
+        epubBtn.disabled = false;
+      }
+    });
+
+    // enable EPUB button once chapters are loaded
+    fetchChaptersBtn.addEventListener('click', () => {
+      const check = setInterval(() => {
+        if (novelData.chapters.length && novelData.chapters[0]?.content) {
+          epubBtn.disabled = false;
+          clearInterval(check);
+        }
+      }, 500);
+    });
+
+// ---- Edit metadata ----
+const editMetadataBtn = document.getElementById('editMetadataBtn');
+
+// ---- helpers ----
+function showEditMetadataForm() {
+  const metadata = novelData.metadata;
+  if (!metadata) return alert('No metadata available to edit');
+
+  const formHTML = `
+    <form id="metadataForm">
+      <div class="form-group">
+        <label for="editTitle">Title:</label>
+        <input type="text" id="editTitle" name="title" value="${metadata.title}" required>
+      </div>
+      <div class="form-group">
+        <label for="editCover">Cover URL:</label>
+        <input type="text" id="editCover" name="cover" value="${metadata.cover}">
+      </div>
+      <div class="form-group">
+        <label for="editAuthors">Authors (comma-separated):</label>
+        <input type="text" id="editAuthors" name="authors" value="${metadata.author.join(', ')}">
+      </div>
+      <div class="form-group">
+        <label for="editGenres">Genres (comma-separated):</label>
+        <input type="text" id="editGenres" name="genres" value="${metadata.genres.join(', ')}">
+      </div>
+      <div class="form-group">
+        <label for="editStatus">Status:</label>
+        <input type="text" id="editStatus" name="status" value="${metadata.status}">
+      </div>
+      <div class="form-group">
+        <label for="editSource">Source:</label>
+        <input type="text" id="editSource" name="source" value="${metadata.source}">
+      </div>
+      <div class="form-group">
+        <label for="editDescription">Description:</label>
+        <textarea id="editDescription" name="description" rows="5">${metadata.description}</textarea>
+      </div>
+      <div class="form-group">
+        <label for="editaltitile">Alt Title:</label>
+        <input type="text" id="editaltitile" name="altitile" value="${metadata.altitile || ''}">
+      </div>
+      <div class="form-group">
+        <label for="editdate">Date:</label>
+        <input type="text" id="editdate" name="date" value="${metadata.date || ''}">
+      </div>
+      <button type="submit">Save Changes</button>
+      <button type="button" onclick="document.getElementById('metadataForm').remove()">Cancel</button>
+    </form>
+  `;
+
+  const formContainer = document.createElement('div');
+  formContainer.innerHTML = formHTML;
+  document.body.appendChild(formContainer);
+
+  document.getElementById('metadataForm').addEventListener('submit', function(event) {
+    event.preventDefault();
+    const formData = new FormData(event.target);
+    const newMetadata = {
+      title: formData.get('title'),
+      cover: formData.get('cover'),
+      author: formData.get('authors').split(',').map(author => author.trim()),
+      genres: formData.get('genres').split(',').map(genre => genre.trim()),
+      status: formData.get('status'),
+      source: formData.get('source'),
+      description: formData.get('description'),
+      altitile: formData.get('altitile'),
+      date: formData.get('date')
+    };
+
+    novelData.metadata = newMetadata;
+    log('Metadata updated successfully');
+    document.getElementById('metadataForm').remove();
+  });
+}
+
+// ---- events ----
+editMetadataBtn.addEventListener('click', showEditMetadataForm);
+
+// Enable the edit metadata button after fetching metadata
+fetchMetadataBtn.addEventListener('click', () => {
+  const check = setInterval(() => {
+    if (novelData.metadata) {
+      editMetadataBtn.disabled = false;
+      clearInterval(check);
+    }
+  }, 500);
+});
+  </script>
+</body>
+  <!-- ===== NUInfo button + iframe container ===== -->
+<button id="nuInfoBtn" disabled>NUInfo</button>
+
+<div id="nuFrameWrapper" style="display:none; margin-top:10px; border:1px solid #ccc; border-radius:4px; overflow:hidden;">
+  <div style="background:#eee;padding:4px;font-size:12px">
+    <span style="float:right;cursor:pointer" onclick="closeNuFrame()">✖</span>
+    <b>NovelUpdates search</b>
+  </div>
+  <iframe id="nuFrame" style="width:100%;height:320px;border:none;"></iframe>
+</div>
+
+<script>
+/* ---------- helpers ---------- */
+const nuBtn   = document.getElementById('nuInfoBtn');
+const wrapper = document.getElementById('nuFrameWrapper');
+const frame   = document.getElementById('nuFrame');
+
+function closeNuFrame() {
+  wrapper.style.display = 'none';
+  frame.src = 'about:blank';
+}
+
+/* ---------- fetch search page and inject into iframe ---------- */
+async function openNuSearch() {
+  const query = novelData.metadata?.title?.trim()
+             || prompt('Enter novel title for NovelUpdates search:')?.trim();
+  if (!query) return;
+
+  const searchUrl = `https://www.novelupdates.com/series-finder/?sf=1&sh=${encodeURIComponent(query)}&sort=sdate&order=desc`;
+
+  try {
+    nuBtn.disabled = true;
+    log(`Fetching NU search for "${query}" …`);
+    const html = await fetchRawHTML(searchUrl);
+
+    /* build a tiny standalone page that:
+       – strips out everything except the series list
+       – makes each cover/title click load that detail page inside the same iframe
+    */
+    const doc      = new DOMParser().parseFromString(html, 'text/html');
+    const series   = [...doc.querySelectorAll('.search_main_box_nu')];
+    if (!series.length) {
+      log('No results found on NovelUpdates.');
+      return;
+    }
+
+    /* build simple clickable cards */
+    const cards = series.map(box => {
+      const link  = box.querySelector('a[title]');
+      const img   = box.querySelector('img[src]');
+      if (!link || !img) return '';
+      const detailUrl = link.href;
+      return `
+        <div style="display:flex;align-items:center;gap:8px;margin:6px 0;cursor:pointer" onclick="window.parent.loadNuDetail('${detailUrl}')">
+          <img src="${img.src}" style="width:50px;height:auto;border:1px solid #ccc">
+          <div>
+            <b>${link.textContent.trim()}</b><br>
+            <small>${box.querySelector('.search_genre')?.textContent.trim() || ''}</small>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    const miniPage = `
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <style>
+            body{margin:8px;font-family:sans-serif;font-size:14px;line-height:1.3}
+            a{color:#0066cc;text-decoration:none}
+          </style>
+        </head>
+        <body>
+          <h3>Search results</h3>
+          ${cards}
+        </body>
+      </html>
+    `;
+
+    frame.srcdoc = miniPage;
+    wrapper.style.display = 'block';
+  } catch (e) {
+    log(`NU search error: ${e.message}`);
+  } finally {
+    nuBtn.disabled = false;
+  }
+}
+
+/* ---------- load a specific detail page into the iframe ---------- */
+window.loadNuDetail = url => {
+  fetchRawHTML(url)
+    .then(html => {
+      frame.srcdoc = `
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <base href="https://www.novelupdates.com/">
+            <style>
+              body{margin:8px;font-family:sans-serif;font-size:13px;line-height:1.4}
+              img{max-width:100px;float:left;margin-right:8px}
+              #editMetaBtn{position:fixed;top:4px;right:4px;padding:4px 8px;background:#007bff;color:#fff;border:none;border-radius:3px;cursor:pointer;font-size:11px}
+            </style>
+          </head>
+          <body>
+            <button id="editMetaBtn" onclick="window.parent.editMetadataBtn.click()">✏️ Edit metadata</button>
+            ${html}
+          </body>
+        </html>
+      `;
+    })
+    .catch(err => log(`NU detail fetch error: ${err.message}`));
+};
+
+/* ---------- enable/disable button ---------- */
+fetchMetadataBtn.addEventListener('click', () => {
+  const chk = setInterval(() => {
+    if (novelData.metadata?.title) {
+      nuBtn.disabled = false;
+      clearInterval(chk);
+    }
+  }, 500);
+});
+nuBtn.addEventListener('click', openNuSearch);
+</script>
+<!-- ===== /NUInfo patch ===== -->
+</html>
