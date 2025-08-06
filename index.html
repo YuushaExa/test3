@@ -448,8 +448,7 @@ async function openNuSearch() {
           const language = detailedDoc.querySelector('#showlang a')?.textContent || 'Language not found';
 
           // Format associated names by new line
-          const formattedAssociatedNames = associatedNames.split('<br>').map(name => `<div>${name}</div>`).join('');
-
+const formattedAssociatedNames = associatedNames.split('<br>').map(name => `<div>${name}</div>`).join(', ');
           const detailedContent = `
             <div class="seriestitlenu" style="font-size:18px; margin-top: 10px; color: #292e33;">${title}</div>
             <div class="seriesimg">
@@ -462,13 +461,13 @@ async function openNuSearch() {
             </div>
             <h5 class="seriesother">Genre</h5>
             <span class="genremsg"></span>
-            <div id="seriesgenre">
-              ${genres.split(', ').map(genre => `<a class="genre" href="#">${genre}</a>`).join(' ')}
-            </div>
+<div id="seriesgenre">
+  ${genres.split(', ').map(genre => `<a class="genre" href="#">${genre}</a>`).join(', ')}
+</div>
             <h5 class="seriesother">Author(s)</h5>
             <span class="editmsg">One entry per line</span>
             <div id="showauthors">
-              ${authors.split(', ').map(author => `<a class="genre" href="#">${author}</a>`).join('<br>')}
+              ${authors.split(', ').map(author => `<a class="genre" href="#">${author}</a>`).join(', ')}
             </div>
             <h5 class="seriesother">Year</h5>
             <div id="edityear">${year}</div>
@@ -488,10 +487,6 @@ async function openNuSearch() {
             </div>
             <h5 class="seriesother">Associated Names</h5>
             <div id="editassociated">${formattedAssociatedNames}</div>
-            <h5 class="seriesother">Related Series</h5>
-            <div id="relatedseries">${relatedSeries}</div>
-            <h5 class="seriesother">Recommendations</h5>
-            <div id="recommendations">${recommendations}</div>
             <div id="editdescription">${description}</div>
           `;
 
