@@ -441,8 +441,8 @@ async function openNuSearch() {
           const englishPublisher = detailedDoc.querySelector('#showepublisher span')?.textContent || 'English Publisher not found';
           const description = detailedDoc.querySelector('#editdescription p')?.textContent || 'Description not found';
           const associatedNames = detailedDoc.querySelector('#editassociated')?.textContent || 'Associated Names not found';
-          const relatedSeries = Array.from(detailedDoc.querySelectorAll('#relatedseries a')).map(a => `<a class="genre" href="${a.href}">${a.textContent}</a>`).join('<br>') || 'Related Series not found';
-          const recommendations = Array.from(detailedDoc.querySelectorAll('#recommendations a')).map(a => `<a class="genre" href="${a.href}">${a.textContent}</a>`).join('<br>') || 'Recommendations not found';
+          const relatedSeries = Array.from(detailedDoc.querySelectorAll('h5.seriesother + div a')).map(a => `<a class="genre" href="${a.href}">${a.textContent}</a>`).join('<br>') || 'Related Series not found';
+          const recommendations = Array.from(detailedDoc.querySelectorAll('h5.seriesother + div a')).map(a => `<a class="genre" href="${a.href}">${a.textContent}</a>`).join('<br>') || 'Recommendations not found';
           const language = detailedDoc.querySelector('#showlang a')?.textContent || 'Language not found';
 
           const detailedContent = `
