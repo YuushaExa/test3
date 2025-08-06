@@ -440,6 +440,10 @@ async function openNuSearch() {
           const originalPublisher = detailedDoc.querySelector('#showopublisher a')?.textContent || 'Original Publisher not found';
           const englishPublisher = detailedDoc.querySelector('#showepublisher span')?.textContent || 'English Publisher not found';
           const description = detailedDoc.querySelector('#editdescription p')?.textContent || 'Description not found';
+          const associatedNames = detailedDoc.querySelector('#editassociated')?.textContent || 'Associated Names not found';
+          const relatedSeries = Array.from(detailedDoc.querySelectorAll('#relatedseries a')).map(a => `<a class="genre" href="${a.href}">${a.textContent}</a>`).join('<br>') || 'Related Series not found';
+          const recommendations = Array.from(detailedDoc.querySelectorAll('#recommendations a')).map(a => `<a class="genre" href="${a.href}">${a.textContent}</a>`).join('<br>') || 'Recommendations not found';
+          const language = detailedDoc.querySelector('#showlang a')?.textContent || 'Language not found';
 
           const detailedContent = `
             <div class="seriestitlenu" style="font-size:18px; margin-top: 10px; color: #292e33;">${title}</div>
@@ -473,6 +477,16 @@ async function openNuSearch() {
             <div id="showepublisher">
               ${englishPublisher}
             </div>
+            <h5 class="seriesother">Language</h5>
+            <div id="showlang">
+              <a class="genre lang" href="#">${language}</a>
+            </div>
+            <h5 class="seriesother">Associated Names</h5>
+            <div id="editassociated">${associatedNames}</div>
+            <h5 class="seriesother">Related Series</h5>
+            <div id="relatedseries">${relatedSeries}</div>
+            <h5 class="seriesother">Recommendations</h5>
+            <div id="recommendations">${recommendations}</div>
             <div id="editdescription">${description}</div>
           `;
 
