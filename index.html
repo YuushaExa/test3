@@ -442,7 +442,16 @@ async function openNuSearch() {
           const originalPublisher = detailedDoc.querySelector('#showopublisher a')?.textContent || 'Original Publisher not found';
           const englishPublisher = detailedDoc.querySelector('#showepublisher span')?.textContent || 'English Publisher not found';
           const description = detailedDoc.querySelector('#editdescription p')?.textContent || 'Description not found';
-const associatedNames = detailedDoc.querySelector('#editassociated')?.innerText || 'Associated Names not found';
+const associatedNamesElement = detailedDoc.querySelector('#editassociated');
+let associatedNames;
+
+if (associatedNamesElement) {
+  associatedNames = associatedNamesElement.innerText.split('\n').join(', ');
+} else {
+  associatedNames = 'Associated Names not found';
+}
+
+document.getElementById('editassociated').innerHTML = associatedNames;
           const relatedSeries = Array.from(detailedDoc.querySelectorAll('h5.seriesother + div a')).map(a => `<a class="genre" href="${a.href}">${a.textContent}</a>`).join('<br>') || 'Related Series not found';
           const recommendations = Array.from(detailedDoc.querySelectorAll('h5.seriesother + div a')).map(a => `<a class="genre" href="${a.href}">${a.textContent}</a>`).join('<br>') || 'Recommendations not found';
           const language = detailedDoc.querySelector('#showlang a')?.textContent || 'Language not found';
