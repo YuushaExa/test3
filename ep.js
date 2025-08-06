@@ -1,7 +1,3 @@
-    const epubBtn = document.createElement('button');
-epubBtn.textContent = 'Download EPUB';
-epubBtn.disabled = true;
-document.querySelector('.container').appendChild(epubBtn);
 
 // ---- export EPUB ----
 epubBtn.addEventListener('click', async () => {
