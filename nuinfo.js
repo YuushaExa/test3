@@ -89,7 +89,7 @@ const associatedNames = detailedDoc.querySelector('#editassociated')?.innerHTML 
             <h5 class="seriesother">Year</h5>
             <div id="edityear">${year}</div>
             <h5 class="seriesother" title="Status in Country of Origin">Status in COO</h5>
-            <div id="editstatuscoo">${statuscoo}</div>
+            <div id="editstatus">${statuscoo}</div>
             <h5 class="seriesother">Original Publisher</h5>
             <div id="showopublisher">
               <a class="genre" href="#">${originalPublisher}</a>
