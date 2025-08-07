@@ -287,27 +287,39 @@ async function saveJsonToGoogleDrive() {
     chapters: novelData.chapters.map(({ url, ...rest }) => rest)
   };
 
+  const jsonContent = JSON.stringify(cleanData, null, 2);
+
   try {
+    saveToJsonBtn.disabled = true;
+    log('Saving to Google Drive...');
+    
     const response = await fetch(`${WORKER_URL}/api/saveToGoogleDrive`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify({
         title: novelData.metadata.title,
-        content: JSON.stringify(cleanData, null, 2)
+        content: jsonContent,
+        folder: '16D-B7--4_NOjICRqDnHg0Z0SRH-SiWrH' // or your folder ID
       })
     });
 
     const result = await response.json();
+    
     if (result.success) {
-      alert(`Saved to Google Drive: ${result.webViewLink}`);
+      log(`Successfully saved to Google Drive!`);
+      log(`File ID: ${result.fileId}`);
+      log(`View file: ${result.webViewLink}`);
     } else {
-      alert(`Error: ${result.error}`);
+      throw new Error(result.error || 'Failed to save to Google Drive');
     }
   } catch (error) {
-    alert(`Error: ${error.message}`);
+    log(`Error: ${error.message}`);
+  } finally {
+    saveToJsonBtn.disabled = false;
   }
 }
-
     
     // ---- events ----
     fetchMetadataBtn.addEventListener('click', fetchMetadata);
