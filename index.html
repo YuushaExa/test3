@@ -33,6 +33,7 @@
     <button id="fetchMetadataBtn">Fetch Metadata</button>
     <button id="fetchChaptersBtn" disabled>Fetch Chapters</button>
     <button id="downloadBtn" disabled>Download as JSON</button>
+    <button id="saveToJsonBtn" disabled>Save JSON</button> 
   <button id="editMetadataBtn" disabled>Edit Metadata</button>
     <button id="saveMetadataBtn">Save Metadata</button>
     <div class="progress-container" id="progressContainer">
@@ -275,10 +276,47 @@ function downloadJson() {
   URL.revokeObjectURL(a.href);
 }
 
+  // ---- save JSON to Google Drive ----
+    async function saveJsonToGoogleDrive() {
+      if (!novelData.metadata?.title) return alert('No data to save');
+      
+      const cleanData = {
+        ...novelData,
+        chapters: novelData.chapters.map(({ url, ...rest }) => rest) // Exclude 'url'
+      };
+
+      const jsonContent = JSON.stringify(cleanData, null, 2);
+
+      try {
+        const response = await fetch(`${WORKER_URL}/api/saveToGoogleDrive`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            title: novelData.metadata.title,
+            content: jsonContent,
+            folder: 'Novels'
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to save to Google Drive: ${response.statusText}`);
+        }
+
+        const result = await response.json();
+        alert(`JSON saved to Google Drive: ${result.message}`);
+      } catch (error) {
+        alert(`Error saving to Google Drive: ${error.message}`);
+      }
+    }
+    
     // ---- events ----
     fetchMetadataBtn.addEventListener('click', fetchMetadata);
     fetchChaptersBtn.addEventListener('click', fetchChapters);
     downloadBtn.addEventListener('click', downloadJson);
+     saveToJsonBtn.addEventListener('click', saveJsonToGoogleDrive); 
+
 
      // Create EPUB button
     const epubBtn = document.createElement('button');
