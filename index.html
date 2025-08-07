@@ -282,40 +282,41 @@ function downloadJson() {
 async function saveJsonToGoogleDrive() {
   if (!novelData.metadata?.title) return alert('No data to save');
   
-  const cleanData = {
-    ...novelData,
-    chapters: novelData.chapters.map(({ url, ...rest }) => rest)
-  };
-
-  const jsonContent = JSON.stringify(cleanData, null, 2);
-
   try {
     saveToJsonBtn.disabled = true;
-    log('Saving to Google Drive...');
+    log('Preparing data for Google Drive...');
     
+    // Clean data and convert to pretty JSON
+    const cleanData = {
+      ...novelData,
+      chapters: novelData.chapters.map(({ url, ...rest }) => rest)
+    };
+    const jsonContent = JSON.stringify(cleanData, null, 2);
+
+    log('Starting upload...');
     const response = await fetch(`${WORKER_URL}/api/saveToGoogleDrive`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        title: novelData.metadata.title,
+        title: `Novel - ${novelData.metadata.title}`,
         content: jsonContent,
-        folder: 'root' // or your folder ID
+        folder: '16D-B7--4_NOjICRqDnHg0Z0SRH-SiWrH' // Your folder ID
       })
     });
 
     const result = await response.json();
     
-    if (result.success) {
-      log(`Successfully saved to Google Drive!`);
-      log(`File ID: ${result.fileId}`);
-      log(`View file: ${result.webViewLink}`);
-    } else {
-      throw new Error(result.error || 'Failed to save to Google Drive');
+    if (!response.ok || !result.success) {
+      throw new Error(result.error || 'Upload failed with unknown error');
     }
+
+    log(`✓ Successfully saved to Google Drive`);
+    log(`File: ${result.webViewLink}`);
+    log(`File ID: ${result.fileId}`);
+    
   } catch (error) {
     log(`Error: ${error.message}`);
+    console.error('Upload error details:', error);
   } finally {
     saveToJsonBtn.disabled = false;
   }
