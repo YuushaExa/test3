@@ -296,30 +296,34 @@ async function saveJsonToGoogleDrive() {
     const response = await fetch(`${WORKER_URL}/api/saveToGoogleDrive`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${await getDriveAccessToken()}` // Add this if needed
       },
       body: JSON.stringify({
-        title: novelData.metadata.title,
+        title: novelData.metadata.title.replace(/[^a-z0-9]/gi, '_'), // Sanitize filename
         content: jsonContent,
-        folder: '16D-B7--4_NOjICRqDnHg0Z0SRH-SiWrH' // or your folder ID
+        folder: '16D-B7--4_NOjICRqDnHg0Z0SRH-SiWrH' // Your folder ID
       })
     });
 
-    const result = await response.json();
-    
-    if (result.success) {
-      log(`Successfully saved to Google Drive!`);
-      log(`File ID: ${result.fileId}`);
-      log(`View file: ${result.webViewLink}`);
-    } else {
-      throw new Error(result.error || 'Failed to save to Google Drive');
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to save to Google Drive');
     }
+
+    const result = await response.json();
+    log(`Success! File saved to Google Drive`);
+    log(`View file: ${result.webViewLink}`);
+    
   } catch (error) {
     log(`Error: ${error.message}`);
+    console.error('Upload failed:', error);
   } finally {
     saveToJsonBtn.disabled = false;
   }
 }
+
+
     
     // ---- events ----
     fetchMetadataBtn.addEventListener('click', fetchMetadata);
