@@ -51,18 +51,14 @@ async function openNuSearch() {
           const imageUrl = detailedDoc.querySelector('.seriesimg img')?.src || 'Image not found';
           const type = detailedDoc.querySelector('#showtype a')?.textContent || 'Type not found';
           const genres = Array.from(detailedDoc.querySelectorAll('#seriesgenre a')).map(a => a.textContent).join(', ') || 'Genres not found';
-    const authors = Array.from(detailedDoc.querySelectorAll('#showauthors a')).map(a => a.textContent).join(', ') || 'Authors not found';
-    const authorUrls = Array.from(detailedDoc.querySelectorAll('#showauthors a')).map(a => a.href).join(', ') || 'Authors URL not found';
+          const authors = Array.from(detailedDoc.querySelectorAll('#showauthors a')).map(a => a.textContent).join(', ') || 'Authors not found';
+          const authorUrls = Array.from(detailedDoc.querySelectorAll('#showauthors a')).map(a => a.href).join(', ') || 'Authors URL not found';
           const year = detailedDoc.querySelector('#edityear')?.textContent || 'Year not found';
           const statuscoo = detailedDoc.querySelector('#editstatus')?.textContent || 'Status not found';
           const originalPublisher = detailedDoc.querySelector('#showopublisher a')?.textContent || 'Original Publisher not found';
           const englishPublisher = detailedDoc.querySelector('#showepublisher span')?.textContent || 'English Publisher not found';
           const description = detailedDoc.querySelector('#editdescription p')?.textContent || 'Description not found';
-const associatedNames = detailedDoc.querySelector('#editassociated')?.innerHTML || 'Associated Names not found';
-
-          const relatedSeries = Array.from(detailedDoc.querySelectorAll('h5.seriesother + div a')).map(a => `<a class="genre" href="${a.href}">${a.textContent}</a>`).join('<br>') || 'Related Series not found';
-          const recommendations = Array.from(detailedDoc.querySelectorAll('h5.seriesother + div a')).map(a => `<a class="genre" href="${a.href}">${a.textContent}</a>`).join('<br>') || 'Recommendations not found';
-          const language = detailedDoc.querySelector('#showlang a')?.textContent || 'Language not found';
+          const associatedNames = detailedDoc.querySelector('#editassociated')?.innerHTML || 'Associated Names not found';
 
           const formattedAssociatedNames = associatedNames.split(/<br\s*\/?>/gi).join(', ');
 
@@ -79,13 +75,13 @@ const associatedNames = detailedDoc.querySelector('#editassociated')?.innerHTML 
             </div>
             <h5 class="seriesother">Genre</h5>
             <span class="genremsg"></span>
-<div id="seriesgenre">
-  ${genres.split(', ').map(genre => `<a class="genre" href="#">${genre}</a>`).join(', ')}
-</div>
-     <h5 class="seriesother">Author(s)</h5>
-      <div id="showauthors">
-        ${authors.split(', ').map((author, index) => `<a class="genre" href="${authorUrls.split(', ')[index]}">${author}</a>`).join(', ')}
-      </div>
+            <div id="seriesgenre">
+              ${genres.split(', ').map(genre => `<a class="genre" href="#">${genre}</a>`).join(', ')}
+            </div>
+            <h5 class="seriesother">Author(s)</h5>
+            <div id="showauthors">
+              ${authors.split(', ').map((author, index) => `<a class="genre" href="${authorUrls.split(', ')[index]}">${author}</a>`).join(', ')}
+            </div>
             <h5 class="seriesother">Year</h5>
             <div id="edityear">${year}</div>
             <h5 class="seriesother" title="Status in Country of Origin">Status in COO</h5>
@@ -109,7 +105,15 @@ const associatedNames = detailedDoc.querySelector('#editassociated')?.innerHTML 
           `;
 
           nuInfoResults.innerHTML = detailedContent;
-          autoFillBtn.disabled = false;
+
+          // Automatically open the metadata edit form
+          showEditMetadataForm();
+
+          // Automatically fill the metadata fields
+          autoFillBtn.click();
+
+          // Automatically submit the form
+          document.getElementById('metadataForm').querySelector('button[type="submit"]').click();
         } catch (e) {
           log(`Error fetching detailed info: ${e.message}`);
         }
@@ -121,6 +125,7 @@ const associatedNames = detailedDoc.querySelector('#editassociated')?.innerHTML 
     nuBtn.disabled = false;
   }
 }
+
 
 /* ---------- AutoFill button click event ---------- */
 autoFillBtn.addEventListener('click', () => {
