@@ -54,7 +54,7 @@ async function openNuSearch() {
     const authors = Array.from(detailedDoc.querySelectorAll('#showauthors a')).map(a => a.textContent).join(', ') || 'Authors not found';
     const authorUrls = Array.from(detailedDoc.querySelectorAll('#showauthors a')).map(a => a.href).join(', ') || 'Authors URL not found';
           const year = detailedDoc.querySelector('#edityear')?.textContent || 'Year not found';
-          const status = detailedDoc.querySelector('#editstatus')?.textContent || 'Status not found';
+          const statuscoo = detailedDoc.querySelector('#editstatus')?.textContent || 'Status not found';
           const originalPublisher = detailedDoc.querySelector('#showopublisher a')?.textContent || 'Original Publisher not found';
           const englishPublisher = detailedDoc.querySelector('#showepublisher span')?.textContent || 'English Publisher not found';
           const description = detailedDoc.querySelector('#editdescription p')?.textContent || 'Description not found';
@@ -89,7 +89,7 @@ const associatedNames = detailedDoc.querySelector('#editassociated')?.innerHTML 
             <h5 class="seriesother">Year</h5>
             <div id="edityear">${year}</div>
             <h5 class="seriesother" title="Status in Country of Origin">Status in COO</h5>
-            <div id="editstatus">${status}</div>
+            <div id="editstatus">${statuscoo}</div>
             <h5 class="seriesother">Original Publisher</h5>
             <div id="showopublisher">
               <a class="genre" href="#">${originalPublisher}</a>
@@ -127,14 +127,25 @@ autoFillBtn.addEventListener('click', () => {
   const coverUrl = nuInfoResults.querySelector('.seriesimg img')?.src || '';
   const altTitle = nuInfoResults.querySelector('#editassociated')?.textContent || '';
   const date = nuInfoResults.querySelector('#edityear')?.textContent || '';
+  const statuscoo = nuInfoResults.querySelector('#editstatuscoo')?.textContent || '';
+  const language = nuInfoResults.querySelector('#editlanguage')?.textContent || '';
+  const originalPublisher = nuInfoResults.querySelector('#editoriginalPublisher')?.textContent || '';
+
 
   const editCover = document.getElementById('editCover');
   const editAltTitle = document.getElementById('editaltitile');
   const editDate = document.getElementById('editdate');
+  const editstatuscoo = document.getElementById('editstatuscoo');
+  const editlanguage = document.getElementById('editlanguage');
+  const editoriginalPublisher = document.getElementById('editoriginalPublisher');
+
 
   if (editCover) editCover.value = coverUrl;
   if (editAltTitle) editAltTitle.value = altTitle;
   if (editDate) editDate.value = date;
+  if (editstatuscoo editstatuscoo.value = statuscoo;
+  if (editlanguage) editlanguage.value = language;
+  if (editoriginalPublisher) editoriginalPublisher.value = originalPublisher;
 });
 
 /* ---------- enable/disable button ---------- */
