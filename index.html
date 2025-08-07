@@ -298,7 +298,7 @@ async function saveJsonToGoogleDrive() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        title: `Novel - ${novelData.metadata.title}`,
+        title: `${novelData.metadata.title}`,
         content: jsonContent,
         folder: '16D-B7--4_NOjICRqDnHg0Z0SRH-SiWrH' // Your folder ID
       })
