@@ -2,8 +2,17 @@
   {
     "title": "Shinrei Tantei Yakumo",
     "cover": "https://novgo.net/uploads/thumbs/shinrei-tantei-yakumo-fa80d9de01-2239c49aee6b961904acf173b7e4602a.jpg",
-    "author": ["Kaminaga Manabu"],
-    "genres": ["Drama", "Horror", "Mystery", "Romance", "Shoujo", "Supernatural"],
+    "author": [
+      "Kaminaga Manabu"
+    ],
+    "genres": [
+      "Drama",
+      "Horror",
+      "Mystery",
+      "Romance",
+      "Shoujo",
+      "Supernatural"
+    ],
     "status": "Completed",
     "source": "Unknown",
     "description": "Haruka, consulted by a friend who ran into a ghost at school, goes to the Movie Research Circle to see a man with mysterious powers. However, the person who meets her there is an affected young man with terrible bed hair and sleepy eyes. What does Haruka consult him about? A confinement and murder case at a women’s university, a false suicide case… The great detective who can see the spirits of the dead, Saitou Yakumo, takes these cases on in this astoundingly high-speed spiritual mystery!"
@@ -11,8 +20,14 @@
   {
     "title": "Another Novel Title",
     "cover": "https://example.com/another-novel-cover.jpg",
-    "author": ["Author Name"],
-    "genres": ["Genre1", "Genre2", "Genre3"],
+    "author": [
+      "Author Name"
+    ],
+    "genres": [
+      "Genre1",
+      "Genre2",
+      "Genre3"
+    ],
     "status": "Ongoing",
     "source": "Source Information",
     "description": "Description of another novel."
