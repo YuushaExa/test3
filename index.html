@@ -326,6 +326,18 @@ function showEditMetadataForm() {
         <label for="editdate">Date:</label>
         <input type="text" id="editdate" name="date" value="${metadata.date || ''}">
       </div>
+        <div class="form-group">
+        <label for="editlanguage">Language:</label>
+        <input type="text" id="editlanguage" name="language" value="${metadata.language || ''}">
+      </div>
+        <div class="form-group">
+        <label for="editoriginalPublisher">Alt Title:</label>
+        <input type="text" id="editoriginalPublisher" name="originalPublisher" value="${metadata.originalPublisher || ''}">
+      </div>
+          <div class="form-group">
+        <label for="editstatuscoo">Alt Title:</label>
+        <input type="text" id="editstatuscoo" name="statuscoo" value="${metadata.statuscoo || ''}">
+      </div>
       <button type="submit">Save Changes</button>
       <button type="button" onclick="document.getElementById('metadataForm').remove()">Cancel</button>
     </form>
@@ -347,6 +359,9 @@ function showEditMetadataForm() {
       source: formData.get('source'),
       description: formData.get('description'),
       altitile: formData.get('altitile'),
+      language: formData.get('language'),
+      originalPublisher: formData.get('originalPublisher'),
+      statuscoo: formData.get('statuscoo'),
       date: formData.get('date')
     };
   
