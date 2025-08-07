@@ -143,7 +143,7 @@ autoFillBtn.addEventListener('click', () => {
   if (editCover) editCover.value = coverUrl;
   if (editAltTitle) editAltTitle.value = altTitle;
   if (editDate) editDate.value = date;
-  if (editstatuscoo editstatuscoo.value = statuscoo;
+  if (editstatuscoo) editstatuscoo.value = statuscoo;
   if (editlanguage) editlanguage.value = language;
   if (editoriginalPublisher) editoriginalPublisher.value = originalPublisher;
 });
