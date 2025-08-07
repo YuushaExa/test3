@@ -234,25 +234,30 @@ document.getElementById('saveMetadataBtn').addEventListener('click', async () =>
       return;
     }
 
+    // Log what we're about to send
+    console.log('Sending metadata:', metadata);
+
     const response = await fetch('https://curly-pond-9050.yuush.workers.dev/api/saveMetadata', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(metadata),
+      body: JSON.stringify(metadata)
     });
 
     const result = await response.json();
     if (result.success) {
-      alert('Metadata saved successfully');
+      alert(result.message || 'Metadata saved successfully');
+      console.log('Save result:', result);
     } else {
-      alert('Error saving metadata: ' + result.error);
+      alert('Error saving metadata: ' + (result.error || 'Unknown error'));
+      console.error('Save error:', result);
     }
   } catch (error) {
     alert('Error saving metadata: ' + error.message);
+    console.error('Save failed:', error);
   }
 });
-    
     // ---- export JSON ----
 function downloadJson() {
   if (!novelData.metadata?.title) return alert('No data to save');
