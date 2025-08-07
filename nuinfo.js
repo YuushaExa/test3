@@ -1,4 +1,3 @@
-<script>
 /* ---------- helpers ---------- */
 const nuBtn = document.getElementById('nuInfoBtn');
 const autoFillBtn = document.getElementById('autoFillBtn');
@@ -148,4 +147,3 @@ fetchMetadataBtn.addEventListener('click', () => {
   }, 500);
 });
 nuBtn.addEventListener('click', openNuSearch);
-</script>
