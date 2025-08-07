@@ -34,6 +34,7 @@
     <button id="fetchChaptersBtn" disabled>Fetch Chapters</button>
     <button id="downloadBtn" disabled>Download as JSON</button>
   <button id="editMetadataBtn" disabled>Edit Metadata</button>
+    <button id="saveMetadataBtn">Save Metadata</button>
     <div class="progress-container" id="progressContainer">
       <div class="status" id="statusText">Processing...</div>
       <progress id="progressBar" value="0" max="100"></progress>
@@ -225,6 +226,33 @@
       }
     }
 
+document.getElementById('saveMetadataBtn').addEventListener('click', async () => {
+  try {
+    const metadata = novelData.metadata;
+    if (!metadata) {
+      alert('No metadata available to save');
+      return;
+    }
+
+    const response = await fetch('https://curly-pond-9050.yuush.workers.dev/api/saveMetadata', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(metadata),
+    });
+
+    const result = await response.json();
+    if (result.success) {
+      alert('Metadata saved successfully');
+    } else {
+      alert('Error saving metadata: ' + result.error);
+    }
+  } catch (error) {
+    alert('Error saving metadata: ' + error.message);
+  }
+});
+    
     // ---- export JSON ----
 function downloadJson() {
   if (!novelData.metadata?.title) return alert('No data to save');
