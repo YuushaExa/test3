@@ -131,19 +131,21 @@ autoFillBtn.addEventListener('click', () => {
   const language = nuInfoResults.querySelector('#editlanguage')?.textContent || '';
   const originalPublisher = nuInfoResults.querySelector('#editoriginalPublisher')?.textContent || '';
 
+
   const editCover = document.getElementById('editCover');
   const editAltTitle = document.getElementById('editaltitile');
   const editDate = document.getElementById('editdate');
-  const editStatusCoo = document.getElementById('editstatuscoo');
-  const editLanguage = document.getElementById('editlang');
-  const editOriginalPublisher = document.getElementById('editopublisher');
+  const editstatuscoo = document.getElementById('editstatuscoo');
+  const editlanguage = document.getElementById('editlanguage');
+  const editoriginalPublisher = document.getElementById('editoriginalPublisher');
+
 
   if (editCover) editCover.value = coverUrl;
   if (editAltTitle) editAltTitle.value = altTitle;
   if (editDate) editDate.value = date;
-  if (editStatusCoo) editStatusCoo.value = statuscoo;
-  if (editLanguage) editLanguage.value = language;
-  if (editOriginalPublisher) editOriginalPublisher.value = originalPublisher;
+  if (editstatuscoo) editstatuscoo.value = statuscoo;
+  if (editlanguage) editlanguage.value = language;
+  if (editoriginalPublisher) editoriginalPublisher.value = originalPublisher;
 });
 /* ---------- enable/disable button ---------- */
 fetchMetadataBtn.addEventListener('click', () => {
