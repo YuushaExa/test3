@@ -127,7 +127,7 @@ autoFillBtn.addEventListener('click', () => {
   const coverUrl = nuInfoResults.querySelector('.seriesimg img')?.src || '';
   const altTitle = nuInfoResults.querySelector('#editassociated')?.textContent || '';
   const date = nuInfoResults.querySelector('#edityear')?.textContent || '';
-  const statuscoo = nuInfoResults.querySelector('#editstatuscoo')?.textContent || '';
+  const statuscoo = nuInfoResults.querySelector('#editstatus')?.textContent || '';
   const language = nuInfoResults.querySelector('#editlanguage')?.textContent || '';
   const originalPublisher = nuInfoResults.querySelector('#editoriginalPublisher')?.textContent || '';
 
@@ -135,7 +135,7 @@ autoFillBtn.addEventListener('click', () => {
   const editCover = document.getElementById('editCover');
   const editAltTitle = document.getElementById('editaltitile');
   const editDate = document.getElementById('editdate');
-  const editstatuscoo = document.getElementById('editstatuscoo');
+  const editstatuscoo = document.getElementById('editstatus');
   const editlanguage = document.getElementById('editlanguage');
   const editoriginalPublisher = document.getElementById('editoriginalPublisher');
 
