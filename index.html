@@ -51,6 +51,7 @@
     const fetchMetadataBtn= document.getElementById('fetchMetadataBtn');
     const fetchChaptersBtn= document.getElementById('fetchChaptersBtn');
     const downloadBtn     = document.getElementById('downloadBtn');
+        const saveToJsonBtn   = document.getElementById('saveToJsonBtn'); 
     const progressContainer = document.getElementById('progressContainer');
     const progressBar     = document.getElementById('progressBar');
     const statusText      = document.getElementById('statusText');
@@ -219,6 +220,7 @@
 
         log('\nAll chapters fetched!');
         downloadBtn.disabled = false;
+        saveToJsonBtn.disabled = false; 
         progressContainer.style.display = 'none';
       } catch (err) {
         log(`Error: ${err.message}`);
