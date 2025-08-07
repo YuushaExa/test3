@@ -280,94 +280,34 @@ function downloadJson() {
 
   // ---- save JSON to Google Drive ----
 async function saveJsonToGoogleDrive() {
-  if (!novelData.metadata?.title) {
-    alert('No novel data available');
-    return;
-  }
-
-  const saveBtn = document.getElementById('saveToJsonBtn');
-  const originalText = saveBtn.textContent;
-  saveBtn.disabled = true;
-  saveBtn.textContent = 'Authenticating...';
-
-  // Prepare data
+  if (!novelData.metadata?.title) return alert('No data to save');
+  
   const cleanData = {
-    metadata: novelData.metadata,
+    ...novelData,
     chapters: novelData.chapters.map(({ url, ...rest }) => rest)
   };
-  const fileName = novelData.metadata.title.replace(/[^a-z0-9]/gi, '_');
-  const jsonContent = JSON.stringify(cleanData, null, 2);
 
-  // Open auth window
-  const authWindow = window.open(
-    `${WORKER_URL}/auth`,
-    'google-auth',
-    'width=500,height=600'
-  );
+  try {
+    const response = await fetch(`${WORKER_URL}/api/saveToGoogleDrive`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: novelData.metadata.title,
+        content: JSON.stringify(cleanData, null, 2)
+      })
+    });
 
-  // Message handler
-  const messageHandler = async (event) => {
-    if (event.origin !== new URL(WORKER_URL).origin) return;
-
-    try {
-      saveBtn.textContent = 'Uploading...';
-      log('Authentication successful, starting upload...');
-
-      if (event.data.error) {
-        throw new Error(event.data.error);
-      }
-
-      const { refresh_token } = event.data;
-      if (!refresh_token) {
-        throw new Error('No refresh token received');
-      }
-
-      // Upload to Drive
-      const response = await fetch(`${WORKER_URL}/api/saveToGoogleDrive`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: fileName,
-          content: jsonContent,
-          refreshToken: refresh_token
-        })
-      });
-
-      const result = await response.json();
-      
-      if (!result.success) {
-        throw new Error(result.error || 'Upload failed');
-      }
-
-      log(`\n✓ Upload successful!`);
-      log(`View file: ${result.webViewLink}`);
-      alert(`Saved to Google Drive!\n\n${result.webViewLink}`);
-
-    } catch (error) {
-      log(`\n✖ Error: ${error.message}`);
-      alert(`Failed: ${error.message}`);
-    } finally {
-      saveBtn.disabled = false;
-      saveBtn.textContent = originalText;
-      window.removeEventListener('message', messageHandler);
-      if (authWindow) authWindow.close();
+    const result = await response.json();
+    if (result.success) {
+      alert(`Saved to Google Drive: ${result.webViewLink}`);
+    } else {
+      alert(`Error: ${result.error}`);
     }
-  };
-
-  window.addEventListener('message', messageHandler);
-
-  // Timeout after 5 minutes
-  setTimeout(() => {
-    if (authWindow && !authWindow.closed) {
-      authWindow.close();
-      log('\n✖ Authentication timed out');
-      alert('Google authentication timed out. Please try again.');
-      saveBtn.disabled = false;
-      saveBtn.textContent = originalText;
-      window.removeEventListener('message', messageHandler);
-    }
-  }, 300000);
+  } catch (error) {
+    alert(`Error: ${error.message}`);
+  }
 }
+
     
     // ---- events ----
     fetchMetadataBtn.addEventListener('click', fetchMetadata);
