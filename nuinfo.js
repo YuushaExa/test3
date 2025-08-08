@@ -108,7 +108,17 @@ const associatedNames = detailedDoc.querySelector('#editassociated')?.innerHTML 
             <div id="editdescription">${description}</div>
           `;
 
-          nuInfoResults.innerHTML = detailedContent;
+          // Get first author URL
+const firstAuthorUrl = detailedDoc.querySelector('#showauthors a')?.href;
+
+let authorWorksHtml = '';
+if (firstAuthorUrl) {
+  authorWorksHtml = await fetchAuthorWorks(firstAuthorUrl);
+}
+
+// Append author works to detailed content
+nuInfoResults.innerHTML = detailedContent + authorWorksHtml;
+
           autoFillBtn.disabled = false;
           showEditMetadataForm();
           autoFillBtn.click();
@@ -116,15 +126,6 @@ const associatedNames = detailedDoc.querySelector('#editassociated')?.innerHTML 
           if (submitButton) {
             submitButton.click();
           }
-
-nuInfoResults.querySelectorAll('#showauthors a.genre').forEach(authorLink => {
-  authorLink.addEventListener('click', async (e) => {
-    e.preventDefault();
-    const authorUrl = authorLink.href;
-    await fetchAuthorWorks(authorUrl);
-  });
-});
-          
         } catch (e) {
           log(`Error fetching detailed info: ${e.message}`);
         }
@@ -137,51 +138,36 @@ nuInfoResults.querySelectorAll('#showauthors a.genre').forEach(authorLink => {
   }
 }
 
-/* ---------- Fetch and display author's works ---------- */
+// ---------- Fetch Author Works ----------
 async function fetchAuthorWorks(authorUrl) {
   try {
     log(`Fetching author works from: ${authorUrl}`);
-    const html = await fetchRawHTML(authorUrl);
-    const doc = new DOMParser().parseFromString(html, 'text/html');
-    
-    const authorName = doc.querySelector('h1.seriestitlenu')?.textContent || 'Author';
-    const works = doc.querySelectorAll('.search_main_box_nu');
-    
+    const authorHtml = await fetchRawHTML(authorUrl);
+    const authorDoc = new DOMParser().parseFromString(authorHtml, 'text/html');
+    const works = authorDoc.querySelectorAll('.search_main_box_nu');
+
     if (!works.length) {
       log('No works found for this author.');
-      return;
+      return '<p>No other works found for this author.</p>';
     }
-    
-    let resultsHtml = `<h3>${authorName}'s Works</h3>`;
-    works.forEach(box => {
-      const titleLink = box.querySelector('.search_title a');
-      const infoButton = `<button class="info-btn" data-url="${titleLink.href}">Info</button>`;
-      resultsHtml += box.outerHTML + infoButton + '<hr>';
+
+    let worksHtml = '';
+    works.forEach(work => {
+      worksHtml += work.outerHTML + '<hr>';
     });
-    
-    nuInfoResults.innerHTML = resultsHtml;
-    
-    // Add click event to each Info button in author works
-    document.querySelectorAll('.info-btn').forEach(button => {
-      button.addEventListener('click', async () => {
-        const url = button.getAttribute('data-url');
-        try {
-          const detailedHtml = await fetchRawHTML(url);
-          const detailedDoc = new DOMParser().parseFromString(detailedHtml, 'text/html');
-          
-          // ... (same detailed info extraction code as in openNuSearch)
-          // You should reuse the same detailed info extraction code here
-          
-        } catch (e) {
-          log(`Error fetching detailed info: ${e.message}`);
-        }
-      });
-    });
-    
+
+    return `
+      <div id="AuthorWorks" style="margin-top:10px;">
+        <h5 class="seriesother">Other Works by Author</h5>
+        ${worksHtml}
+      </div>
+    `;
   } catch (e) {
     log(`Error fetching author works: ${e.message}`);
+    return '<p>Error fetching author works.</p>';
   }
 }
+
 
 /* ---------- AutoFill button click event ---------- */
 autoFillBtn.addEventListener('click', () => {
