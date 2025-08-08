@@ -153,13 +153,19 @@ async function fetchAuthorWorks(authorUrl) {
     const html = await fetchRawHTML(authorUrl);
     const doc = new DOMParser().parseFromString(html, 'text/html');
     
-    return Array.from(doc.querySelectorAll('.search_main_box_nu')).map(box => {
-      return {
-        title: box.querySelector('.search_title a')?.textContent || 'Untitled',
+    const works = [];
+    const workElements = doc.querySelectorAll('.search_main_box_nu');
+    
+    workElements.forEach(box => {
+      works.push({
+        title: box.querySelector('.search_title a')?.textContent?.trim() || 'Untitled',
         url: box.querySelector('.search_title a')?.href || '#',
-        description: box.querySelector('.search_body_nu')?.textContent?.trim() || 'No description'
-      };
+        description: box.querySelector('.search_body_nu')?.textContent?.trim() || 'No description',
+        genres: Array.from(box.querySelectorAll('.search_genre a')).map(a => a.textContent.trim())
+      });
     });
+    
+    return works;
   } catch (e) {
     log(`Error fetching author works: ${e.message}`);
     return [];
