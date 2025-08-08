@@ -62,6 +62,10 @@ class EpubGenerator {
   <h1>${this.novelData.metadata.title}</h1>
   <p><strong>Author:</strong> ${this.novelData.metadata.author.join(', ')}</p>
   <p><strong>Status:</strong> ${this.novelData.metadata.status}</p>
+  ${this.novelData.metadata.altitile.length ? `<p><strong>Alternative Title:</strong> ${this.novelData.metadata.altitile.join(', ')}</p>` : ''}
+  <p><strong>Original Language:</strong> ${this.novelData.metadata.language}</p>
+  <p><strong>Original Publisher:</strong> ${this.novelData.metadata.originalPublisher}</p>
+  <p><strong>Original Status:</strong> ${this.novelData.metadata.statuscoo}</p>
   ${this.novelData.metadata.genres.length ? `<p><strong>Genres:</strong> ${this.novelData.metadata.genres.join(', ')}</p>` : ''}
   <h3>Description</h3>
   <p>${this.novelData.metadata.description}</p>
