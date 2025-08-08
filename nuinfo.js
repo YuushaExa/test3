@@ -67,10 +67,22 @@ const associatedNames = detailedDoc.querySelector('#editassociated')?.innerHTML 
           const formattedAssociatedNames = associatedNames.split(/<br\s*\/?>/gi).join(', ');
 
           
-novelData.authorWorks = [];
-    for (const authorUrl of authorUrls) {
-      const authorWorks = await fetchAuthorWorks(authorUrl);
-      novelData.authorWorks.push(...authorWorks);
+ const authorLinks = detailedDoc.querySelectorAll('#showauthors a');
+    novelData.authorWorks = [];
+
+    // Fetch works for each author
+    for (const authorLink of authorLinks) {
+      const authorUrl = authorLink.href;
+      const authorName = authorLink.textContent;
+      
+      log(`Fetching works by ${authorName}...`);
+      const works = await fetchAuthorWorks(authorUrl);
+      
+      novelData.authorWorks.push({
+        authorName,
+        authorUrl,
+        works
+      });
     }
 
           
