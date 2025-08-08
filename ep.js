@@ -53,8 +53,8 @@ class EpubGenerator {
       toc.push({ id: 'cover-page', href: 'cover.xhtml', title: 'Cover', isCover: true });
     }
 
-    /* 4. Information page */
-    const infoPage = `<?xml version="1.0" encoding="utf-8"?>
+/* 4. Information page */
+const infoPage = `<?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head><title>Information</title><meta charset="utf-8"/></head>
@@ -62,10 +62,10 @@ class EpubGenerator {
   <h1>${this.novelData.metadata.title}</h1>
   <p><strong>Author:</strong> ${this.novelData.metadata.author.join(', ')}</p>
   <p><strong>Status:</strong> ${this.novelData.metadata.status}</p>
-  ${this.novelData.metadata.altitile.length ? `<p><strong>Alternative Title:</strong> ${this.novelData.metadata.altitile.join(', ')}</p>` : ''}
-  <p><strong>Original Language:</strong> ${this.novelData.metadata.language}</p>
-  <p><strong>Original Publisher:</strong> ${this.novelData.metadata.originalPublisher}</p>
-  <p><strong>Original Status:</strong> ${this.novelData.metadata.statuscoo}</p>
+  ${this.novelData.metadata.altitile ? `<p><strong>Alternative Title:</strong> ${Array.isArray(this.novelData.metadata.altitile) ? this.novelData.metadata.altitile.join(', ') : this.novelData.metadata.altitile}</p>` : ''}
+  ${this.novelData.metadata.language ? `<p><strong>Original Language:</strong> ${this.novelData.metadata.language}</p>` : ''}
+  ${this.novelData.metadata.originalPublisher ? `<p><strong>Original Publisher:</strong> ${this.novelData.metadata.originalPublisher}</p>` : ''}
+  ${this.novelData.metadata.statuscoo ? `<p><strong>Original Status:</strong> ${this.novelData.metadata.statuscoo}</p>` : ''}
   ${this.novelData.metadata.genres.length ? `<p><strong>Genres:</strong> ${this.novelData.metadata.genres.join(', ')}</p>` : ''}
   <h3>Description</h3>
   <p>${this.novelData.metadata.description}</p>
