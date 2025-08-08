@@ -66,26 +66,6 @@ const associatedNames = detailedDoc.querySelector('#editassociated')?.innerHTML 
 
           const formattedAssociatedNames = associatedNames.split(/<br\s*\/?>/gi).join(', ');
 
-          
- const authorLinks = detailedDoc.querySelectorAll('#showauthors a');
-    novelData.authorWorks = [];
-
-    // Fetch works for each author
-    for (const authorLink of authorLinks) {
-      const authorUrl = authorLink.href;
-      const authorName = authorLink.textContent;
-      
-      log(`Fetching works by ${authorName}...`);
-      const works = await fetchAuthorWorks(authorUrl);
-      
-      novelData.authorWorks.push({
-        authorName,
-        authorUrl,
-        works
-      });
-    }
-
-          
           // Format associated names by new line
           const detailedContent = `
             <div class="seriestitlenu" style="font-size:18px; margin-top: 10px; color: #292e33;">${title}</div>
@@ -145,30 +125,6 @@ const associatedNames = detailedDoc.querySelector('#editassociated')?.innerHTML 
     log(`NU search error: ${e.message}`);
   } finally {
     nuBtn.disabled = false;
-  }
-}
-
-async function fetchAuthorWorks(authorUrl) {
-  try {
-    const html = await fetchRawHTML(authorUrl);
-    const doc = new DOMParser().parseFromString(html, 'text/html');
-    
-    const works = [];
-    const workElements = doc.querySelectorAll('.search_main_box_nu');
-    
-    workElements.forEach(box => {
-      works.push({
-        title: box.querySelector('.search_title a')?.textContent?.trim() || 'Untitled',
-        url: box.querySelector('.search_title a')?.href || '#',
-        description: box.querySelector('.search_body_nu')?.textContent?.trim() || 'No description',
-        genres: Array.from(box.querySelectorAll('.search_genre a')).map(a => a.textContent.trim())
-      });
-    });
-    
-    return works;
-  } catch (e) {
-    log(`Error fetching author works: ${e.message}`);
-    return [];
   }
 }
 
