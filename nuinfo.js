@@ -66,7 +66,7 @@ nuInfoResults.addEventListener('click', async (ev) => {
   } finally {
     nuBtn.disabled = false;
   }
-});
+
         try {
           const detailedHtml = await fetchRawHTML(url);
           const detailedDoc = new DOMParser().parseFromString(detailedHtml, 'text/html');
