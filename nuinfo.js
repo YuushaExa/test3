@@ -40,106 +40,86 @@ async function openNuSearch() {
     nuInfo.style.display = 'block';
 
     // Add click event to each Info button
-/* ---------- Fetch & display every work by every author ---------- */
-async function loadAuthorWorks() {
-  const authorLinks = nuInfoResults.querySelectorAll('#showauthors a.genre');
-  if (!authorLinks.length) return;
+    document.querySelectorAll('.info-btn').forEach(button => {
+      button.addEventListener('click', async () => {
+        const url = button.getAttribute('data-url');
+        try {
+          const detailedHtml = await fetchRawHTML(url);
+          const detailedDoc = new DOMParser().parseFromString(detailedHtml, 'text/html');
 
-  // container for author works
-  let authorWorksDiv = document.getElementById('AuthorWorks');
-  if (!authorWorksDiv) {
-    authorWorksDiv = document.createElement('div');
-    authorWorksDiv.id = 'AuthorWorks';
-    authorWorksDiv.style.marginTop = '20px';
-    nuInfoResults.appendChild(authorWorksDiv);
-  }
-  authorWorksDiv.innerHTML = '<h4 style="margin-bottom:8px;">Author Works</h4>';
-
-  for (const link of authorLinks) {
-    const authorUrl = link.href;
-    try {
-      const html = await fetchRawHTML(authorUrl);
-      const dom = new DOMParser().parseFromString(html, 'text/html');
-      const boxes = dom.querySelectorAll('.search_main_box_nu');
-
-      boxes.forEach(box => {
-        // clone so we keep original styling
-        const clone = box.cloneNode(true);
-        authorWorksDiv.appendChild(clone);
-      });
-    } catch (e) {
-      console.error(`Failed to fetch author page ${authorUrl}`, e);
-    }
-  }
-}
-
-/* ---------- Hook it into the existing Info click ---------- */
-/* We replace the single info-btn handler with a tiny wrapper */
-document.addEventListener('click', async e => {
-  if (!e.target.classList.contains('info-btn')) return;
-
-  // first run the original logic
-  const url = e.target.getAttribute('data-url');
-  try {
-    const detailedHtml = await fetchRawHTML(url);
-    const detailedDoc = new DOMParser().parseFromString(detailedHtml, 'text/html');
-
-    /* ========== ORIGINAL EXTRACTION ========== */
-    const title = detailedDoc.querySelector('.seriestitlenu')?.textContent || 'Title not found';
-    const imageUrl = detailedDoc.querySelector('.seriesimg img')?.src || 'Image not found';
-    const type = detailedDoc.querySelector('#showtype a')?.textContent || 'Type not found';
-    const genres = Array.from(detailedDoc.querySelectorAll('#seriesgenre a')).map(a => a.textContent).join(', ') || 'Genres not found';
+          const title = detailedDoc.querySelector('.seriestitlenu')?.textContent || 'Title not found';
+          const imageUrl = detailedDoc.querySelector('.seriesimg img')?.src || 'Image not found';
+          const type = detailedDoc.querySelector('#showtype a')?.textContent || 'Type not found';
+          const genres = Array.from(detailedDoc.querySelectorAll('#seriesgenre a')).map(a => a.textContent).join(', ') || 'Genres not found';
     const authors = Array.from(detailedDoc.querySelectorAll('#showauthors a')).map(a => a.textContent).join(', ') || 'Authors not found';
     const authorUrls = Array.from(detailedDoc.querySelectorAll('#showauthors a')).map(a => a.href).join(', ') || 'Authors URL not found';
-    const year = detailedDoc.querySelector('#edityear')?.textContent || 'Year not found';
-    const statuscoo = detailedDoc.querySelector('#editstatus')?.textContent || 'Status not found';
-    const originalPublisher = detailedDoc.querySelector('#showopublisher a')?.textContent || 'Original Publisher not found';
-    const englishPublisher = detailedDoc.querySelector('#showepublisher span')?.textContent || 'English Publisher not found';
-    const description = detailedDoc.querySelector('#editdescription p')?.textContent || 'Description not found';
-    const associatedNames = detailedDoc.querySelector('#editassociated')?.innerHTML || 'Associated Names not found';
-    const formattedAssociatedNames = associatedNames.split(/<br\s*\/?>/gi).join(', ');
-    const language = detailedDoc.querySelector('#showlang a')?.textContent || 'Language not found';
+          const year = detailedDoc.querySelector('#edityear')?.textContent || 'Year not found';
+          const statuscoo = detailedDoc.querySelector('#editstatus')?.textContent || 'Status not found';
+          const originalPublisher = detailedDoc.querySelector('#showopublisher a')?.textContent || 'Original Publisher not found';
+          const englishPublisher = detailedDoc.querySelector('#showepublisher span')?.textContent || 'English Publisher not found';
+          const description = detailedDoc.querySelector('#editdescription p')?.textContent || 'Description not found';
+const associatedNames = detailedDoc.querySelector('#editassociated')?.innerHTML || 'Associated Names not found';
 
-    /* ========== INJECT INTO nuInfoResults ========== */
-    nuInfoResults.innerHTML = `
-      <div class="seriestitlenu" style="font-size:18px; margin-top: 10px; color: #292e33;">${title}</div>
-      <div class="seriesimg"><img src="${imageUrl}"></div>
-      <h5 class="seriesother">Type</h5>
-      <div id="showtype"><a class="genre type" href="#">${type}</a> <span style="color:#8D8D8D;">(${language})</span></div>
-      <h5 class="seriesother">Genre</h5>
-      <div id="seriesgenre">
-        ${genres.split(', ').map(g => `<a class="genre" href="#">${g}</a>`).join(', ')}
-      </div>
-      <h5 class="seriesother">Author(s)</h5>
+          const relatedSeries = Array.from(detailedDoc.querySelectorAll('h5.seriesother + div a')).map(a => `<a class="genre" href="${a.href}">${a.textContent}</a>`).join('<br>') || 'Related Series not found';
+          const recommendations = Array.from(detailedDoc.querySelectorAll('h5.seriesother + div a')).map(a => `<a class="genre" href="${a.href}">${a.textContent}</a>`).join('<br>') || 'Recommendations not found';
+          const language = detailedDoc.querySelector('#showlang a')?.textContent || 'Language not found';
+
+          const formattedAssociatedNames = associatedNames.split(/<br\s*\/?>/gi).join(', ');
+
+          // Format associated names by new line
+          const detailedContent = `
+            <div class="seriestitlenu" style="font-size:18px; margin-top: 10px; color: #292e33;">${title}</div>
+            <div class="seriesimg">
+              <img src="${imageUrl}">
+            </div>
+            <h5 class="seriesother">Type</h5>
+            <span class="typelmsg"></span>
+            <div id="showtype">
+              <a class="genre type" href="#">${type}</a> <span style="color:#8D8D8D;">(CN)</span><br>
+            </div>
+            <h5 class="seriesother">Genre</h5>
+            <span class="genremsg"></span>
+<div id="seriesgenre">
+  ${genres.split(', ').map(genre => `<a class="genre" href="#">${genre}</a>`).join(', ')}
+</div>
+     <h5 class="seriesother">Author(s)</h5>
       <div id="showauthors">
-        ${authors.split(', ').map((a, i) => `<a class="genre" href="${authorUrls.split(', ')[i]}">${a}</a>`).join(', ')}
+        ${authors.split(', ').map((author, index) => `<a class="genre" href="${authorUrls.split(', ')[index]}">${author}</a>`).join(', ')}
       </div>
-      <h5 class="seriesother">Year</h5><div id="edityear">${year}</div>
-      <h5 class="seriesother">Status in COO</h5><div id="editstatus">${statuscoo}</div>
-      <h5 class="seriesother">Original Publisher</h5>
-      <div id="showopublisher"><a class="genre" href="#">${originalPublisher}</a></div>
-      <h5 class="seriesother">English Publisher</h5>
-      <div id="showepublisher">${englishPublisher}</div>
-      <h5 class="seriesother">Associated Names</h5>
-      <div id="editassociated">${formattedAssociatedNames}</div>
-      <h5 class="descripti">Description</h5>
-      <div id="editdescription">${description}</div>
-    `;
+            <h5 class="seriesother">Year</h5>
+            <div id="edityear">${year}</div>
+            <h5 class="seriesother" title="Status in Country of Origin">Status in COO</h5>
+            <div id="editstatus">${statuscoo}</div>
+            <h5 class="seriesother">Original Publisher</h5>
+            <div id="showopublisher">
+              <a class="genre" href="#">${originalPublisher}</a>
+            </div>
+            <h5 class="seriesother">English Publisher</h5>
+            <div id="showepublisher">
+              ${englishPublisher}
+            </div>
+            <h5 class="seriesother">Language</h5>
+            <div id="showlang">
+              <a class="genre lang" href="#">${language}</a>
+            </div>
+            <h5 class="seriesother">Associated Names</h5>
+            <div id="editassociated">${formattedAssociatedNames}</div>
+            <h5 class="descripti">Description</h5>
+            <div id="editdescription">${description}</div>
+          `;
 
-    /* ========== NEW: load all works by every author ========== */
-    await loadAuthorWorks();
-
-    /* ========== auto-fill the metadata form ========== */
-    autoFillBtn.disabled = false;
-    showEditMetadataForm();
-    autoFillBtn.click();
-    const submitButton = document.querySelector('#metadataForm button[type="submit"]');
-    if (submitButton) submitButton.click();
-
-  } catch (e) {
-    log(`Error fetching detailed info: ${e.message}`);
-  }
-});
+          nuInfoResults.innerHTML = detailedContent;
+          autoFillBtn.disabled = false;
+          showEditMetadataForm();
+          autoFillBtn.click();
+          const submitButton = document.querySelector('#metadataForm button[type="submit"]');
+          if (submitButton) {
+            submitButton.click();
+          }
+        } catch (e) {
+          log(`Error fetching detailed info: ${e.message}`);
+        }
+      });
     });
   } catch (e) {
     log(`NU search error: ${e.message}`);
