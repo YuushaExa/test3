@@ -66,6 +66,14 @@ const associatedNames = detailedDoc.querySelector('#editassociated')?.innerHTML 
 
           const formattedAssociatedNames = associatedNames.split(/<br\s*\/?>/gi).join(', ');
 
+          
+novelData.authorWorks = [];
+    for (const authorUrl of authorUrls) {
+      const authorWorks = await fetchAuthorWorks(authorUrl);
+      novelData.authorWorks.push(...authorWorks);
+    }
+
+          
           // Format associated names by new line
           const detailedContent = `
             <div class="seriestitlenu" style="font-size:18px; margin-top: 10px; color: #292e33;">${title}</div>
@@ -125,6 +133,24 @@ const associatedNames = detailedDoc.querySelector('#editassociated')?.innerHTML 
     log(`NU search error: ${e.message}`);
   } finally {
     nuBtn.disabled = false;
+  }
+}
+
+async function fetchAuthorWorks(authorUrl) {
+  try {
+    const html = await fetchRawHTML(authorUrl);
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    
+    return Array.from(doc.querySelectorAll('.search_main_box_nu')).map(box => {
+      return {
+        title: box.querySelector('.search_title a')?.textContent || 'Untitled',
+        url: box.querySelector('.search_title a')?.href || '#',
+        description: box.querySelector('.search_body_nu')?.textContent?.trim() || 'No description'
+      };
+    });
+  } catch (e) {
+    log(`Error fetching author works: ${e.message}`);
+    return [];
   }
 }
 
