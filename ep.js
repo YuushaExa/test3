@@ -69,6 +69,17 @@ const infoPage = `<?xml version="1.0" encoding="utf-8"?>
   ${this.novelData.metadata.genres.length ? `<p><strong>Genres:</strong> ${this.novelData.metadata.genres.join(', ')}</p>` : ''}
   <h3>Description</h3>
   <p>${this.novelData.metadata.description}</p>
+    ${this.novelData.authorWorks?.length ? `
+  <h3>Other Works by ${this.novelData.metadata.author.join(', ')}</h3>
+  <ul>
+    ${this.novelData.authorWorks.map(work => `
+      <li>
+        <strong><a href="${work.url}">${work.title}</a></strong><br>
+        ${work.description}
+      </li>
+    `).join('')}
+  </ul>
+  ` : ''}
 </body>
 </html>`;
     oebps.file('info.xhtml', infoPage);
