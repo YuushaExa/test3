@@ -434,20 +434,20 @@ function showEditMetadataForm() {
   document.getElementById('metadataForm').addEventListener('submit', function(event) {
     event.preventDefault();
     const formData = new FormData(event.target);
-    const newMetadata = {
-      title: formData.get('title'),
-      cover: formData.get('cover'),
-      author: formData.get('authors').split(',').map(author => author.trim()),
-      genres: formData.get('genres').split(',').map(genre => genre.trim()),
-      status: formData.get('status'),
-      source: formData.get('source'),
-      description: formData.get('description'),
-      altitile: formData.get('altitile'),
-      language: formData.get('language'),
-      originalPublisher: formData.get('originalPublisher'),
-      statuscoo: formData.get('statuscoo'),
-      date: formData.get('date')
-    };
+const newMetadata = {
+  title: formData.get('title'),
+  cover: formData.get('cover'),
+  author: formData.get('authors').split(',').map(author => author.trim()),
+  genres: formData.get('genres').split(',').map(genre => genre.trim()),
+  status: formData.get('status'),
+  source: formData.get('source'),
+  description: formData.get('description'),
+  altitile: formData.get('altitile') || '', 
+  language: formData.get('language') || '',
+  originalPublisher: formData.get('originalPublisher') || '',
+  statuscoo: formData.get('statuscoo') || '',
+  date: formData.get('date') || ''
+};
   
     novelData.metadata = newMetadata;
     log('Metadata updated successfully');
