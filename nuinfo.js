@@ -128,6 +128,32 @@ const associatedNames = detailedDoc.querySelector('#editassociated')?.innerHTML 
   }
 }
 
+/* ---------- author “Info” deep-dive ---------- */
+document.addEventListener('click', async e => {
+  if (!e.target.classList.contains('info-btn')) return;   // only our injected buttons
+  const href = e.target.dataset.url;
+  if (!href.includes('/nauthor/')) return;                // only author links
+
+  try {
+    nuBtn.disabled = true;
+    log(`Fetching author works → ${href}`);
+    const html = await fetchRawHTML(href);
+    const doc  = new DOMParser().parseFromString(html, 'text/html');
+    const boxes = doc.querySelectorAll('.search_main_box_nu');
+    if (!boxes.length) { log('No works found for this author'); return; }
+
+    let htmlOut = '<div id="AuthorWorks" style="margin-top:10px;"><b>Other works by this author:</b><hr>';
+    boxes.forEach(box => htmlOut += box.outerHTML + '<hr>');
+    htmlOut += '</div>';
+
+    nuInfoResults.insertAdjacentHTML('beforeend', htmlOut);
+  } catch (err) {
+    log(`Author-works fetch failed: ${err.message}`);
+  } finally {
+    nuBtn.disabled = false;
+  }
+});
+
 /* ---------- AutoFill button click event ---------- */
 autoFillBtn.addEventListener('click', () => {
   const coverUrl = nuInfoResults.querySelector('.seriesimg img')?.src || '';
