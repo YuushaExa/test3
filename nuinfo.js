@@ -116,6 +116,15 @@ const associatedNames = detailedDoc.querySelector('#editassociated')?.innerHTML 
           if (submitButton) {
             submitButton.click();
           }
+
+nuInfoResults.querySelectorAll('#showauthors a.genre').forEach(authorLink => {
+  authorLink.addEventListener('click', async (e) => {
+    e.preventDefault();
+    const authorUrl = authorLink.href;
+    await fetchAuthorWorks(authorUrl);
+  });
+});
+          
         } catch (e) {
           log(`Error fetching detailed info: ${e.message}`);
         }
@@ -125,6 +134,52 @@ const associatedNames = detailedDoc.querySelector('#editassociated')?.innerHTML 
     log(`NU search error: ${e.message}`);
   } finally {
     nuBtn.disabled = false;
+  }
+}
+
+/* ---------- Fetch and display author's works ---------- */
+async function fetchAuthorWorks(authorUrl) {
+  try {
+    log(`Fetching author works from: ${authorUrl}`);
+    const html = await fetchRawHTML(authorUrl);
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    
+    const authorName = doc.querySelector('h1.seriestitlenu')?.textContent || 'Author';
+    const works = doc.querySelectorAll('.search_main_box_nu');
+    
+    if (!works.length) {
+      log('No works found for this author.');
+      return;
+    }
+    
+    let resultsHtml = `<h3>${authorName}'s Works</h3>`;
+    works.forEach(box => {
+      const titleLink = box.querySelector('.search_title a');
+      const infoButton = `<button class="info-btn" data-url="${titleLink.href}">Info</button>`;
+      resultsHtml += box.outerHTML + infoButton + '<hr>';
+    });
+    
+    nuInfoResults.innerHTML = resultsHtml;
+    
+    // Add click event to each Info button in author works
+    document.querySelectorAll('.info-btn').forEach(button => {
+      button.addEventListener('click', async () => {
+        const url = button.getAttribute('data-url');
+        try {
+          const detailedHtml = await fetchRawHTML(url);
+          const detailedDoc = new DOMParser().parseFromString(detailedHtml, 'text/html');
+          
+          // ... (same detailed info extraction code as in openNuSearch)
+          // You should reuse the same detailed info extraction code here
+          
+        } catch (e) {
+          log(`Error fetching detailed info: ${e.message}`);
+        }
+      });
+    });
+    
+  } catch (e) {
+    log(`Error fetching author works: ${e.message}`);
   }
 }
 
