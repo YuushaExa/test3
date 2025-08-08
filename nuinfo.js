@@ -9,31 +9,7 @@ function closeNuInfo() {
   nuInfoResults.innerHTML = '';
 }
 
-/* ---------- author “Info” deep-dive ---------- */
-document.addEventListener('click', async e => {
-  if (!e.target.classList.contains('info-btn')) return;   // only our injected buttons
-  const href = e.target.dataset.url;
-  if (!href.includes('/nauthor/')) return;                // only author links
 
-  try {
-    nuBtn.disabled = true;
-    log(`Fetching author works → ${href}`);
-    const html = await fetchRawHTML(href);
-    const doc  = new DOMParser().parseFromString(html, 'text/html');
-    const boxes = doc.querySelectorAll('.search_main_box_nu');
-    if (!boxes.length) { log('No works found for this author'); return; }
-
-    let htmlOut = '<div id="AuthorWorks" style="margin-top:10px;"><b>Other works by this author:</b><hr>';
-    boxes.forEach(box => htmlOut += box.outerHTML + '<hr>');
-    htmlOut += '</div>';
-
-    nuInfoResults.insertAdjacentHTML('beforeend', htmlOut);
-  } catch (err) {
-    log(`Author-works fetch failed: ${err.message}`);
-  } finally {
-    nuBtn.disabled = false;
-  }
-});
 /* ---------- fetch search page and display results ---------- */
 async function openNuSearch() {
   const query = novelData.metadata?.title?.trim()
@@ -65,9 +41,32 @@ async function openNuSearch() {
     nuInfo.style.display = 'block';
 
     // Add click event to each Info button
-    document.querySelectorAll('.info-btn').forEach(button => {
-      button.addEventListener('click', async () => {
-        const url = button.getAttribute('data-url');
+nuInfoResults.addEventListener('click', async (ev) => {
+  const btn = ev.target.closest('.info-btn');
+  if (!btn) return;
+  const url = btn.dataset.url;
+  if (!url.includes('/nauthor/')) return;      // only author pages
+
+  ev.stopPropagation();                        // don’t re-trigger outer listeners
+  try {
+    nuBtn.disabled = true;
+    log(`Fetching author works → ${url}`);
+    const html = await fetchRawHTML(url);
+    const doc   = new DOMParser().parseFromString(html, 'text/html');
+    const works = [...doc.querySelectorAll('.search_main_box_nu')];
+
+    if (!works.length) { log('No works found for this author'); return; }
+
+    let out = '<div id="AuthorWorks" style="margin-top:10px;"><b>Other works by this author:</b><hr>';
+    works.forEach(w => out += w.outerHTML + '<hr>');
+    out += '</div>';
+    nuInfoResults.insertAdjacentHTML('beforeend', out);
+  } catch (e) {
+    log(`Author-works fetch failed: ${e.message}`);
+  } finally {
+    nuBtn.disabled = false;
+  }
+});
         try {
           const detailedHtml = await fetchRawHTML(url);
           const detailedDoc = new DOMParser().parseFromString(detailedHtml, 'text/html');
