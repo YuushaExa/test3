@@ -1,14 +1,13 @@
 /* ---------- helpers ---------- */
-const nuBtn = document.getElementById('nuInfoBtn');
-const autoFillBtn = document.getElementById('autoFillBtn');
-const nuInfo = document.getElementById('nuInfo');
+const nuBtn      = document.getElementById('nuInfoBtn');
+const autoFillBtn= document.getElementById('autoFillBtn');
+const nuInfo     = document.getElementById('nuInfo');
 const nuInfoResults = document.getElementById('nuInfoResults');
 
 function closeNuInfo() {
   nuInfo.style.display = 'none';
   nuInfoResults.innerHTML = '';
 }
-
 
 /* ---------- fetch search page and display results ---------- */
 async function openNuSearch() {
@@ -40,119 +39,41 @@ async function openNuSearch() {
     nuInfoResults.innerHTML = resultsHtml;
     nuInfo.style.display = 'block';
 
-    // Add click event to each Info button
-nuInfoResults.addEventListener('click', async (ev) => {
-  const btn = ev.target.closest('.info-btn');
-  if (!btn) return;
-  const url = btn.dataset.url;
-  if (!url.includes('/nauthor/')) return;      // only author pages
+    /* ==========   AUTHOR  “INFO”  DEEP-DIVE   ========== */
+    nuInfoResults.addEventListener('click', async (ev) => {
+      const btn = ev.target.closest('.info-btn');
+      if (!btn) return;
+      const url = btn.dataset.url;
+      if (!url.includes('/nauthor/')) return;   // only author pages
 
-  ev.stopPropagation();                        // don’t re-trigger outer listeners
-  try {
-    nuBtn.disabled = true;
-    log(`Fetching author works → ${url}`);
-    const html = await fetchRawHTML(url);
-    const doc   = new DOMParser().parseFromString(html, 'text/html');
-    const works = [...doc.querySelectorAll('.search_main_box_nu')];
+      ev.stopPropagation();
+      try {
+        nuBtn.disabled = true;
+        log(`Fetching author works → ${url}`);
+        const html = await fetchRawHTML(url);
+        const doc   = new DOMParser().parseFromString(html, 'text/html');
+        const works = [...doc.querySelectorAll('.search_main_box_nu')];
 
-    if (!works.length) { log('No works found for this author'); return; }
+        if (!works.length) { log('No works found for this author'); return; }
 
-    let out = '<div id="AuthorWorks" style="margin-top:10px;"><b>Other works by this author:</b><hr>';
-    works.forEach(w => out += w.outerHTML + '<hr>');
-    out += '</div>';
-    nuInfoResults.insertAdjacentHTML('beforeend', out);
-  } catch (e) {
-    log(`Author-works fetch failed: ${e.message}`);
-  } finally {
-    nuBtn.disabled = false;
-  }
-
-        try {
-          const detailedHtml = await fetchRawHTML(url);
-          const detailedDoc = new DOMParser().parseFromString(detailedHtml, 'text/html');
-
-          const title = detailedDoc.querySelector('.seriestitlenu')?.textContent || 'Title not found';
-          const imageUrl = detailedDoc.querySelector('.seriesimg img')?.src || 'Image not found';
-          const type = detailedDoc.querySelector('#showtype a')?.textContent || 'Type not found';
-          const genres = Array.from(detailedDoc.querySelectorAll('#seriesgenre a')).map(a => a.textContent).join(', ') || 'Genres not found';
-    const authors = Array.from(detailedDoc.querySelectorAll('#showauthors a')).map(a => a.textContent).join(', ') || 'Authors not found';
-    const authorUrls = Array.from(detailedDoc.querySelectorAll('#showauthors a')).map(a => a.href).join(', ') || 'Authors URL not found';
-          const year = detailedDoc.querySelector('#edityear')?.textContent || 'Year not found';
-          const statuscoo = detailedDoc.querySelector('#editstatus')?.textContent || 'Status not found';
-          const originalPublisher = detailedDoc.querySelector('#showopublisher a')?.textContent || 'Original Publisher not found';
-          const englishPublisher = detailedDoc.querySelector('#showepublisher span')?.textContent || 'English Publisher not found';
-          const description = detailedDoc.querySelector('#editdescription p')?.textContent || 'Description not found';
-const associatedNames = detailedDoc.querySelector('#editassociated')?.innerHTML || 'Associated Names not found';
-
-          const relatedSeries = Array.from(detailedDoc.querySelectorAll('h5.seriesother + div a')).map(a => `<a class="genre" href="${a.href}">${a.textContent}</a>`).join('<br>') || 'Related Series not found';
-          const recommendations = Array.from(detailedDoc.querySelectorAll('h5.seriesother + div a')).map(a => `<a class="genre" href="${a.href}">${a.textContent}</a>`).join('<br>') || 'Recommendations not found';
-          const language = detailedDoc.querySelector('#showlang a')?.textContent || 'Language not found';
-
-          const formattedAssociatedNames = associatedNames.split(/<br\s*\/?>/gi).join(', ');
-
-          // Format associated names by new line
-          const detailedContent = `
-            <div class="seriestitlenu" style="font-size:18px; margin-top: 10px; color: #292e33;">${title}</div>
-            <div class="seriesimg">
-              <img src="${imageUrl}">
-            </div>
-            <h5 class="seriesother">Type</h5>
-            <span class="typelmsg"></span>
-            <div id="showtype">
-              <a class="genre type" href="#">${type}</a> <span style="color:#8D8D8D;">(CN)</span><br>
-            </div>
-            <h5 class="seriesother">Genre</h5>
-            <span class="genremsg"></span>
-<div id="seriesgenre">
-  ${genres.split(', ').map(genre => `<a class="genre" href="#">${genre}</a>`).join(', ')}
-</div>
-     <h5 class="seriesother">Author(s)</h5>
-      <div id="showauthors">
-        ${authors.split(', ').map((author, index) => `<a class="genre" href="${authorUrls.split(', ')[index]}">${author}</a>`).join(', ')}
-      </div>
-            <h5 class="seriesother">Year</h5>
-            <div id="edityear">${year}</div>
-            <h5 class="seriesother" title="Status in Country of Origin">Status in COO</h5>
-            <div id="editstatus">${statuscoo}</div>
-            <h5 class="seriesother">Original Publisher</h5>
-            <div id="showopublisher">
-              <a class="genre" href="#">${originalPublisher}</a>
-            </div>
-            <h5 class="seriesother">English Publisher</h5>
-            <div id="showepublisher">
-              ${englishPublisher}
-            </div>
-            <h5 class="seriesother">Language</h5>
-            <div id="showlang">
-              <a class="genre lang" href="#">${language}</a>
-            </div>
-            <h5 class="seriesother">Associated Names</h5>
-            <div id="editassociated">${formattedAssociatedNames}</div>
-            <h5 class="descripti">Description</h5>
-            <div id="editdescription">${description}</div>
-          `;
-
-          nuInfoResults.innerHTML = detailedContent;
-          autoFillBtn.disabled = false;
-          showEditMetadataForm();
-          autoFillBtn.click();
-          const submitButton = document.querySelector('#metadataForm button[type="submit"]');
-          if (submitButton) {
-            submitButton.click();
-          }
-        } catch (e) {
-          log(`Error fetching detailed info: ${e.message}`);
-        }
-      });
+        let out = '<div id="AuthorWorks" style="margin-top:10px;"><b>Other works by this author:</b><hr>';
+        works.forEach(w => out += w.outerHTML + '<hr>');
+        out += '</div>';
+        nuInfoResults.insertAdjacentHTML('beforeend', out);
+      } catch (e) {
+        log(`Author-works fetch failed: ${e.message}`);
+      } finally {
+        nuBtn.disabled = false;
+      }
     });
+    /* =================================================== */
+
   } catch (e) {
     log(`NU search error: ${e.message}`);
   } finally {
     nuBtn.disabled = false;
   }
 }
-
-
 
 /* ---------- AutoFill button click event ---------- */
 autoFillBtn.addEventListener('click', () => {
@@ -177,6 +98,7 @@ autoFillBtn.addEventListener('click', () => {
   if (editlanguage) editlanguage.value = language;
   if (editoriginalPublisher) editoriginalPublisher.value = originalPublisher;
 });
+
 /* ---------- enable/disable button ---------- */
 fetchMetadataBtn.addEventListener('click', () => {
   const chk = setInterval(() => {
