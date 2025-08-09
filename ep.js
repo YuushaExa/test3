@@ -104,11 +104,13 @@ ${Array.isArray(this.novelData.metadata.otherworks) && this.novelData.metadata.o
   <ul style="list-style-type: none; padding-left: 0;">
     ${this.novelData.metadata.otherworks.map((work, index) => `
       <li style="display: flex; align-items: flex-start; margin-bottom: 20px;">
-        ${work.cover ? `<img src="${work.cover}" alt="${work.title}" style="margin-right: 15px;" />` : '<div style="margin-right: 15px;"></div>'}
-        <div>
-          <strong><a href="${work.url}">${work.title}</a></strong><br />
-          ${work.genres && work.genres.length ? `<em>${work.genres.join(', ')}</em><br />` : ''}
-          ${work.description ? work.description : ''}
+        ${work.cover ? `<img src="${work.cover}" alt="${work.title}" style="margin-right: 15px; width: 100px; object-fit: cover; align-self: flex-start;" />` : '<div style="margin-right: 15px; width: 100px;"></div>'}
+        <div style="flex: 1;">
+          <div style="display: flex; flex-direction: column;">
+            <strong><a href="${work.url}">${work.title}</a></strong>
+            ${work.genres && work.genres.length ? `<em style="margin-top: 4px;">${work.genres.join(', ')}</em>` : ''}
+          </div>
+          ${work.description ? `<div style="margin-top: 8px;">${work.description}</div>` : ''}
         </div>
       </li>
       ${index < this.novelData.metadata.otherworks.length - 1 ? '<hr style="width: 80%; margin: 10px auto; border: 0; border-top: 1px solid #eee;" />' : ''}
