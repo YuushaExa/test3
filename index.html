@@ -331,30 +331,30 @@ async function saveJsonToGoogleDrive() {
      saveToJsonBtn.addEventListener('click', saveJsonToGoogleDrive); 
 
 
-// Global to store generated EPUB blob
+// Global for storing the generated EPUB blob
 let generatedEpubBlob = null;
 
-// 1. Create EPUB button
+// Create EPUB button
 const createEpubBtn = document.createElement('button');
 createEpubBtn.textContent = 'Create EPUB';
 createEpubBtn.disabled = true;
 
-// 2. Download EPUB button
+// Download EPUB button
 const downloadEpubBtn = document.createElement('button');
 downloadEpubBtn.textContent = 'Download EPUB';
 downloadEpubBtn.disabled = true;
 
-// 3. Save EPUB button
+// Save EPUB button
 const saveEpubBtn = document.createElement('button');
 saveEpubBtn.textContent = 'Save EPUB';
 saveEpubBtn.disabled = true;
 
-// Append buttons to the container
+// Add buttons to container
 document.querySelector('.container').appendChild(createEpubBtn);
 document.querySelector('.container').appendChild(downloadEpubBtn);
 document.querySelector('.container').appendChild(saveEpubBtn);
 
-// Create EPUB handler
+// 1️⃣ Create EPUB
 createEpubBtn.addEventListener('click', async () => {
   if (!novelData.metadata?.title || !novelData.chapters[0]?.content) {
     return alert('No chapter data available to create an EPUB.');
@@ -363,8 +363,8 @@ createEpubBtn.addEventListener('click', async () => {
     createEpubBtn.disabled = true;
     log('Generating EPUB...');
     const generator = new EpubGenerator(novelData);
-    generatedEpubBlob = await generator.generateBlob(log); // We'll modify EpubGenerator to return a Blob
-    log('EPUB created successfully (not downloaded yet)');
+    generatedEpubBlob = await generator.generate(log); // generate() already returns a Blob
+    log('✓ EPUB created successfully (not downloaded yet)');
     downloadEpubBtn.disabled = false;
     saveEpubBtn.disabled = false;
   } catch (err) {
@@ -374,7 +374,7 @@ createEpubBtn.addEventListener('click', async () => {
   }
 });
 
-// Download EPUB handler
+// 2️⃣ Download EPUB
 downloadEpubBtn.addEventListener('click', () => {
   if (!generatedEpubBlob) return alert('No EPUB generated yet.');
   const a = document.createElement('a');
@@ -382,9 +382,10 @@ downloadEpubBtn.addEventListener('click', () => {
   a.download = `${novelData.metadata.title.replace(/[^a-z0-9]/gi, '_')}.epub`;
   a.click();
   URL.revokeObjectURL(a.href);
+  log('EPUB download started.');
 });
 
-// Save EPUB to Google Drive handler
+// 3️⃣ Save EPUB to Google Drive
 saveEpubBtn.addEventListener('click', async () => {
   if (!generatedEpubBlob) return alert('No EPUB generated yet.');
 
@@ -407,7 +408,7 @@ saveEpubBtn.addEventListener('click', async () => {
       body: JSON.stringify({
         title: `${novelData.metadata.title}.epub`,
         contentBase64: base64Epub,
-        folder: '1_P5VjIMg8PTp6_4en8d23hngim4NXED6'
+        folder: '1_P5VjIMg8PTp6_4en8d23hngim4NXED6' // new folder ID
       })
     });
 
@@ -426,7 +427,7 @@ saveEpubBtn.addEventListener('click', async () => {
   }
 });
 
-// Enable "Create EPUB" after chapters are loaded
+// Enable Create EPUB button after chapters are loaded
 fetchChaptersBtn.addEventListener('click', () => {
   const check = setInterval(() => {
     if (novelData.chapters.length && novelData.chapters[0]?.content) {
@@ -435,6 +436,7 @@ fetchChaptersBtn.addEventListener('click', () => {
     }
   }, 500);
 });
+
 
 
 // ---- Edit metadata ----
