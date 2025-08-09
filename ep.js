@@ -24,19 +24,47 @@ class EpubGenerator {
     const oebps = zip.folder('OEBPS');
     const toc = [];
 
-    /* 3. download cover */
-    let coverFileName = '';
-    if (this.novelData.metadata.cover) {
+/* 3. download cover */
+let coverFileName = '';
+if (this.novelData.metadata.cover) {
+  try {
+    const res = await fetch(`${this.workerUrl}/api/raw?url=${encodeURIComponent(this.novelData.metadata.cover)}`);
+    if (!res.ok) throw new Error('cover fetch failed');
+    const blob = await res.blob();
+    coverFileName = 'cover.jpg';
+    oebps.file(coverFileName, blob, { compression: 'DEFLATE' });
+  } catch (e) {
+    log('Cover skipped: ' + e.message);
+  }
+}
+
+/* 3b. download all otherworks images */
+if (Array.isArray(this.novelData.metadata.otherworks)) {
+  for (let i = 0; i < this.novelData.metadata.otherworks.length; i++) {
+    const work = this.novelData.metadata.otherworks[i];
+    if (work.cover) {
       try {
-        const res = await fetch(`${this.workerUrl}/api/raw?url=${encodeURIComponent(this.novelData.metadata.cover)}`);
-        if (!res.ok) throw new Error('cover fetch failed');
-        const blob = await res.blob();
-        coverFileName = 'cover.jpg';
-        oebps.file(coverFileName, blob, { compression: 'DEFLATE' });
-      } catch (e) {
-        log('Cover skipped: ' + e.message);
+        const imgRes = await fetch(`${this.workerUrl}/api/raw?url=${encodeURIComponent(work.cover)}`);
+        if (!imgRes.ok) throw new Error(`cover fetch failed for ${work.title}`);
+        const imgBlob = await imgRes.blob();
+        const imgFileName = `images/otherwork_${i}${getImageExtension(work.cover)}`;
+        oebps.file(imgFileName, imgBlob, { compression: 'DEFLATE' });
+
+        // Update reference to point to EPUB's internal image path
+        this.novelData.metadata.otherworks[i].cover = imgFileName;
+      } catch (err) {
+        log(`Other works image skipped for ${work.title}: ${err.message}`);
       }
     }
+  }
+}
+
+/* helper to guess image extension */
+function getImageExtension(url) {
+  const match = url.match(/\.(jpg|jpeg|png|gif|webp)(\?|$)/i);
+  return match ? '.' + match[1].toLowerCase() : '.jpg';
+}
+
 
     /* 3b. cover page XHTML (if cover exists) */
     if (coverFileName) {
