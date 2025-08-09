@@ -54,6 +54,14 @@ class EpubGenerator {
     }
 
 /* 4. Information page */
+
+// Get AuthorWorks HTML if it exists in the DOM
+let authorWorksHtml = '';
+const authorWorksEl = document.getElementById('AuthorWorks');
+if (authorWorksEl) {
+  authorWorksHtml = authorWorksEl.outerHTML;
+}
+
 const infoPage = `<?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml">
@@ -69,10 +77,11 @@ const infoPage = `<?xml version="1.0" encoding="utf-8"?>
   ${this.novelData.metadata.genres.length ? `<p><strong>Genres:</strong> ${this.novelData.metadata.genres.join(', ')}</p>` : ''}
   <h3>Description</h3>
   <p>${this.novelData.metadata.description}</p>
+  ${authorWorksHtml} <!-- Insert "Other Works by Author" here -->
 </body>
 </html>`;
-    oebps.file('info.xhtml', infoPage);
-    toc.push({ id: 'info-page', href: 'info.xhtml', title: 'Information' });
+oebps.file('info.xhtml', infoPage);
+toc.push({ id: 'info-page', href: 'info.xhtml', title: 'Information' });
 
     /* 5. chapters */
     log('Processing chapters for EPUB...');
