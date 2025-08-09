@@ -178,15 +178,23 @@ async function fetchAuthorWorks(authorUrl) {
       const genres = Array.from(work.querySelectorAll('.search_genre a'))
         .map(a => a.textContent.trim());
 
-      // description cleanup
-      let descNode = work.querySelector('.testhide') || work.querySelector('.search_body_nu');
-      let description = descNode ? descNode.innerHTML : '';
-      description = description.replace(/<span[^>]*class="morelink[^>]*>.*?<\/span>/gi, '');
-      description = description.replace(/<span[^>]*class="less[^>]*>.*?<\/span>/gi, '');
-      description = description.replace(/onclick="[^"]*"/gi, '');
-      const tempDiv = document.createElement('div');
-      tempDiv.innerHTML = description;
-      description = tempDiv.textContent.trim();
+      // Get all description parts
+      const descNode = work.querySelector('.search_body_nu');
+      let description = '';
+      
+      // Get all text nodes including those in testhide span
+      if (descNode) {
+        // Clone the node to avoid modifying the original
+        const clone = descNode.cloneNode(true);
+        
+        // Remove elements we don't want in the description
+        clone.querySelectorAll('.search_title, .search_stats, .search_genre, .morelink, .dots').forEach(el => el.remove());
+        
+        // Get the cleaned text content
+        description = clone.textContent
+          .replace(/\s+/g, ' ')
+          .trim();
+      }
 
       worksData.push({
         title,
@@ -203,7 +211,6 @@ async function fetchAuthorWorks(authorUrl) {
     return [];
   }
 }
-
 
 
 /* ---------- AutoFill button click event ---------- */
