@@ -4,21 +4,6 @@ class EpubGenerator {
     this.workerUrl = 'https://curly-pond-9050.yuush.workers.dev';
   }
 
-
- _escapeXml(unsafe) {
-    if (typeof unsafe !== 'string') return '';
-    return unsafe.replace(/[<>&"']/g, function (c) {
-      switch (c) {
-        case '<': return '&lt;';
-        case '>': return '&gt;';
-        case '&': return '&amp;';
-        case '"': return '&quot;';
-        case "'": return '&apos;';
-      }
-    });
-  }
-
-
   async generate(logCallback = console.log) {
     const log = msg => logCallback(msg);
     const zip = new JSZip();
@@ -68,54 +53,26 @@ class EpubGenerator {
       toc.push({ id: 'cover-page', href: 'cover.xhtml', title: 'Cover', isCover: true });
     }
 
- let authorWorksXhtml = '';
-    if (this.novelData.authorWorks && this.novelData.authorWorks.length > 0) {
-      const worksItems = this.novelData.authorWorks.map(work => {
-        // Build a valid XHTML block for each work
-        return `
-          <div class="work-item" style="border: 1px solid #ccc; padding: 10px; margin-top: 15px; border-radius: 5px;">
-            <h4 style="margin: 0 0 10px 0;">${this._escapeXml(work.title)}</h4>
-            <p style="margin-top: 5px;">
-              <strong>Genres:</strong> ${this._escapeXml(work.genres.join(', '))}
-            </p>
-            <p>${this._escapeXml(work.description)}</p>
-          </div>
-        `;
-      }).join('\n');
-
-      authorWorksXhtml = `
-        <div class="author-works">
-          <h3 style="margin-top: 2em; border-bottom: 1px solid #000; padding-bottom: 5px;">Other Works by this Author</h3>
-          ${worksItems}
-        </div>
-      `;
-    }
-
-
-    const infoPage = `<?xml version="1.0" encoding="utf-8"?>
+/* 4. Information page */
+const infoPage = `<?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head><title>Information</title><meta charset="utf-8"/></head>
 <body>
-  <h1>${this._escapeXml(this.novelData.metadata.title)}</h1>
-  <p><strong>Author:</strong> ${this._escapeXml(this.novelData.metadata.author.join(', '))}</p>
-  <p><strong>Status:</strong> ${this._escapeXml(this.novelData.metadata.status)}</p>
-  ${this.novelData.metadata.altitile ? `<p><strong>Alternative Title:</strong> ${this._escapeXml(Array.isArray(this.novelData.metadata.altitile) ? this.novelData.metadata.altitile.join(', ') : this.novelData.metadata.altitile)}</p>` : ''}
-  ${this.novelData.metadata.language ? `<p><strong>Original Language:</strong> ${this._escapeXml(this.novelData.metadata.language)}</p>` : ''}
-  ${this.novelData.metadata.originalPublisher ? `<p><strong>Original Publisher:</strong> ${this._escapeXml(this.novelData.metadata.originalPublisher)}</p>` : ''}
-  ${this.novelData.metadata.statuscoo ? `<p><strong>Original Status:</strong> ${this._escapeXml(this.novelData.metadata.statuscoo)}</p>` : ''}
-  ${this.novelData.metadata.genres.length ? `<p><strong>Genres:</strong> ${this._escapeXml(this.novelData.metadata.genres.join(', '))}</p>` : ''}
+  <h1>${this.novelData.metadata.title}</h1>
+  <p><strong>Author:</strong> ${this.novelData.metadata.author.join(', ')}</p>
+  <p><strong>Status:</strong> ${this.novelData.metadata.status}</p>
+  ${this.novelData.metadata.altitile ? `<p><strong>Alternative Title:</strong> ${Array.isArray(this.novelData.metadata.altitile) ? this.novelData.metadata.altitile.join(', ') : this.novelData.metadata.altitile}</p>` : ''}
+  ${this.novelData.metadata.language ? `<p><strong>Original Language:</strong> ${this.novelData.metadata.language}</p>` : ''}
+  ${this.novelData.metadata.originalPublisher ? `<p><strong>Original Publisher:</strong> ${this.novelData.metadata.originalPublisher}</p>` : ''}
+  ${this.novelData.metadata.statuscoo ? `<p><strong>Original Status:</strong> ${this.novelData.metadata.statuscoo}</p>` : ''}
+  ${this.novelData.metadata.genres.length ? `<p><strong>Genres:</strong> ${this.novelData.metadata.genres.join(', ')}</p>` : ''}
   <h3>Description</h3>
-  <p>${this._escapeXml(this.novelData.metadata.description)}</p>
-  
-  <!-- Author's other works are injected here -->
-  ${authorWorksXhtml}
-
+  <p>${this.novelData.metadata.description}</p>
 </body>
 </html>`;
     oebps.file('info.xhtml', infoPage);
     toc.push({ id: 'info-page', href: 'info.xhtml', title: 'Information' });
-
 
     /* 5. chapters */
     log('Processing chapters for EPUB...');
