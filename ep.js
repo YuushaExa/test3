@@ -91,6 +91,7 @@ const infoPage = `<?xml version="1.0" encoding="utf-8"?>
   <p><strong>Author:</strong> ${this.novelData.metadata.author.join(', ')}</p>
   <p><strong>Status:</strong> ${this.novelData.metadata.status}</p>
   ${this.novelData.metadata.altitile ? `<p><strong>Alternative Title:</strong> ${Array.isArray(this.novelData.metadata.altitile) ? this.novelData.metadata.altitile.join(', ') : this.novelData.metadata.altitile}</p>` : ''}
+  ${this.novelData.metadata.date ? `<p><strong>Year:</strong> ${this.novelData.metadata.date}</p>` : ''}
   ${this.novelData.metadata.language ? `<p><strong>Original Language:</strong> ${this.novelData.metadata.language}</p>` : ''}
   ${this.novelData.metadata.originalPublisher ? `<p><strong>Original Publisher:</strong> ${this.novelData.metadata.originalPublisher}</p>` : ''}
   ${this.novelData.metadata.statuscoo ? `<p><strong>Original Status:</strong> ${this.novelData.metadata.statuscoo}</p>` : ''}
