@@ -391,25 +391,15 @@ saveEpubBtn.addEventListener('click', async () => {
 
   try {
     saveEpubBtn.disabled = true;
-    log('Preparing EPUB for Google Drive upload...');
+    log('Uploading EPUB to Google Drive...');
 
-    // Convert Blob to Base64
-    const base64Epub = await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result.split(',')[1]);
-      reader.onerror = reject;
-      reader.readAsDataURL(generatedEpubBlob);
-    });
+    const formData = new FormData();
+    formData.append('file', generatedEpubBlob, `${novelData.metadata.title}.epub`);
+    formData.append('folder', '1_P5VjIMg8PTp6_4en8d23hngim4NXED6');
 
-    log('Uploading EPUB...');
     const response = await fetch(`${WORKER_URL}/api/saveToGoogleDrive`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        title: `${novelData.metadata.title}.epub`,
-        contentBase64: base64Epub,
-        folder: '1_P5VjIMg8PTp6_4en8d23hngim4NXED6' // new folder ID
-      })
+      body: formData
     });
 
     const result = await response.json();
@@ -426,6 +416,7 @@ saveEpubBtn.addEventListener('click', async () => {
     saveEpubBtn.disabled = false;
   }
 });
+
 
 // Enable Create EPUB button after chapters are loaded
 fetchChaptersBtn.addEventListener('click', () => {
