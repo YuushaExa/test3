@@ -431,28 +431,44 @@ function showEditMetadataForm() {
   formContainer.innerHTML = formHTML;
   document.body.appendChild(formContainer);
 
-  document.getElementById('metadataForm').addEventListener('submit', function(event) {
-    event.preventDefault();
-    const formData = new FormData(event.target);
-const newMetadata = {
-  title: formData.get('title'),
-  cover: formData.get('cover'),
-  author: formData.get('authors').split(',').map(author => author.trim()),
-  genres: formData.get('genres').split(',').map(genre => genre.trim()),
-  status: formData.get('status'),
-  source: formData.get('source'),
-  description: formData.get('description'),
-  altitile: formData.get('altitile') || '', 
-  language: formData.get('language') || '',
-  originalPublisher: formData.get('originalPublisher') || '',
-  statuscoo: formData.get('statuscoo') || '',
-  date: formData.get('date') || ''
-};
-  
-    novelData.metadata = newMetadata;
-    log('Metadata updated successfully');
-    document.getElementById('metadataForm').remove();
-  });
+document.getElementById('metadataForm').addEventListener('submit', async function(event) {
+  event.preventDefault();
+
+  const formData = new FormData(event.target);
+
+  // Get the first author URL if available
+  const firstAuthorUrl = document.querySelector('#showauthors a')?.href || '';
+
+  let otherWorksData = [];
+  if (firstAuthorUrl) {
+    try {
+      otherWorksData = await fetchAuthorWorks(firstAuthorUrl); // now returns array
+    } catch (err) {
+      console.error('Failed to fetch author works:', err);
+    }
+  }
+
+  const newMetadata = {
+    title: formData.get('title'),
+    cover: formData.get('cover'),
+    author: formData.get('authors').split(',').map(author => author.trim()),
+    genres: formData.get('genres').split(',').map(genre => genre.trim()),
+    status: formData.get('status'),
+    source: formData.get('source'),
+    description: formData.get('description'),
+    altitile: formData.get('altitile') || '',
+    language: formData.get('language') || '',
+    originalPublisher: formData.get('originalPublisher') || '',
+    statuscoo: formData.get('statuscoo') || '',
+    date: formData.get('date') || '',
+    otherworks: otherWorksData // <-- now JSON array
+  };
+
+  novelData.metadata = newMetadata;
+  log('Metadata updated successfully (including other works as JSON)');
+  document.getElementById('metadataForm').remove();
+});
+
 }
 
 // ---- events ----
