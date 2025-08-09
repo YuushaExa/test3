@@ -138,7 +138,7 @@ nuInfoResults.innerHTML = detailedContent + authorWorksHtml;
   }
 }
 
-// ---------- Fetch Author Works (only image, title, genres, description) ----------
+// ---------- Fetch Author Works as JSON ----------
 async function fetchAuthorWorks(authorUrl) {
   try {
     log(`Fetching author works from: ${authorUrl}`);
@@ -148,59 +148,46 @@ async function fetchAuthorWorks(authorUrl) {
 
     if (!works.length) {
       log('No works found for this author.');
-      return '<p>No other works found for this author.</p>';
+      return [];
     }
 
-    let worksHtml = '';
+    const worksData = [];
+
     works.forEach(work => {
       const img = work.querySelector('img')?.src || '';
       const titleEl = work.querySelector('.search_title a');
       const title = titleEl?.textContent?.trim() || 'No Title';
       const titleHref = titleEl?.href || '#';
 
-      // genres
+      // genres as array
       const genres = Array.from(work.querySelectorAll('.search_genre a'))
-        .map(a => `<a class="genre" href="${a.href}">${a.textContent}</a>`)
-        .join(', ') || 'No genres';
+        .map(a => a.textContent.trim());
 
-      // get full description
+      // description cleanup
       let descNode = work.querySelector('.testhide') || work.querySelector('.search_body_nu');
-      let description = descNode ? descNode.innerHTML : 'No description available';
-
-      // remove "less" links and onclick junk
+      let description = descNode ? descNode.innerHTML : '';
       description = description.replace(/<span[^>]*class="morelink[^>]*>.*?<\/span>/gi, '');
       description = description.replace(/<span[^>]*class="less[^>]*>.*?<\/span>/gi, '');
       description = description.replace(/onclick="[^"]*"/gi, '');
-
-      // decode HTML entities and strip any leftover tags
       const tempDiv = document.createElement('div');
       tempDiv.innerHTML = description;
       description = tempDiv.textContent.trim();
 
-      worksHtml += `
-        <div class="search_main_box_nu" style="margin-bottom:20px;">
-          <div class="seriesimg"><img src="${img}" alt="${title}" style="max-width:120px;"></div>
-          <div class="seriestitlenu" style="font-size:16px; font-weight:bold; margin-top:5px;">
-            <a href="${titleHref}" target="_blank">${title}</a>
-          </div>
-          <div class="seriesgenre" style="margin-top:5px;">${genres}</div>
-          <div class="seriesdesc" style="margin-top:5px;">${description}</div>
-        </div>
-      `;
+      worksData.push({
+        title,
+        url: titleHref,
+        cover: img,
+        genres,
+        description
+      });
     });
 
-    return `
-      <div id="AuthorWorks" style="margin-top:10px;">
-        <h5 class="seriesother">Other Works by Author</h5>
-        ${worksHtml}
-      </div>
-    `;
+    return worksData;
   } catch (e) {
     log(`Error fetching author works: ${e.message}`);
-    return '<p>Error fetching author works.</p>';
+    return [];
   }
 }
-
 
 
 
