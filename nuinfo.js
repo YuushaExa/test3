@@ -111,13 +111,34 @@ const associatedNames = detailedDoc.querySelector('#editassociated')?.innerHTML 
           // Get first author URL
 const firstAuthorUrl = detailedDoc.querySelector('#showauthors a')?.href;
 
-let authorWorksHtml = '';
+// CHANGED: Store the structured data and generate display HTML separately.
 if (firstAuthorUrl) {
-  authorWorksHtml = await fetchAuthorWorks(firstAuthorUrl);
-}
+  // 1. Fetch and store the clean data array
+  novelData.authorWorks = await fetchAuthorWorks(firstAuthorUrl);
 
-// Append author works to detailed content
-nuInfoResults.innerHTML = detailedContent + authorWorksHtml;
+  // 2. Generate HTML for display on the *webpage only*
+  let authorWorksDisplayHtml = '';
+  if (novelData.authorWorks && novelData.authorWorks.length > 0) {
+    const worksHtml = novelData.authorWorks.map(work => `
+      <div class="search_main_box_nu" style="margin-bottom:20px;">
+        <div class="seriesimg"><img src="${work.img}" alt="${work.title}" style="max-width:120px;"></div>
+        <div class="seriestitlenu" style="font-size:16px; font-weight:bold; margin-top:5px;">
+          <a href="${work.titleHref}" target="_blank">${work.title}</a>
+        </div>
+        <div class="seriesgenre" style="margin-top:5px;">${work.genres.join(', ')}</div>
+        <div class="seriesdesc" style="margin-top:5px;">${work.description}</div>
+      </div>
+    `).join('');
+
+    authorWorksDisplayHtml = `
+      <div id="AuthorWorks" style="margin-top:10px;">
+        <h5 class="seriesother">Other Works by Author</h5>
+        ${worksHtml}
+      </div>`;
+  }
+
+  // 3. Append generated display HTML to the results
+  nuInfoResults.innerHTML = detailedContent + authorWorksDisplayHtml;
 
           autoFillBtn.disabled = false;
           showEditMetadataForm();
