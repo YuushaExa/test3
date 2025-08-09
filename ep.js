@@ -71,19 +71,19 @@ const infoPage = `<?xml version="1.0" encoding="utf-8"?>
   <h3>Description</h3>
   <p>${this.novelData.metadata.description}</p>
 
-  ${Array.isArray(this.novelData.metadata.otherworks) && this.novelData.metadata.otherworks.length ? `
-    <h3>Other Works by ${this.novelData.metadata.author.join(', ')}</h3>
-    <ul>
-      ${this.novelData.metadata.otherworks.map(work => `
-        <li>
-          ${work.cover ? `<img src="${work.cover}" alt="${work.title}" style="max-width:80px; display:block;">` : ''}
-          <strong><a href="${work.url}">${work.title}</a></strong><br>
-          ${work.genres && work.genres.length ? `<em>${work.genres.join(', ')}</em><br>` : ''}
-          ${work.description ? work.description : ''}
-        </li>
-      `).join('')}
-    </ul>
-  ` : ''}
+${Array.isArray(this.novelData.metadata.otherworks) && this.novelData.metadata.otherworks.length ? `
+  <h3>Other Works by ${this.novelData.metadata.author.join(', ')}</h3>
+  <ul>
+    ${this.novelData.metadata.otherworks.map(work => `
+      <li>
+        ${work.cover ? `<img src="${work.cover}" alt="${work.title}" style="max-width:80px; display:block;" />` : ''}
+        <strong><a href="${work.url}">${work.title}</a></strong><br />
+        ${work.genres && work.genres.length ? `<em>${work.genres.join(', ')}</em><br />` : ''}
+        ${work.description ? work.description : ''}
+      </li>
+    `).join('')}
+  </ul>
+` : ''}
 </body>
 </html>`;
 
