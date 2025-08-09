@@ -163,10 +163,19 @@ async function fetchAuthorWorks(authorUrl) {
         .map(a => `<a class="genre" href="${a.href}">${a.textContent}</a>`)
         .join(', ') || 'No genres';
 
-      // description - prefer full hidden text if available
-      const hiddenDesc = work.querySelector('.testhide')?.innerText?.trim();
-      const visibleDesc = work.querySelector('.search_body_nu')?.childNodes[2]?.textContent?.trim();
-      const description = hiddenDesc || visibleDesc || 'No description available';
+      // get full description
+      let descNode = work.querySelector('.testhide') || work.querySelector('.search_body_nu');
+      let description = descNode ? descNode.innerHTML : 'No description available';
+
+      // remove "less" links and onclick junk
+      description = description.replace(/<span[^>]*class="morelink[^>]*>.*?<\/span>/gi, '');
+      description = description.replace(/<span[^>]*class="less[^>]*>.*?<\/span>/gi, '');
+      description = description.replace(/onclick="[^"]*"/gi, '');
+
+      // decode HTML entities and strip any leftover tags
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = description;
+      description = tempDiv.textContent.trim();
 
       worksHtml += `
         <div class="search_main_box_nu" style="margin-bottom:20px;">
@@ -191,6 +200,7 @@ async function fetchAuthorWorks(authorUrl) {
     return '<p>Error fetching author works.</p>';
   }
 }
+
 
 
 
