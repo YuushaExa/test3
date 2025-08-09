@@ -110,14 +110,29 @@ const associatedNames = detailedDoc.querySelector('#editassociated')?.innerHTML 
 
           // Get first author URL
 const firstAuthorUrl = detailedDoc.querySelector('#showauthors a')?.href;
+let worksArray = [];
 
-let authorWorksHtml = '';
 if (firstAuthorUrl) {
-  authorWorksHtml = await fetchAuthorWorks(firstAuthorUrl);
+  worksArray = await fetchAuthorWorks(firstAuthorUrl); // now returns array
 }
 
-// Append author works to detailed content
-nuInfoResults.innerHTML = detailedContent + authorWorksHtml;
+// Show them in the NU info panel
+if (worksArray.length) {
+  nuInfoResults.innerHTML = detailedContent + worksArray.map(work => `
+    <div style="margin-bottom:20px;">
+      <img src="${work.cover}" alt="${work.title}" style="max-width:120px; display:block;">
+      <a href="${work.url}" target="_blank" style="font-weight:bold;">${work.title}</a>
+      <div>${work.genres.join(', ')}</div>
+      <div>${work.description}</div>
+    </div>
+  `).join('');
+} else {
+  nuInfoResults.innerHTML = detailedContent + '<p>No other works found for this author.</p>';
+}
+
+// Also store JSON in metadata (so it can be saved later)
+novelData.metadata.otherworks = worksArray;
+
 
           autoFillBtn.disabled = false;
           showEditMetadataForm();
