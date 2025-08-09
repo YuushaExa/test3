@@ -5,53 +5,18 @@ class EpubGenerator {
   }
 
 
- // Helper: turn arbitrary HTML fragment into well-formed XHTML fragment
-  _toXHTMLFragment(htmlFragment) {
-    // parse as HTML so browsers forgive sloppy markup
-    const parsed = new DOMParser().parseFromString(`<div id="__wrapper__">${htmlFragment}</div>`, 'text/html');
-
-    // remove things that must not be in EPUB inner XHTML
-    parsed.querySelectorAll('script, style, noscript').forEach(n => n.remove());
-
-    // create a fresh XHTML XMLDocument
-    const xdoc = document.implementation.createDocument('http://www.w3.org/1999/xhtml', 'div', null);
-    const root = xdoc.documentElement;
-
-    // import nodes from the parsed HTML into the XHTML document
-    const wrapper = parsed.getElementById('__wrapper__');
-    Array.from(wrapper.childNodes).forEach(node => {
-      // remove inline event handlers (onclick etc) for safety
-      if (node.querySelectorAll) {
-        node.querySelectorAll('*').forEach(el => {
-          Array.from(el.attributes || []).forEach(attr => {
-            if (/^on/i.test(attr.name)) el.removeAttribute(attr.name);
-          });
-        });
+ _escapeXml(unsafe) {
+    if (typeof unsafe !== 'string') return '';
+    return unsafe.replace(/[<>&"']/g, function (c) {
+      switch (c) {
+        case '<': return '&lt;';
+        case '>': return '&gt;';
+        case '&': return '&amp;';
+        case '"': return '&quot;';
+        case "'": return '&apos;';
       }
-      const imported = xdoc.importNode(node, true);
-      root.appendChild(imported);
     });
-
-    // serialize to string (this will produce well-formed XML/XHTML)
-    let xhtml = new XMLSerializer().serializeToString(root);
-
-    // strip outer wrapper div added by createDocument/parse step
-    xhtml = xhtml.replace(/^<div[^>]*>/, '').replace(/<\/div>$/, '');
-
-    // normalize common void tags just in case (XMLSerializer usually handles this)
-    xhtml = xhtml.replace(/<br(\s*)>/gi, '<br/>')
-                 .replace(/<hr(\s*)>/gi, '<hr/>')
-                 .replace(/<img([^>]*?)\/?>/gi, '<img$1/>');
-
-    // normalize non-breaking spaces
-    xhtml = xhtml.replace(/&nbsp;|\u00A0/g, '&#160;');
-
-    // remove HTML comments
-    xhtml = xhtml.replace(/<!--[\s\S]*?-->/g, '');
-
-    return xhtml;
   }
-
 
 
   async generate(logCallback = console.log) {
@@ -103,60 +68,28 @@ class EpubGenerator {
       toc.push({ id: 'cover-page', href: 'cover.xhtml', title: 'Cover', isCover: true });
     }
 
- /* 4. Information page */
-    // get raw author-works from DOM (if present)
-let authorWorksXHTML = '';
-try {
-  if (typeof document !== 'undefined') {
-    const authorWorksEl = document.getElementById('AuthorWorks');
-    if (authorWorksEl) {
-      // Clone so we can safely modify
-      const clone = authorWorksEl.cloneNode(true);
+ let authorWorksXhtml = '';
+    if (this.novelData.authorWorks && this.novelData.authorWorks.length > 0) {
+      const worksItems = this.novelData.authorWorks.map(work => {
+        // Build a valid XHTML block for each work
+        return `
+          <div class="work-item" style="border: 1px solid #ccc; padding: 10px; margin-top: 15px; border-radius: 5px;">
+            <h4 style="margin: 0 0 10px 0;">${this._escapeXml(work.title)}</h4>
+            <p style="margin-top: 5px;">
+              <strong>Genres:</strong> ${this._escapeXml(work.genres.join(', '))}
+            </p>
+            <p>${this._escapeXml(work.description)}</p>
+          </div>
+        `;
+      }).join('\n');
 
-      // Process images inside the AuthorWorks block
-      const imgs = clone.querySelectorAll('img');
-      let imgCount = 0;
-      for (let img of imgs) {
-        let src = img.getAttribute('src');
-        if (!src) continue;
-
-        // Resolve relative URLs if needed
-        if (!/^https?:\/\//i.test(src)) {
-          const a = document.createElement('a');
-          a.href = src;
-          src = a.href;
-        }
-
-        try {
-          const response = await fetch(src);
-          if (!response.ok) throw new Error(`Failed to fetch ${src}`);
-          const blob = await response.blob();
-
-          // Decide extension
-          let ext = '.jpg';
-          if (blob.type.includes('png')) ext = '.png';
-          else if (blob.type.includes('gif')) ext = '.gif';
-          else if (blob.type.includes('webp')) ext = '.webp';
-
-          const fileName = `authorworks-${++imgCount}${ext}`;
-          const buffer = await blob.arrayBuffer();
-          oebps.file(`Images/${fileName}`, buffer);
-
-          // Update <img> src to point to packaged image
-          img.setAttribute('src', `Images/${fileName}`);
-        } catch (err) {
-          console.warn('Image fetch failed:', err);
-        }
-      }
-
-      // Convert the cleaned-up HTML into XHTML
-      authorWorksXHTML = this._toXHTMLFragment(clone.innerHTML);
+      authorWorksXhtml = `
+        <div class="author-works">
+          <h3 style="margin-top: 2em; border-bottom: 1px solid #000; padding-bottom: 5px;">Other Works by this Author</h3>
+          ${worksItems}
+        </div>
+      `;
     }
-  }
-} catch (e) {
-  log('AuthorWorks processing failed — skipping that section: ' + e.message);
-  authorWorksXHTML = '';
-}
 
 
     const infoPage = `<?xml version="1.0" encoding="utf-8"?>
@@ -164,18 +97,20 @@ try {
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head><title>Information</title><meta charset="utf-8"/></head>
 <body>
-  <h1>${this.novelData.metadata.title}</h1>
-  <p><strong>Author:</strong> ${this.novelData.metadata.author.join(', ')}</p>
-  <p><strong>Status:</strong> ${this.novelData.metadata.status}</p>
-  ${this.novelData.metadata.altitile ? `<p><strong>Alternative Title:</strong> ${Array.isArray(this.novelData.metadata.altitile) ? this.novelData.metadata.altitile.join(', ') : this.novelData.metadata.altitile}</p>` : ''}
-  ${this.novelData.metadata.language ? `<p><strong>Original Language:</strong> ${this.novelData.metadata.language}</p>` : ''}
-  ${this.novelData.metadata.originalPublisher ? `<p><strong>Original Publisher:</strong> ${this.novelData.metadata.originalPublisher}</p>` : ''}
-  ${this.novelData.metadata.statuscoo ? `<p><strong>Original Status:</strong> ${this.novelData.metadata.statuscoo}</p>` : ''}
-  ${this.novelData.metadata.genres.length ? `<p><strong>Genres:</strong> ${this.novelData.metadata.genres.join(', ')}</p>` : ''}
+  <h1>${this._escapeXml(this.novelData.metadata.title)}</h1>
+  <p><strong>Author:</strong> ${this._escapeXml(this.novelData.metadata.author.join(', '))}</p>
+  <p><strong>Status:</strong> ${this._escapeXml(this.novelData.metadata.status)}</p>
+  ${this.novelData.metadata.altitile ? `<p><strong>Alternative Title:</strong> ${this._escapeXml(Array.isArray(this.novelData.metadata.altitile) ? this.novelData.metadata.altitile.join(', ') : this.novelData.metadata.altitile)}</p>` : ''}
+  ${this.novelData.metadata.language ? `<p><strong>Original Language:</strong> ${this._escapeXml(this.novelData.metadata.language)}</p>` : ''}
+  ${this.novelData.metadata.originalPublisher ? `<p><strong>Original Publisher:</strong> ${this._escapeXml(this.novelData.metadata.originalPublisher)}</p>` : ''}
+  ${this.novelData.metadata.statuscoo ? `<p><strong>Original Status:</strong> ${this._escapeXml(this.novelData.metadata.statuscoo)}</p>` : ''}
+  ${this.novelData.metadata.genres.length ? `<p><strong>Genres:</strong> ${this._escapeXml(this.novelData.metadata.genres.join(', '))}</p>` : ''}
   <h3>Description</h3>
-  <p>${(this.novelData.metadata.description || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</p>
+  <p>${this._escapeXml(this.novelData.metadata.description)}</p>
+  
+  <!-- Author's other works are injected here -->
+  ${authorWorksXhtml}
 
-  ${authorWorksXHTML ? `<h3>Other Works by Author</h3>\n${authorWorksXHTML}` : ''}
 </body>
 </html>`;
     oebps.file('info.xhtml', infoPage);
