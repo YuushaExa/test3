@@ -55,33 +55,73 @@ class EpubGenerator {
 
 /* 4. Information page */
 
-// Get AuthorWorks HTML if it exists in the DOM
+// Get AuthorWorks HTML if it exists
 let authorWorksHtml = '';
 const authorWorksEl = document.getElementById('AuthorWorks');
 if (authorWorksEl) {
   authorWorksHtml = authorWorksEl.outerHTML;
 }
 
+// Remove all <a> tags but keep text
+authorWorksHtml = authorWorksHtml.replace(/<a\b[^>]*>(.*?)<\/a>/gi, '$1');
+
+// Prepare a working DOM parser for info content
+const parser = new DOMParser();
+let infoDoc = parser.parseFromString(`
+  <div>
+    <h1>${this.novelData.metadata.title}</h1>
+    <p><strong>Author:</strong> ${this.novelData.metadata.author.join(', ')}</p>
+    <p><strong>Status:</strong> ${this.novelData.metadata.status}</p>
+    ${this.novelData.metadata.altitile ? `<p><strong>Alternative Title:</strong> ${Array.isArray(this.novelData.metadata.altitile) ? this.novelData.metadata.altitile.join(', ') : this.novelData.metadata.altitile}</p>` : ''}
+    ${this.novelData.metadata.language ? `<p><strong>Original Language:</strong> ${this.novelData.metadata.language}</p>` : ''}
+    ${this.novelData.metadata.originalPublisher ? `<p><strong>Original Publisher:</strong> ${this.novelData.metadata.originalPublisher}</p>` : ''}
+    ${this.novelData.metadata.statuscoo ? `<p><strong>Original Status:</strong> ${this.novelData.metadata.statuscoo}</p>` : ''}
+    ${this.novelData.metadata.genres.length ? `<p><strong>Genres:</strong> ${this.novelData.metadata.genres.join(', ')}</p>` : ''}
+    <h3>Description</h3>
+    <p>${this.novelData.metadata.description}</p>
+    ${authorWorksHtml}
+  </div>
+`, 'text/html');
+
+// Remove all <a> tags in the info content
+infoDoc.querySelectorAll('a').forEach(a => {
+  const span = infoDoc.createTextNode(a.textContent);
+  a.parentNode.replaceChild(span, a);
+});
+
+// Download images into EPUB's Images folder and fix src
+const imagesFolder = oebps.folder('Images');
+let imageIndex = 0;
+for (const img of infoDoc.querySelectorAll('img')) {
+  const srcUrl = img.getAttribute('src');
+  if (!srcUrl) continue;
+  try {
+    const res = await fetch(`${this.workerUrl}/api/raw?url=${encodeURIComponent(srcUrl)}`);
+    if (!res.ok) throw new Error(`Failed to fetch image: ${srcUrl}`);
+    const blob = await res.blob();
+    const ext = srcUrl.split('.').pop().split(/\#|\?/)[0] || 'jpg';
+    const filename = `image${++imageIndex}.${ext}`;
+    imagesFolder.file(filename, blob, { compression: 'DEFLATE' });
+    img.setAttribute('src', `Images/${filename}`);
+  } catch (e) {
+    log(`Image skipped: ${e.message}`);
+    img.remove(); // Optional: remove broken image
+  }
+}
+
+// Final info page XHTML
 const infoPage = `<?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head><title>Information</title><meta charset="utf-8"/></head>
 <body>
-  <h1>${this.novelData.metadata.title}</h1>
-  <p><strong>Author:</strong> ${this.novelData.metadata.author.join(', ')}</p>
-  <p><strong>Status:</strong> ${this.novelData.metadata.status}</p>
-  ${this.novelData.metadata.altitile ? `<p><strong>Alternative Title:</strong> ${Array.isArray(this.novelData.metadata.altitile) ? this.novelData.metadata.altitile.join(', ') : this.novelData.metadata.altitile}</p>` : ''}
-  ${this.novelData.metadata.language ? `<p><strong>Original Language:</strong> ${this.novelData.metadata.language}</p>` : ''}
-  ${this.novelData.metadata.originalPublisher ? `<p><strong>Original Publisher:</strong> ${this.novelData.metadata.originalPublisher}</p>` : ''}
-  ${this.novelData.metadata.statuscoo ? `<p><strong>Original Status:</strong> ${this.novelData.metadata.statuscoo}</p>` : ''}
-  ${this.novelData.metadata.genres.length ? `<p><strong>Genres:</strong> ${this.novelData.metadata.genres.join(', ')}</p>` : ''}
-  <h3>Description</h3>
-  <p>${this.novelData.metadata.description}</p>
-  ${authorWorksHtml} <!-- Insert "Other Works by Author" here -->
+  ${infoDoc.body.innerHTML}
 </body>
 </html>`;
+
 oebps.file('info.xhtml', infoPage);
 toc.push({ id: 'info-page', href: 'info.xhtml', title: 'Information' });
+
 
     /* 5. chapters */
     log('Processing chapters for EPUB...');
