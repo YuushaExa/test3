@@ -103,11 +103,11 @@ ${Array.isArray(this.novelData.metadata.otherworks) && this.novelData.metadata.o
   <h3>Other Works by ${this.novelData.metadata.author.join(', ')}</h3>
   <ul style="list-style-type: none; padding-left: 0;">
     ${this.novelData.metadata.otherworks.map((work, index) => `
-      <li style="margin-bottom: 20px;">
-        <div style="display: flex; align-items: flex-start;">
+      <li>
+        <div style="display: flex; align-items: flex-start;flex-direction:column;">
           ${work.cover 
-            ? `<img src="${work.cover}" alt="${work.title}" style="margin-right: 15px; max-width: 100px;" />` 
-            : '<div style="margin-right: 15px; width: 100px;"></div>'}
+            ? `<img src="${work.cover}" alt="${work.title}" style="margin-right: 15px;" />` 
+            : '<div style="margin-right: 15px;"></div>'}
           <div>
             <strong><a href="${work.url}">${work.title}</a></strong><br />
             ${work.genres && work.genres.length ? `<em>${work.genres.join(', ')}</em>` : ''}
