@@ -105,21 +105,59 @@ class EpubGenerator {
 
  /* 4. Information page */
     // get raw author-works from DOM (if present)
-    let authorWorksXHTML = '';
-    try {
-      if (typeof document !== 'undefined') {
-        const authorWorksEl = document.getElementById('AuthorWorks');
-        if (authorWorksEl) {
-          // use innerHTML (avoid duplicating outer wrapper id)
-          authorWorksXHTML = this._toXHTMLFragment(authorWorksEl.innerHTML);
-          // debug: uncomment to inspect sanitized output in console
-          // console.log('Sanitized AuthorWorks XHTML:', authorWorksXHTML);
+let authorWorksXHTML = '';
+try {
+  if (typeof document !== 'undefined') {
+    const authorWorksEl = document.getElementById('AuthorWorks');
+    if (authorWorksEl) {
+      // Clone so we can safely modify
+      const clone = authorWorksEl.cloneNode(true);
+
+      // Process images inside the AuthorWorks block
+      const imgs = clone.querySelectorAll('img');
+      let imgCount = 0;
+      for (let img of imgs) {
+        let src = img.getAttribute('src');
+        if (!src) continue;
+
+        // Resolve relative URLs if needed
+        if (!/^https?:\/\//i.test(src)) {
+          const a = document.createElement('a');
+          a.href = src;
+          src = a.href;
+        }
+
+        try {
+          const response = await fetch(src);
+          if (!response.ok) throw new Error(`Failed to fetch ${src}`);
+          const blob = await response.blob();
+
+          // Decide extension
+          let ext = '.jpg';
+          if (blob.type.includes('png')) ext = '.png';
+          else if (blob.type.includes('gif')) ext = '.gif';
+          else if (blob.type.includes('webp')) ext = '.webp';
+
+          const fileName = `authorworks-${++imgCount}${ext}`;
+          const buffer = await blob.arrayBuffer();
+          oebps.file(`Images/${fileName}`, buffer);
+
+          // Update <img> src to point to packaged image
+          img.setAttribute('src', `Images/${fileName}`);
+        } catch (err) {
+          console.warn('Image fetch failed:', err);
         }
       }
-    } catch (e) {
-      log('AuthorWorks sanitization failed — skipping that section: ' + e.message);
-      authorWorksXHTML = '';
+
+      // Convert the cleaned-up HTML into XHTML
+      authorWorksXHTML = this._toXHTMLFragment(clone.innerHTML);
     }
+  }
+} catch (e) {
+  log('AuthorWorks processing failed — skipping that section: ' + e.message);
+  authorWorksXHTML = '';
+}
+
 
     const infoPage = `<?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE html>
