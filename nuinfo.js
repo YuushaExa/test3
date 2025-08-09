@@ -148,60 +148,48 @@ async function fetchAuthorWorks(authorUrl) {
 
     if (!works.length) {
       log('No works found for this author.');
-      return '<p>No other works found for this author.</p>';
+      return []; // Return an empty array
     }
 
-    let worksHtml = '';
+    // CHANGED: Instead of building an HTML string, we build an array of data objects.
+    const worksData = [];
     works.forEach(work => {
       const img = work.querySelector('img')?.src || '';
       const titleEl = work.querySelector('.search_title a');
       const title = titleEl?.textContent?.trim() || 'No Title';
       const titleHref = titleEl?.href || '#';
 
-      // genres
+      // Get genres as an array of strings
       const genres = Array.from(work.querySelectorAll('.search_genre a'))
-        .map(a => `<a class="genre" href="${a.href}">${a.textContent}</a>`)
-        .join(', ') || 'No genres';
+        .map(a => a.textContent.trim());
 
-      // get full description
+      // Get full description text
       let descNode = work.querySelector('.testhide') || work.querySelector('.search_body_nu');
-      let description = descNode ? descNode.innerHTML : 'No description available';
-
-      // remove "less" links and onclick junk
-      description = description.replace(/<span[^>]*class="morelink[^>]*>.*?<\/span>/gi, '');
-      description = description.replace(/<span[^>]*class="less[^>]*>.*?<\/span>/gi, '');
-      description = description.replace(/onclick="[^"]*"/gi, '');
-
-      // decode HTML entities and strip any leftover tags
-      const tempDiv = document.createElement('div');
-      tempDiv.innerHTML = description;
-      description = tempDiv.textContent.trim();
-
-      worksHtml += `
-        <div class="search_main_box_nu" style="margin-bottom:20px;">
-          <div class="seriesimg"><img src="${img}" alt="${title}" style="max-width:120px;"></div>
-          <div class="seriestitlenu" style="font-size:16px; font-weight:bold; margin-top:5px;">
-            <a href="${titleHref}" target="_blank">${title}</a>
-          </div>
-          <div class="seriesgenre" style="margin-top:5px;">${genres}</div>
-          <div class="seriesdesc" style="margin-top:5px;">${description}</div>
-        </div>
-      `;
+      let description = 'No description available';
+      if (descNode) {
+          const tempDiv = document.createElement('div');
+          tempDiv.innerHTML = descNode.innerHTML; // Use innerHTML to parse entities
+          // Clean up "less" links before getting text content
+          tempDiv.querySelectorAll('.morelink, .less').forEach(el => el.remove());
+          description = tempDiv.textContent.trim();
+      }
+      
+      worksData.push({
+        img,
+        title,
+        titleHref,
+        genres,
+        description
+      });
     });
 
-    return `
-      <div id="AuthorWorks" style="margin-top:10px;">
-        <h5 class="seriesother">Other Works by Author</h5>
-        ${worksHtml}
-      </div>
-    `;
+    return worksData; // Return the array of objects
+
   } catch (e) {
     log(`Error fetching author works: ${e.message}`);
-    return '<p>Error fetching author works.</p>';
+    return []; // Return an empty array on error
   }
 }
-
-
 
 
 /* ---------- AutoFill button click event ---------- */
