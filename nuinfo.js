@@ -138,7 +138,7 @@ nuInfoResults.innerHTML = detailedContent + authorWorksHtml;
   }
 }
 
-// ---------- Fetch Author Works ----------
+// ---------- Fetch Author Works (only image, title, genres, description) ----------
 async function fetchAuthorWorks(authorUrl) {
   try {
     log(`Fetching author works from: ${authorUrl}`);
@@ -153,7 +153,31 @@ async function fetchAuthorWorks(authorUrl) {
 
     let worksHtml = '';
     works.forEach(work => {
-      worksHtml += work.outerHTML + '<hr>';
+      const img = work.querySelector('img')?.src || '';
+      const titleEl = work.querySelector('.search_title a');
+      const title = titleEl?.textContent?.trim() || 'No Title';
+      const titleHref = titleEl?.href || '#';
+
+      // genres
+      const genres = Array.from(work.querySelectorAll('.search_genre a'))
+        .map(a => `<a class="genre" href="${a.href}">${a.textContent}</a>`)
+        .join(', ') || 'No genres';
+
+      // description - prefer full hidden text if available
+      const hiddenDesc = work.querySelector('.testhide')?.innerText?.trim();
+      const visibleDesc = work.querySelector('.search_body_nu')?.childNodes[2]?.textContent?.trim();
+      const description = hiddenDesc || visibleDesc || 'No description available';
+
+      worksHtml += `
+        <div class="search_main_box_nu" style="margin-bottom:20px;">
+          <div class="seriesimg"><img src="${img}" alt="${title}" style="max-width:120px;"></div>
+          <div class="seriestitlenu" style="font-size:16px; font-weight:bold; margin-top:5px;">
+            <a href="${titleHref}" target="_blank">${title}</a>
+          </div>
+          <div class="seriesgenre" style="margin-top:5px;">${genres}</div>
+          <div class="seriesdesc" style="margin-top:5px;">${description}</div>
+        </div>
+      `;
     });
 
     return `
@@ -167,6 +191,7 @@ async function fetchAuthorWorks(authorUrl) {
     return '<p>Error fetching author works.</p>';
   }
 }
+
 
 
 /* ---------- AutoFill button click event ---------- */
