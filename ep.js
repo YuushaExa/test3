@@ -101,14 +101,17 @@ const infoPage = `<?xml version="1.0" encoding="utf-8"?>
 
 ${Array.isArray(this.novelData.metadata.otherworks) && this.novelData.metadata.otherworks.length ? `
   <h3>Other Works by ${this.novelData.metadata.author.join(', ')}</h3>
-  <ul>
-    ${this.novelData.metadata.otherworks.map(work => `
-      <li>
-        ${work.cover ? `<img src="${work.cover}" alt="${work.title}" style="max-width:80px; display:block;" />` : ''}
-        <strong><a href="${work.url}">${work.title}</a></strong><br />
-        ${work.genres && work.genres.length ? `<em>${work.genres.join(', ')}</em><br />` : ''}
-        ${work.description ? work.description : ''}
+  <ul style="list-style-type: none; padding-left: 0;">
+    ${this.novelData.metadata.otherworks.map((work, index) => `
+      <li style="display: flex; align-items: flex-start; margin-bottom: 20px;">
+        ${work.cover ? `<img src="${work.cover}" alt="${work.title}" style="margin-right: 15px;" />` : '<div style="margin-right: 15px;"></div>'}
+        <div>
+          <strong><a href="${work.url}">${work.title}</a></strong><br />
+          ${work.genres && work.genres.length ? `<em>${work.genres.join(', ')}</em><br />` : ''}
+          ${work.description ? work.description : ''}
+        </div>
       </li>
+      ${index < this.novelData.metadata.otherworks.length - 1 ? '<hr style="width: 80%; margin: 10px auto; border: 0; border-top: 1px solid #eee;" />' : ''}
     `).join('')}
   </ul>
 ` : ''}
