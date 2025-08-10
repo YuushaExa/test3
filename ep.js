@@ -1,60 +1,58 @@
 class EpubGenerator {
-  constructor(novelData, opts = {}) {
-    this.novelData = novelData || {};
-    this.workerUrl = opts.workerUrl || 'https://curly-pond-9050.yuush.workers.dev';
-    // use a single UUID for OPF & NCX
-    this.uuid = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `uuid-${Date.now()}`;
+  constructor(novelData) {
+    this.novelData = novelData;
+    this.workerUrl = 'https://curly-pond-9050.yuush.workers.dev';
   }
 
-  // Basic XML escaper (safe for NCX and OPF text nodes)
-  static escapeXML(str = '') {
-    return String(str)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&apos;');
-  }
-
-  // Escape HTML-ish content for XHTML bodies: keep safe tags like <br /> and <p>, convert stray & to &amp;
-  static escapeHTMLContent(str = '') {
-    if (!str) return '';
-    return String(str)
-      // allow existing entity sequences (basic)
-      .replace(/&(?![#a-z0-9]+;)/gi, '&amp;')
-      // normalize br/hr to XHTML self-closing variants
-      .replace(/<br\s*>/gi, '<br />')
-      .replace(/<hr\s*>/gi, '<hr />');
-  }
-
-  // map extension to media-type
-  static mediaTypeForFilename(name) {
-    const ext = (name || '').toLowerCase().split('.').pop();
-    switch (ext) {
-      case 'jpg':
-      case 'jpeg': return 'image/jpeg';
-      case 'png': return 'image/png';
-      case 'gif': return 'image/gif';
-      case 'webp': return 'image/webp';
-      case 'svg': return 'image/svg+xml';
-      default: return 'application/octet-stream';
-    }
-  }
-
-  getImageExtension(url = '') {
-    const m = url.match(/\.(jpg|jpeg|png|gif|webp|svg)(?:[?#].*)?$/i);
-    return m ? `.${m[1].toLowerCase()}` : '.jpg';
-  }
-
-  // main generate method returns a Blob (epub)
   async generate(logCallback = console.log) {
-    const log = msg => (logCallback || console.log)(msg);
+    const log = msg => logCallback(msg);
     const zip = new JSZip();
 
-    // 1 — fixed mimetype (must be first, stored)
+    // Escape helpers
+    function escapeXML(str) {
+      return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;');
+    }
+
+    // UPDATED: safer HTML escaping for EPUB XML
+    function escapeHTMLContent(str) {
+      if (!str) return '';
+
+      const htmlEntities = {
+        '&nbsp;': '&#160;', '&iexcl;': '&#161;', '&cent;': '&#162;', '&pound;': '&#163;',
+        '&curren;': '&#164;', '&yen;': '&#165;', '&brvbar;': '&#166;', '&sect;': '&#167;',
+        '&uml;': '&#168;', '&copy;': '&#169;', '&ordf;': '&#170;', '&laquo;': '&#171;',
+        '&not;': '&#172;', '&shy;': '&#173;', '&reg;': '&#174;', '&macr;': '&#175;',
+        '&deg;': '&#176;', '&plusmn;': '&#177;', '&sup2;': '&#178;', '&sup3;': '&#179;',
+        '&acute;': '&#180;', '&micro;': '&#181;', '&para;': '&#182;', '&middot;': '&#183;',
+        '&cedil;': '&#184;', '&sup1;': '&#185;', '&ordm;': '&#186;', '&raquo;': '&#187;',
+        '&frac14;': '&#188;', '&frac12;': '&#189;', '&frac34;': '&#190;', '&iquest;': '&#191;',
+        '&times;': '&#215;', '&divide;': '&#247;', '&ndash;': '&#8211;', '&mdash;': '&#8212;',
+        '&lsquo;': '&#8216;', '&rsquo;': '&#8217;', '&ldquo;': '&#8220;', '&rdquo;': '&#8221;',
+        '&bull;': '&#8226;', '&hellip;': '&#8230;', '&trade;': '&#8482;', '&euro;': '&#8364;',
+        '&emsp;': '&#8195;', '&ensp;': '&#8194;', '&thinsp;': '&#8201;',
+      };
+
+      return String(str)
+        .replace(/&[a-z0-9]+;/gi, match => htmlEntities[match.toLowerCase()] || match)
+        .replace(/&(?![a-z0-9#]+;)/gi, '&amp;')
+        .replace(/<br\s*>/gi, '<br />')
+        .replace(/<hr\s*>/gi, '<hr />');
+    }
+
+    function getImageExtension(url) {
+      const match = url.match(/\.(jpg|jpeg|png|gif|webp)(\?|$)/i);
+      return match ? '.' + match[1].toLowerCase() : '.jpg';
+    }
+
+    /* 1. mimetype */
     zip.file('mimetype', 'application/epub+zip', { compression: 'STORE' });
 
-    // 2 — META-INF/container.xml
+    /* 2. META-INF */
     const meta = zip.folder('META-INF');
     meta.file('container.xml', `<?xml version="1.0"?>
 <container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
@@ -63,256 +61,231 @@ class EpubGenerator {
   </rootfiles>
 </container>`);
 
-    // 3 — OEBPS folder
     const oebps = zip.folder('OEBPS');
-
-    // We'll collect manifest items + spine entries from this single toc array (single source of truth)
     const toc = [];
 
-    // helper to push items into manifest later
-    const manifestItems = new Map();
-
-    // Add cover image (if any) and other images
+    /* 3. cover image */
     let coverFileName = '';
-    if (this.novelData.metadata && this.novelData.metadata.cover) {
+    if (this.novelData.metadata.cover) {
       try {
-        const url = `${this.workerUrl}/api/raw?url=${encodeURIComponent(this.novelData.metadata.cover)}`;
-        const res = await fetch(url);
-        if (!res.ok) throw new Error(`cover fetch failed (${res.status})`);
+        const res = await fetch(`${this.workerUrl}/api/raw?url=${encodeURIComponent(this.novelData.metadata.cover)}`);
+        if (!res.ok) throw new Error('cover fetch failed');
         const blob = await res.blob();
-        coverFileName = `images/cover${this.getImageExtension(this.novelData.metadata.cover)}`;
+        coverFileName = 'cover.jpg';
         oebps.file(coverFileName, blob, { compression: 'DEFLATE' });
-        manifestItems.set('cover-image', { href: coverFileName, 'media-type': EpubGenerator.mediaTypeForFilename(coverFileName) });
       } catch (e) {
-        log(`Cover skipped: ${e.message}`);
-        coverFileName = '';
+        log('Cover skipped: ' + e.message);
       }
     }
 
-    // otherworks images (store under images/)
-    if (Array.isArray(this.novelData.metadata?.otherworks)) {
+    /* 3b. other works images */
+    if (Array.isArray(this.novelData.metadata.otherworks)) {
       for (let i = 0; i < this.novelData.metadata.otherworks.length; i++) {
-        const work = this.novelData.metadata.otherworks[i] || {};
+        const work = this.novelData.metadata.otherworks[i];
         if (work.cover) {
           try {
-            const url = `${this.workerUrl}/api/raw?url=${encodeURIComponent(work.cover)}`;
-            const res = await fetch(url);
-            if (!res.ok) throw new Error(`otherworks image fetch failed (${res.status})`);
-            const blob = await res.blob();
-            const filename = `images/otherwork_${i}${this.getImageExtension(work.cover)}`;
-            oebps.file(filename, blob, { compression: 'DEFLATE' });
-            manifestItems.set(`otherwork-${i}`, { href: filename, 'media-type': EpubGenerator.mediaTypeForFilename(filename) });
-            // rewrite the cover path for local use in info.xhtml
-            this.novelData.metadata.otherworks[i].cover = filename;
-          } catch (e) {
-            log(`Otherworks image skipped for index ${i}: ${e.message}`);
+            const imgRes = await fetch(`${this.workerUrl}/api/raw?url=${encodeURIComponent(work.cover)}`);
+            if (!imgRes.ok) throw new Error(`cover fetch failed for ${work.title}`);
+            const imgBlob = await imgRes.blob();
+            const imgFileName = `images/otherwork_${i}${getImageExtension(work.cover)}`;
+            oebps.file(imgFileName, imgBlob, { compression: 'DEFLATE' });
+            this.novelData.metadata.otherworks[i].cover = imgFileName;
+          } catch (err) {
+            log(`Other works image skipped for ${work.title}: ${err.message}`);
           }
         }
       }
     }
 
-    // XHTML template helper (XHTML 1.1 DOCTYPE + xml declaration)
-    const xhtmlHeader = (title) => `<?xml version="1.0" encoding="utf-8"?>
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
-  "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
-<head>
-  <title>${EpubGenerator.escapeXML(title)}</title>
-  <meta http-equiv="Content-Type" content="application/xhtml+xml; charset=utf-8" />
-  <style type="text/css">body{font-family:serif;line-height:1.4;padding:1em}</style>
-</head>
-<body>`;
-
-    const xhtmlFooter = `</body></html>`;
-
-    // COVER page (XHTML body must contain block elements only)
+    /* 3c. cover page */
     if (coverFileName) {
-      const coverXhtml = `${xhtmlHeader(this.novelData.metadata.title || 'Cover')}
-  <div style="text-align:center;">
-    <p><img alt="Cover" src="${EpubGenerator.escapeXML(coverFileName)}" style="max-width:100%;height:auto;border-radius:5px;" /></p>
-    <h1>${EpubGenerator.escapeXML(this.novelData.metadata.title || '')}</h1>
-    <p><strong>Author:</strong> ${Array.isArray(this.novelData.metadata.author) ? this.novelData.metadata.author.map(EpubGenerator.escapeXML).join(', ') : EpubGenerator.escapeXML(this.novelData.metadata.author || '')}</p>
-  </div>
-${xhtmlFooter}`;
-
-      oebps.file('cover.xhtml', coverXhtml);
+      const coverPage = `<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head><title>${escapeXML(this.novelData.metadata.title)}</title><meta charset="utf-8"/></head>
+<body style="margin:0; text-align:center;">
+  <img style="height:auto;width:100%;border-radius:5px;" src="${escapeXML(coverFileName)}" alt="Cover"/>
+  <h1>${escapeXML(this.novelData.metadata.title)}</h1>
+  <p><strong>Author:</strong> ${this.novelData.metadata.author.map(escapeXML).join(', ')}</p>
+</body></html>`;
+      oebps.file('cover.xhtml', coverPage);
       toc.push({ id: 'cover-page', href: 'cover.xhtml', title: 'Cover', isCover: true });
-      // manifest item added later from toc array
     }
 
-    // INFORMATION page
-    const md = this.novelData.metadata || {};
-    const authorList = Array.isArray(md.author) ? md.author.map(EpubGenerator.escapeXML).join(', ') : EpubGenerator.escapeXML(md.author || '');
-    let infoBody = `${xhtmlHeader('Information')}
-  <h1>${EpubGenerator.escapeXML(md.title || '')}</h1>
-  <p><strong>Author:</strong> ${authorList}</p>
-  <p><strong>Status:</strong> ${EpubGenerator.escapeXML(md.status || '')}</p>`;
+    /* 4. Information page */
+    const infoPage = `<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head><title>Information</title><meta charset="utf-8"/></head>
+<body>
+  <h1>${escapeXML(this.novelData.metadata.title)}</h1>
+  <p><strong>Author:</strong> ${this.novelData.metadata.author.map(escapeXML).join(', ')}</p>
+  <p><strong>Status:</strong> ${escapeXML(this.novelData.metadata.status)}</p>
+  ${this.novelData.metadata.altitile ? `<p><strong>Alternative Title:</strong> ${
+    Array.isArray(this.novelData.metadata.altitile)
+      ? this.novelData.metadata.altitile.map(escapeHTMLContent).join(', ') // UPDATED
+      : escapeHTMLContent(this.novelData.metadata.altitile) // UPDATED
+  }</p>` : ''}
+  ${this.novelData.metadata.date ? `<p><strong>Year:</strong> ${escapeXML(this.novelData.metadata.date)}</p>` : ''}
+  ${this.novelData.metadata.language ? `<p><strong>Original Language:</strong> ${escapeXML(this.novelData.metadata.language)}</p>` : ''}
+  ${this.novelData.metadata.originalPublisher ? `<p><strong>Original Publisher:</strong> ${escapeXML(this.novelData.metadata.originalPublisher)}</p>` : ''}
+  ${this.novelData.metadata.statuscoo ? `<p><strong>Original Status:</strong> ${escapeXML(this.novelData.metadata.statuscoo)}</p>` : ''}
+  ${this.novelData.metadata.genres.length ? `<p><strong>Genres:</strong> ${this.novelData.metadata.genres.map(escapeHTMLContent).join(', ')}</p>` : ''} <!-- UPDATED -->
 
-    if (md.altitile) {
-      if (Array.isArray(md.altitile)) {
-        infoBody += `<p><strong>Alternative Title:</strong> ${md.altitile.map(EpubGenerator.escapeHTMLContent).join(', ')}</p>`;
-      } else {
-        infoBody += `<p><strong>Alternative Title:</strong> ${EpubGenerator.escapeHTMLContent(md.altitile)}</p>`;
-      }
-    }
-    if (md.date) infoBody += `<p><strong>Year:</strong> ${EpubGenerator.escapeXML(md.date)}</p>`;
-    if (md.language) infoBody += `<p><strong>Original Language:</strong> ${EpubGenerator.escapeXML(md.language)}</p>`;
-    if (md.originalPublisher) infoBody += `<p><strong>Original Publisher:</strong> ${EpubGenerator.escapeXML(md.originalPublisher)}</p>`;
-    if (md.statuscoo) infoBody += `<p><strong>Original Status:</strong> ${EpubGenerator.escapeXML(md.statuscoo)}</p>`;
-    if (Array.isArray(md.genres) && md.genres.length) infoBody += `<p><strong>Genres:</strong> ${md.genres.map(EpubGenerator.escapeHTMLContent).join(', ')}</p>`;
+  <h3>Description</h3>
+  <p>${escapeHTMLContent(this.novelData.metadata.description)}</p>
 
-    infoBody += `<h3>Description</h3>
-  <div>${EpubGenerator.escapeHTMLContent(md.description || '')}</div>`;
-
-    if (Array.isArray(md.otherworks) && md.otherworks.length) {
-      infoBody += `<h3>Other Works</h3><ul style="padding-left:1em">`;
-      md.otherworks.forEach(work => {
-        infoBody += `<li>
+${Array.isArray(this.novelData.metadata.otherworks) && this.novelData.metadata.otherworks.length ? `
+  <h3>Other Works by ${this.novelData.metadata.author.map(escapeXML).join(', ')}</h3>
+  <ul style="list-style-type: none; padding-left: 0;">
+    ${this.novelData.metadata.otherworks.map((work, index) => `
+      <li>
+        <div style="display: flex; align-items: flex-start;flex-direction:column;">
+          ${work.cover 
+            ? `<img src="${escapeXML(work.cover)}" alt="${escapeHTMLContent(work.title)}" style="margin-right: 15px;" />` // UPDATED
+            : '<div style="margin-right: 15px;"></div>'}
           <div>
-            ${work.cover ? `<p><img src="${EpubGenerator.escapeXML(work.cover)}" alt="${EpubGenerator.escapeXML(work.title || '')}" style="max-width:80px;display:block;margin-bottom:4px" /></p>` : ''}
-            <p><strong><a href="${EpubGenerator.escapeXML(work.url || '#')}">${EpubGenerator.escapeXML(work.title || '')}</a></strong></p>
-            ${work.genres && work.genres.length ? `<p><em>${work.genres.map(EpubGenerator.escapeHTMLContent).join(', ')}</em></p>` : ''}
-            ${work.description ? `<div>${EpubGenerator.escapeHTMLContent(work.description)}</div>` : ''}
+            <strong><a href="${escapeXML(work.url)}">${escapeHTMLContent(work.title)}</a></strong><br /> <!-- UPDATED -->
+            ${work.genres && work.genres.length ? `<em>${work.genres.map(escapeHTMLContent).join(', ')}</em>` : ''} <!-- UPDATED -->
           </div>
-        </li>`;
-      });
-      infoBody += `</ul>`;
-    }
+        </div>
+        ${work.description 
+          ? `<div style="margin-top: 10px;">${escapeHTMLContent(work.description)}</div>` // UPDATED
+          : ''}
+      </li>
+      ${index < this.novelData.metadata.otherworks.length - 1 
+        ? '<hr style="width: 80%; margin: 10px auto; border: 0; border-top: 1px solid #eee;" />' 
+        : ''}
+    `).join('')}
+  </ul>
+` : ''}
+</body>
+</html>`;
 
-    infoBody += `${xhtmlFooter}`;
-    oebps.file('info.xhtml', infoBody);
+    oebps.file('info.xhtml', infoPage);
     toc.push({ id: 'info-page', href: 'info.xhtml', title: 'Information' });
 
-    // CHAPTERS: create files and add to toc
-    if (Array.isArray(this.novelData.chapters)) {
-      this.novelData.chapters.forEach((ch, idx) => {
-        const id = `ch-${idx + 1}`;
-        const href = `chap${idx + 1}.xhtml`;
-        const titleText = ch.title || `Chapter ${idx + 1}`;
-        const safeContent = EpubGenerator.escapeHTMLContent(ch.content || '');
-        const html = `${xhtmlHeader(titleText)}
-  <h1>${EpubGenerator.escapeXML(titleText)}</h1>
-  <div>${safeContent}</div>
-${xhtmlFooter}`;
-        oebps.file(href, html);
-        toc.push({ id, href, title: titleText });
-      });
-    }
+    /* 5. Chapters */
+    log('Processing chapters for EPUB...');
+    this.novelData.chapters.forEach((ch, idx) => {
+      const file = `chap${idx + 1}.xhtml`;
+      const processedContent = escapeHTMLContent(ch.content || 'Content not found.'); // UPDATED
 
-    // TOC page (XHTML) — no <nav> element (EPUB2 validator complained); simple <ol> with anchors
-    const tocXhtml = `${xhtmlHeader('Table of Contents')}
-  <h1>Table of Contents</h1>
-  <ol>
-    ${toc.map(t => `<li><a href="${EpubGenerator.escapeXML(t.href)}">${EpubGenerator.escapeXML(t.title)}</a></li>`).join('\n    ')}
-  </ol>
-${xhtmlFooter}`;
-    oebps.file('toc.xhtml', tocXhtml);
-    // Ensure toc page is in the toc list (if not already)
-    if (!toc.some(t => t.id === 'toc-page')) {
-      toc.splice( (coverFileName ? 1 : 0) + 1, 0, { id: 'toc-page', href: 'toc.xhtml', title: 'Table of Contents' });
-    }
-
-    // Build manifest items from toc (XHTML files)
-    toc.forEach(t => {
-      manifestItems.set(t.id, { href: t.href, 'media-type': 'application/xhtml+xml' });
+      const html = `<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title>${escapeHTMLContent(ch.title)}</title> <!-- UPDATED -->
+  <meta charset="utf-8"/>
+</head>
+<body>
+  <h1>${escapeHTMLContent(ch.title)}</h1> <!-- UPDATED -->
+  ${processedContent}
+</body>
+</html>`;
+      oebps.file(file, html);
+      toc.push({ id: `ch-${idx + 1}`, href: file, title: escapeHTMLContent(ch.title) }); // UPDATED
     });
 
-    // add manifest items for images we've stored (they are already in manifestItems map)
-    // (we added cover-image and otherwork-N earlier when downloading images)
+    /* 5a. TOC page */
+    const tocPage = `<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
+<head>
+  <title>Table of Contents</title>
+  <meta charset="utf-8"/>
+  <style type="text/css">
+    body { font-family: sans-serif; line-height: 1.5; }
+    h1 { text-align: center; }
+    li { margin: 0.5em 0; }
+  </style>
+</head>
+<body>
+  <h1>Table of Contents</h1>
+  <nav epub:type="toc" id="toc">
+    <ol>
+      <li><a href="cover.xhtml">Cover</a></li>
+      <li><a href="info.xhtml">Information</a></li>
+      <li><a href="toc.xhtml">Table of Contents</a></li>
+      ${this.novelData.chapters.map((ch, idx) => 
+        `<li><a href="chap${idx + 1}.xhtml">${escapeHTMLContent(ch.title)}</a></li>` // UPDATED
+      ).join('\n      ')}
+    </ol>
+  </nav>
+</body>
+</html>`;
 
-    // NCX (use same uuid as OPF)
+    oebps.file('toc.xhtml', tocPage);
+    toc.push({ id: 'toc-page', href: 'toc.xhtml', title: 'Table of Contents' });
+
+    /* 7. NCX */
     const ncx = `<?xml version="1.0" encoding="utf-8"?>
 <ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">
   <head>
-    <meta name="dtb:uid" content="urn:uuid:${EpubGenerator.escapeXML(this.uuid)}"/>
+    <meta name="dtb:uid" content="${'urn:uuid:' + Date.now()}"/>
     <meta name="dtb:depth" content="1"/>
     <meta name="dtb:totalPageCount" content="0"/>
     <meta name="dtb:maxPageNumber" content="0"/>
   </head>
-  <docTitle><text>${EpubGenerator.escapeXML(md.title || '')}</text></docTitle>
+  <docTitle><text>${escapeHTMLContent(this.novelData.metadata.title)}</text></docTitle> <!-- UPDATED -->
   <navMap>
-    ${toc.map((t, i) => `
-    <navPoint id="${EpubGenerator.escapeXML(t.id)}" playOrder="${i + 1}">
-      <navLabel><text>${EpubGenerator.escapeXML(t.title)}</text></navLabel>
-      <content src="${EpubGenerator.escapeXML(t.href)}"/>
-    </navPoint>`).join('')}
+    ${toc.map((t, i) => `<navPoint id="${escapeXML(t.id)}" playOrder="${i + 1}">
+      <navLabel><text>${escapeHTMLContent(t.title)}</text></navLabel> <!-- UPDATED -->
+      <content src="${escapeXML(t.href)}"/>
+    </navPoint>`).join('\n  ')}
   </navMap>
 </ncx>`;
     oebps.file('toc.ncx', ncx);
-    // add ncx manifest entry
-    manifestItems.set('ncx', { href: 'toc.ncx', 'media-type': 'application/x-dtbncx+xml' });
 
-    // Build OPF (OPF 2.0 safe)
-    // metadata: use dc:* tags and <meta name="dcterms:modified" content="..."/> style
-    const metaLines = [];
-    metaLines.push(`<dc:title>${EpubGenerator.escapeXML(md.title || '')}</dc:title>`);
-    metaLines.push(`<dc:creator>${EpubGenerator.escapeXML(Array.isArray(md.author) ? md.author.join(', ') : (md.author || ''))}</dc:creator>`);
-    metaLines.push(`<dc:language>${EpubGenerator.escapeXML(md.language || 'en')}</dc:language>`);
-    // genres as subjects
-    if (Array.isArray(md.genres)) {
-      md.genres.forEach(g => metaLines.push(`<dc:subject>${EpubGenerator.escapeXML(g)}</dc:subject>`));
-    }
-    metaLines.push(`<dc:identifier id="BookId">urn:uuid:${EpubGenerator.escapeXML(this.uuid)}</dc:identifier>`);
-    metaLines.push(`<dc:description>${EpubGenerator.escapeXML(md.description || '')}</dc:description>`);
-    metaLines.push(`<meta name="dcterms:modified" content="${new Date().toISOString()}"/>`);
-    if (coverFileName) {
-      metaLines.push(`<meta name="cover" content="cover-image"/>`);
-    }
-
-    // manifest entries
-    const manifestLines = [];
-    for (const [id, info] of manifestItems) {
-      manifestLines.push(`<item id="${EpubGenerator.escapeXML(id)}" href="${EpubGenerator.escapeXML(info.href)}" media-type="${EpubGenerator.escapeXML(info['media-type'])}"/>`);
-    }
-
-    // spine: use toc order (exclude manifest entries that are not XHTML)
-    const spineLines = [];
-    toc.forEach(t => {
-      spineLines.push(`<itemref idref="${EpubGenerator.escapeXML(t.id)}"/>`);
-    });
-
+    /* 6. OPF */
     const opf = `<?xml version="1.0" encoding="utf-8"?>
 <package xmlns="http://www.idpf.org/2007/opf" unique-identifier="BookId" version="2.0">
   <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
-    ${metaLines.join('\n    ')}
+    <dc:title>${escapeHTMLContent(this.novelData.metadata.title)}</dc:title> <!-- UPDATED -->
+    <dc:creator>${this.novelData.metadata.author.map(escapeHTMLContent).join(', ')}</dc:creator> <!-- UPDATED -->
+    <dc:language>en</dc:language>
+${this.novelData.metadata.genres.map(genre => `<dc:subject>${escapeHTMLContent(genre)}</dc:subject>`).join('\n')}
+<dc:identifier id="BookId">urn:uuid:${crypto.randomUUID()}</dc:identifier>
+    <dc:description>${escapeHTMLContent(this.novelData.metadata.description || '')}</dc:description> <!-- UPDATED -->
+      <meta property="dcterms:modified">${new Date().toISOString()}</meta>
+    <meta property="nav">toc.xhtml</meta>
+    ${coverFileName ? '<meta name="cover" content="cover-image"/>' : ''}
   </metadata>
   <manifest>
-    ${manifestLines.join('\n    ')}
+    <item id="nav" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
+    <item id="nav-page" href="toc.xhtml" media-type="application/xhtml+xml" properties="nav"/>
+  ${coverFileName ? `<item id="cover-image" href="${escapeXML(coverFileName)}" media-type="image/jpg"/>` : ''}
+  <item id="cover-page" href="cover.xhtml" media-type="application/xhtml+xml"/>
+  ${toc.map(t => `<item id="${escapeXML(t.id)}" href="${escapeXML(t.href)}" media-type="application/xhtml+xml"/>`).join('\n    ')}
   </manifest>
-  <spine toc="ncx">
-    ${spineLines.join('\n    ')}
+  <spine toc="nav">
+    <itemref idref="cover-page"/>
+    <itemref idref="info-page"/>
+    <itemref idref="toc-page"/>    
+  ${toc.map(t => `<itemref idref="${escapeXML(t.id)}"/>`).join('\n    ')}
   </spine>
 </package>`;
-
     oebps.file('content.opf', opf);
 
-    // add images to manifest (if not already present). (manifestItems already contains them)
-    // done above by building manifestLines from manifestItems
-
-    // Generate the EPUB blob
-    log('Generating EPUB (this may take a moment)...');
-    const blob = await zip.generateAsync({
+    /* 8. Generate EPUB file */
+    log('Generating EPUB file, please wait...');
+    return await zip.generateAsync({
       type: 'blob',
       mimeType: 'application/epub+zip',
       compression: 'DEFLATE',
       compressionOptions: { level: 9 }
     });
-
-    log('EPUB generation finished.');
-    return blob;
   }
 
-  // convenience download helper
   async download(logCallback = console.log) {
     const blob = await this.generate(logCallback);
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    const safeTitle = (this.novelData.metadata?.title || 'book').replace(/[^a-z0-9\-_.]/gi, '_');
-    link.download = `${safeTitle}.epub`;
+    link.download = `${this.novelData.metadata.title.replace(/[^a-z0-9]/gi, '_')}.epub`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(link.href);
-    (logCallback || console.log)('EPUB download initiated.');
+    logCallback('EPUB download initiated!');
   }
-  }
+} 
