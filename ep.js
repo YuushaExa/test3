@@ -18,12 +18,16 @@ class EpubGenerator {
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&apos;');
     }
-    function escapeHTMLContent(str) {
-      return String(str || '')
-        // escape & only if it's not already an entity
-        .replace(/&(?![a-z0-9#]+;)/gi, '&amp;')
-        .replace(/<br\s*>/gi, '<br />');
-    }
+
+function escapeHTMLContent(str) {
+  return String(str || '')
+    .replace(/&nbsp;/g, '&#160;')                  // replace non-breaking spaces
+    .replace(/&(?![a-z0-9#]+;)/gi, '&amp;')        // escape bad ampersands
+    .replace(/<br\s*>/gi, '<br />')                // fix br tags
+    .replace(/<hr([^>]*)>/gi, '<hr$1 />');         // fix hr tags
+}
+
+    
     function getImageExtension(url) {
       const match = url.match(/\.(jpg|jpeg|png|gif|webp)(\?|$)/i);
       return match ? '.' + match[1].toLowerCase() : '.jpg';
