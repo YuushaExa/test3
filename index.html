@@ -186,7 +186,10 @@
         .replace(/<div[^>]*class\s*=\s*["']ads[^>]*>.*?<\/div>/gis, '')
         .replace(/<div[^>]*>\s*<\/div>/gis, '')
         .replace(/<p>Source: .*?novlove\.com<\/p>/gi, '')
-        .trim();
+        .replace(/<div[^>]*class\s*=\s*["'][^"']*\bads-holder\b[^"']*\bads-middle\b[^"']*["'][^>]*>\s*<input[^>]*name\s*=\s*["']IL_IN_ARTICLE["'][^>]*>\s*<\/div>/gis, '')
+  .replace(/<input[^>]*name\s*=\s*["']IL_IN_ARTICLE["'][^>]*>/gis, '')
+  .trim();
+        
 
       return { title, content };
     }
