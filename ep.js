@@ -41,6 +41,7 @@ class EpubGenerator {
         .replace(/&[a-z0-9]+;/gi, match => htmlEntities[match.toLowerCase()] || match)
         .replace(/&(?![a-z0-9#]+;)/gi, '&amp;')
         .replace(/<br\s*>/gi, '<br />');
+      .replace(/<hr\s*>/gi, '<hr />'); 
     }
 
     function getImageExtension(url) {
