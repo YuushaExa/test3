@@ -35,6 +35,7 @@
     <button id="downloadBtn" disabled>Download as JSON</button>
     <button id="saveToJsonBtn" disabled>Save JSON</button> 
   <button id="editMetadataBtn" disabled>Edit Metadata</button>
+    <button id="checkBtn" disabled>Check</button>
     <button id="saveMetadataBtn">Save Metadata</button>
     <div class="progress-container" id="progressContainer">
       <div class="status" id="statusText">Processing...</div>
@@ -552,6 +553,59 @@ fetchMetadataBtn.addEventListener('click', () => {
     }
   }, 500);
 });
+
+    // Reference to the Check button
+const checkBtn = document.getElementById('checkBtn');
+
+// Enable "Check" button after metadata is loaded
+fetchMetadataBtn.addEventListener('click', () => {
+  const checkInterval = setInterval(() => {
+    if (novelData.metadata?.title) {
+      checkBtn.disabled = false;
+      clearInterval(checkInterval);
+    }
+  }, 500);
+});
+
+// Function to check title similarity
+async function checkTitle() {
+  if (!novelData.metadata?.title) {
+    return alert('No metadata title available.');
+  }
+
+  try {
+    log(`Checking title against database...`);
+    
+    const res = await fetch('https://github.com/YuushaExa/test3/raw/refs/heads/main/titles.json');
+    if (!res.ok) throw new Error(`Failed to fetch titles.json (${res.status})`);
+    
+    const data = await res.json();
+    const targetTitle = novelData.metadata.title.trim().toLowerCase();
+
+    // Exact match check (you can replace with fuzzy match if needed)
+    const match = data.titles.some(item => 
+      item.title.trim().toLowerCase() === targetTitle
+    );
+
+    // Output result in color
+    const message = match 
+      ? `%cDuplicate` 
+      : `%cOriginal`;
+    const style = match 
+      ? 'color: red; font-weight: bold;' 
+      : 'color: green; font-weight: bold;';
+
+    consoleOutput.innerHTML += `<div style="${style.replace(/%c/g, '')}">${match ? 'Duplicate' : 'Original'}</div>`;
+    consoleOutput.scrollTop = consoleOutput.scrollHeight;
+
+  } catch (err) {
+    log(`Error checking title: ${err.message}`);
+  }
+}
+
+// Attach event listener
+checkBtn.addEventListener('click', checkTitle);
+
   </script>
 </body>
 <!-- ===== NUInfo button + results container ===== -->
