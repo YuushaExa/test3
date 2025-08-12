@@ -35,7 +35,6 @@
     <button id="downloadBtn" disabled>Download as JSON</button>
     <button id="saveToJsonBtn" disabled>Save JSON</button> 
   <button id="editMetadataBtn" disabled>Edit Metadata</button>
-    <button id="checkBtn" disabled>Check</button>
     <button id="saveMetadataBtn">Save Metadata</button>
     <div class="progress-container" id="progressContainer">
       <div class="status" id="statusText">Processing...</div>
@@ -555,19 +554,6 @@ fetchMetadataBtn.addEventListener('click', () => {
   }, 500);
 });
 
-    // Reference to the Check button
-const checkBtn = document.getElementById('checkBtn');
-
-// Enable "Check" button after metadata is loaded
-fetchMetadataBtn.addEventListener('click', () => {
-  const checkInterval = setInterval(() => {
-    if (novelData.metadata?.title) {
-      checkBtn.disabled = false;
-      clearInterval(checkInterval);
-    }
-  }, 500);
-});
-
 // Function to check title similarity
 async function checkTitle() {
   if (!novelData.metadata?.title) {
@@ -603,9 +589,6 @@ async function checkTitle() {
     log(`Error checking title: ${err.message}`);
   }
 }
-
-// Attach event listener
-checkBtn.addEventListener('click', checkTitle);
 
   </script>
 </body>
