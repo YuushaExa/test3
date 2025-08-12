@@ -158,6 +158,7 @@
     log(`\nTotal chapters found: ${chapters.length}`);
 
     fetchChaptersBtn.disabled = false;
+    checkTitle();
   } catch (err) {
     log(`Error: ${err.message}`);
     fetchMetadataBtn.disabled = false;
