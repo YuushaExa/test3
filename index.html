@@ -576,7 +576,7 @@ async function checkTitle() {
   try {
     log(`Checking title against database...`);
     
-    const res = await fetch('https://github.com/YuushaExa/test3/raw/refs/heads/main/titles.json');
+    const res = await fetch('https://raw.githubusercontent.com/YuushaExa/test3/refs/heads/main/titles.json');
     if (!res.ok) throw new Error(`Failed to fetch titles.json (${res.status})`);
     
     const data = await res.json();
