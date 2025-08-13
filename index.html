@@ -570,9 +570,9 @@ async function checkTitle() {
     const targetTitle = novelData.metadata.title.trim().toLowerCase();
 
     // Exact match check (you can replace with fuzzy match if needed)
-    const match = data.titles.some(item => 
-      item.title.trim().toLowerCase() === targetTitle
-    );
+ const match = data.some(item => 
+  item.title.trim().toLowerCase() === targetTitle
+);
 
     // Output result in color
     const message = match 
