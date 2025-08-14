@@ -227,6 +227,7 @@
         saveToJsonBtn.disabled = false; 
         progressContainer.style.display = 'none';
         saveJsonToGoogleDrive();
+        saveMetadata()
       } catch (err) {
         log(`Error: ${err.message}`);
         fetchChaptersBtn.disabled = false;
@@ -234,38 +235,41 @@
       }
     }
 
-document.getElementById('saveMetadataBtn').addEventListener('click', async () => {
+// ---- Save Metadata ----
+async function saveMetadata() {
   try {
+    progressContainer.style.display = 'block';
+    statusText.textContent = 'Saving metadata...';
+    
     const metadata = novelData.metadata;
     if (!metadata) {
       alert('No metadata available to save');
-      return;
+      return false;
     }
 
-    // Log what we're about to send
-    console.log('Sending metadata:', metadata);
-
-   const response = await fetch('https://curly-pond-9050.yuush.workers.dev/api/saveMetadata', {
+    log('Saving metadata to server...');
+    
+    const response = await fetch(`${WORKER_URL}/api/saveMetadata`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(metadata)
     });
 
     const result = await response.json();
-    if (result.success) {
-      alert(result.message || 'Metadata saved successfully');
-      console.log('Save result:', result);
-    } else {
-      alert('Error saving metadata: ' + (result.error || 'Unknown error'));
-      console.error('Save error:', result);
+    if (!response.ok || !result.success) {
+      throw new Error(result.error || 'Failed to save metadata');
     }
+
+    log('<span style="color: green">✓ Metadata saved successfully'</span>);
+    return true;
+    
   } catch (error) {
-    alert('Error saving metadata: ' + error.message);
-    console.error('Save failed:', error);
+    log(`<span style="color: red">Error: ${error.message}</span>`);
+    return false;
+  } finally {
+    progressContainer.style.display = 'none';
   }
-});
+}
     // ---- export JSON ----
 function downloadJson() {
   if (!novelData.metadata?.title) return alert('No data to save');
@@ -334,6 +338,10 @@ async function saveJsonToGoogleDrive() {
     fetchChaptersBtn.addEventListener('click', fetchChapters);
     downloadBtn.addEventListener('click', downloadJson);
      saveToJsonBtn.addEventListener('click', saveJsonToGoogleDrive); 
+    saveMetadataBtn.addEventListener('click', async () => {
+  await saveMetadata();
+});
+    
 
 
 // Global for storing the generated EPUB blob
