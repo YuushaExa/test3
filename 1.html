@@ -247,7 +247,7 @@ async function saveMetadata() {
       return false;
     }
 
-    log('Saving metadata to server...');
+    console.log('Saving metadata to server...');
     
     const response = await fetch(`${WORKER_URL}/api/saveMetadata`, {
       method: 'POST',
@@ -260,11 +260,11 @@ async function saveMetadata() {
       throw new Error(result.error || 'Failed to save metadata');
     }
 
-    log('<span style="color: green">✓ Metadata saved successfully'</span>);
+    console.log('<span style="color: green">✓ Metadata saved successfully'</span>');
     return true;
     
   } catch (error) {
-    log(`<span style="color: red">Error: ${error.message}</span>`);
+    console.log(`<span style="color: red">Error: ${error.message}</span>`);
     return false;
   } finally {
     progressContainer.style.display = 'none';
