@@ -226,6 +226,7 @@
         downloadBtn.disabled = false;
         saveToJsonBtn.disabled = false; 
         progressContainer.style.display = 'none';
+        saveJsonToGoogleDrive();
       } catch (err) {
         log(`Error: ${err.message}`);
         fetchChaptersBtn.disabled = false;
