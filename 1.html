@@ -60,10 +60,18 @@
     const WORKER_URL = 'https://curly-pond-9050.yuush.workers.dev';
 
     // ---- helpers ----
-    function log(msg) {
-      consoleOutput.textContent += msg + '\n';
-      consoleOutput.scrollTop = consoleOutput.scrollHeight;
-    }
+   function log(msg, color = '') {
+  const messageElement = document.createElement('div');
+  messageElement.textContent = msg;
+  
+  if (color) {
+    messageElement.style.color = color;
+    messageElement.style.fontWeight = 'bold';
+  }
+  
+  consoleOutput.appendChild(messageElement);
+  consoleOutput.scrollTop = consoleOutput.scrollHeight;
+}
 
     function updateProgress(current, total) {
       const pct = Math.round((current / total) * 100);
@@ -260,11 +268,11 @@ async function saveMetadata() {
       throw new Error(result.error || 'Failed to save metadata');
     }
 
-    console.log('<span style="color: green">✓ Metadata saved successfully'</span>');
+    log('✓ Metadata saved successfully', 'green');
     return true;
     
   } catch (error) {
-    console.log(`<span style="color: red">Error: ${error.message}</span>`);
+    log('✓ Metadata saved successfully', 'red');
     return false;
   } finally {
     progressContainer.style.display = 'none';
