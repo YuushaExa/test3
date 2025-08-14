@@ -235,7 +235,9 @@
         saveToJsonBtn.disabled = false; 
         progressContainer.style.display = 'none';
         saveJsonToGoogleDrive();
-        saveMetadata()
+        saveMetadata();
+        const epubBlob = await createEpub();
+        await saveEpubToDrive();
       } catch (err) {
         log(`Error: ${err.message}`);
         fetchChaptersBtn.disabled = false;
@@ -327,12 +329,12 @@ async function saveJsonToGoogleDrive() {
       throw new Error(result.error || 'Upload failed with unknown error');
     }
 
-    log(`✓ Successfully saved to Google Drive`);
+    log(`✓ Successfully saved to Google Drive`, 'green');
     log(`File: ${result.webViewLink}`);
     log(`File ID: ${result.fileId}`);
     
   } catch (error) {
-    log(`Error: ${error.message}`);
+    log(`Error: ${error.message}`, 'red');
     console.error('Upload error details:', error);
   } finally {
     saveToJsonBtn.disabled = false;
@@ -388,12 +390,12 @@ async function createEpub() {
     log('Generating EPUB...');
     const generator = new EpubGenerator(novelData);
     generatedEpubBlob = await generator.generate(log); // generate() already returns a Blob
-    log('✓ EPUB created successfully (not downloaded yet)');
+    log('✓ EPUB created successfully (not downloaded yet)', 'green');
     downloadEpubBtn.disabled = false;
     saveEpubBtn.disabled = false;
     return generatedEpubBlob;
   } catch (err) {
-    log(`EPUB generation error: ${err.message}`);
+    log(`EPUB generation error: ${err.message}`, 'red');
     throw err;
   } finally {
     createEpubBtn.disabled = false;
@@ -438,12 +440,12 @@ async function saveEpubToDrive() {
       throw new Error(result.error || 'Upload failed');
     }
 
-    log(`✓ Successfully saved EPUB to Google Drive`);
+    log(`✓ Successfully saved EPUB to Google Drive`, 'green');
     log(`File: ${result.webViewLink}`);
     log(`File ID: ${result.fileId}`);
     return result;
   } catch (error) {
-    log(`Error: ${error.message}`);
+    log(`Error: ${error.message}`, 'red');
     throw error;
   } finally {
     saveEpubBtn.disabled = false;
