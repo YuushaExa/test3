@@ -121,21 +121,21 @@ async function fetchMetadata() {
     }
 
     // Metadata
-const title = document.querySelectorAll('.n-text h1')?.textContent?.trim();
-const coverPath = document.querySelectorAll('.n-img img')?.getAttribute('src');
-const cover = coverPath ? new URL(coverPath, url).href : '';
+const title = document.querySelector('.n-text h1')?.textContent?.trim()
+const coverImg = document.querySelector('.n-img img');
+    const cover = coverPath ? new URL(coverPath, url).href : '';
 
-const authorNodes = Array.from(document.querySelectorAll('.info div'))
-  .find(d => d.querySelectorAll('h3')?.textContent?.trim() === 'Author:')
-  ?.querySelectorAll('a');
+const authorElement = document.querySelector('.n-text p a.bauthor');
+const author = authorElement?.textContent?.trim();
 
-const authors = authorNodes ? Array.from(authorNodes).map(a => a.textContent.trim()) : [];
-const genres = document.querySelectorAll('.tags a');
-const genreNames = Array.from(genres).map(a => a.textContent.trim());
+const genreElements = document.querySelectorAll('.breadcrumbs li a, .tags a');
+const genres = Array.from(genreElements)
+                  .map(el => el.textContent.trim())
+                  .filter(text => !text.includes('front page') && !text.includes(title));
 
-const status = document.querySelectorAll('.u-chapter.cfirst li a:last-of-type');
-const description = document.querySelectorAll('.pintro')?.textContent?.trim();
-
+const statusElement = document.querySelector('.n-text .lz');
+const status = statusElement?.textContent?.trim();
+const description = document.querySelector('.pintro')?.textContent?.trim();
 
     novelData.metadata = { title, cover, author: authors, genres: genreNames, status, description };
     novelData.chapters = chapters;
