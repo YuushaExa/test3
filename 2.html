@@ -132,8 +132,8 @@
     const $    = sel => doc.querySelector(sel);
     const $$   = sel => [...doc.querySelectorAll(sel)];
 
-    const title       = $('.col-xs-12.col-sm-8.col-md-8.desc h3.title')?.textContent?.trim();
-    const coverPath   = $('.col-xs-12.col-sm-4.col-md-4.info-holder .book img')?.getAttribute('src');
+    const title       = $('.text-uppercase long-title')?.textContent?.trim();
+    const coverPath   = $('.image-wrap.zoom img')?.getAttribute('src');
     const cover       = coverPath ? new URL(coverPath, url).href : '';
 
     const authorNodes = $$('.info div').find(d => d.querySelector('h3')?.textContent?.trim() === 'Author:')
