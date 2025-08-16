@@ -121,21 +121,15 @@ async function fetchMetadata() {
     }
 
     // Metadata
-const title = document.querySelector('.n-text h1')?.textContent?.trim()
-const coverImg = document.querySelector('.n-img img');
-const cover = coverImg?.src;
+// Title
+const title = document.querySelector('.n-text h1')?.textContent?.trim() || '';
 
-const authorElement = document.querySelector('a.bauthor');
-const author = authorElement?.textContent?.trim();
+// Cover image
+const coverPath = document.querySelector('.n-img img')?.getAttribute('src');
+const cover = coverPath ? new URL(coverPath, url).href : '';
 
-const genreElements = document.querySelectorAll('.breadcrumbs li a, .tags a');
-const genres = Array.from(genreElements)
-                  .map(el => el.textContent.trim())
-                  .filter(text => !text.includes('front page') && !text.includes(title));
-
-const statusElement = document.querySelector('.n-text .lz');
-const status = statusElement?.textContent?.trim();
-const description = document.querySelector('.pintro')?.textContent?.trim();
+// Author
+const author = document.querySelector('.n-text p a.bauthor')?.textContent?.trim() || '';
 
     novelData.metadata = { title, cover, author: authors, genres: genreNames, status, description };
     novelData.chapters = chapters;
