@@ -90,7 +90,7 @@
     }
 
     // ---- fetch metadata (browser-side) ----
-    async function fetchMetadata() {
+ async function fetchMetadata() {
   const url = novelUrlInput.value.trim();
   if (!url) return alert('Please enter a novel URL');
 
@@ -98,72 +98,26 @@
     log('Fetching novel page…');
     fetchMetadataBtn.disabled = true;
 
-    const chapters = [];               // local collector
-
-    // helper: scrape one page
-    async function scrapeOne(pageUrl) {
-      const html = await fetchRawHTML(pageUrl);
-      const doc  = new DOMParser().parseFromString(html, 'text/html');
-      const $$   = sel => [...doc.querySelectorAll(sel)];
-
-      // chapters on this page
-      $$('.list-chapter li a').forEach(a =>
-        chapters.push({
-          title: a.getAttribute('title') || a.textContent.trim(),
-          url:   new URL(a.getAttribute('href'), url).href
-        })
-      );
-
-      // next link
-      const next = $$('.pagination li.next a')[0]?.getAttribute('href');
-      return next ? new URL(next, url).href : null;
-    }
-
-    // crawl all pages
-    let nextPage = url;
-    while (nextPage) {
-      log(`Scraping chapter list page → ${nextPage}`);
-      nextPage = await scrapeOne(nextPage);
-    }
-
-    // metadata from first page
-    const html = await fetchRawHTML(url);   // already cached by browser
+    const html = await fetchRawHTML(url);
     const doc  = new DOMParser().parseFromString(html, 'text/html');
-    const $    = sel => doc.querySelector(sel);
     const $$   = sel => [...doc.querySelectorAll(sel)];
 
-    const title       = $('.n-text h1')?.textContent?.trim();
-    const coverPath   = $('.n-img img')?.getAttribute('src');
-    const cover       = coverPath ? new URL(coverPath, url).href : '';
+    // Grab chapter links
+    const chapters = $$('.u-chapter.cfirst li a').map((a, idx) => ({
+      title: a.textContent.trim() || `Chapter ${idx+1}`,
+      url: new URL(a.getAttribute('href'), url).href
+    }));
 
-    const authorNodes = $$('.info div').find(d => d.querySelector('h3')?.textContent?.trim() === 'Author:')
-                         ?.querySelectorAll('a');
-    const authors     = authorNodes ? [...authorNodes].map(a => a.textContent.trim()) : [];
+    // Metadata
+    const title = doc.querySelector('title')?.textContent?.trim() || 'Unknown Title';
+    const description = doc.querySelector('meta[name="description"]')?.getAttribute('content') || '';
 
-    const genres      = $$('.info div').find(d => d.querySelector('h3')?.textContent?.trim() === 'Genre:')
-                         ?.querySelectorAll('a');
-    const genreNames  = genres ? [...genres].map(a => a.textContent.trim()) : [];
-
-    const status      = $$('.info div').find(d => d.querySelector('h3')?.textContent?.trim() === 'Status:')
-                         ?.querySelector('a')?.textContent?.trim();
-
-    const source      = $$('.info div').find(d => d.querySelector('h3')?.textContent?.trim() === 'Source:')
-                         ?.textContent?.replace('Source:', '').trim();
-
-    const description = $('.col-xs-12.col-sm-8.col-md-8.desc .desc-text')?.textContent?.trim();
-
-    novelData.metadata = { title, cover, author: authors, genres: genreNames, status, source, description };
+    novelData.metadata = { title, cover: '', author: [], genres: [], status: '', source: url, description };
     novelData.chapters = chapters;
 
     log(`\n=== Metadata ===`);
     log(`Title: ${title}`);
-    log(`Cover: ${cover}`);
-    log(`Author: ${authors.join(', ')}`);
-    log(`Status: ${status}`);
-    log(`Genres: ${genreNames.join(', ')}`);
-    log(`Description: ${description}`);
-    log(`\nTotal chapters found: ${chapters.length}`);
-
+    log(`Chapters found: ${chapters.length}`);
     fetchChaptersBtn.disabled = false;
     checkTitle();
     openNuSearch();
@@ -171,38 +125,30 @@
     log(`Error: ${err.message}`);
     fetchMetadataBtn.disabled = false;
   }
-    }
+}
+
     // ---- fetch chapter content (browser-side) ----
-    async function fetchChapterContent(chapterUrl) {
-      const html = await fetchRawHTML(chapterUrl);
-      const doc  = new DOMParser().parseFromString(html, 'text/html');
+  async function fetchChapterContent(chapterUrl) {
+  const html = await fetchRawHTML(chapterUrl);
+  const doc  = new DOMParser().parseFromString(html, 'text/html');
 
-      const novelTitle = doc.querySelector('.col-xs-12 a.truyen-title')?.textContent?.trim() || '';
-      const chTitle    = doc.querySelector('.col-xs-12 h2')?.textContent?.trim() || '';
-      const title      = `${novelTitle} - ${chTitle}`;
+  const title = doc.querySelector('.page-content h3')?.textContent?.trim() || 'Untitled Chapter';
 
-      let content = doc.querySelector('#chapter-content')?.innerHTML || 'Chapter not found';
+  // collect only <p> inside .page-content, skipping ads/abg/etc
+  const paragraphs = [...doc.querySelectorAll('.page-content p')]
+    .filter(p => 
+      !p.classList.contains('abg') &&
+      !p.closest('.ad') &&
+      !p.closest('.ads')
+    )
+    .map(p => p.textContent.trim())
+    .filter(txt => txt.length > 0);
 
-      // cleanup
-      content = content
-        .replace(/<iframe[^>]*>.*?<\/iframe>/gis, '')
-        .replace(/<!--.*?-->/gs, '')
-        .replace(/<p>\s*<\/p>/g, '')
-        .replace(/<img[^>]*>/g, '')
-        .replace(/<js[^>]*>/g, '')
-        .replace(/<div\b[^>]*>\s*<\/div>/gis, '')
-        .replace(/<script\b[^>]*>.*?<\/script>/gis, '')
-        .replace(/<noscript\b[^>]*>.*?<\/noscript>/gis, '')
-        .replace(/<div[^>]*class\s*=\s*["']ads[^>]*>.*?<\/div>/gis, '')
-        .replace(/<div[^>]*>\s*<\/div>/gis, '')
-        .replace(/<p>Source: .*?novlove\.com<\/p>/gi, '')
-        .replace(/<div[^>]*class\s*=\s*["'][^"']*\bads-holder\b[^"']*\bads-middle\b[^"']*["'][^>]*>\s*<input[^>]*name\s*=\s*["']IL_IN_ARTICLE["'][^>]*>\s*<\/div>/gis, '')
-  .replace(/<input[^>]*name\s*=\s*["']IL_IN_ARTICLE["'][^>]*>/gis, '')
-  .trim();
-        
+  const content = paragraphs.map(txt => `<p>${txt}</p>`).join('\n');
 
-      return { title, content };
-    }
+  return { title, content };
+}
+
 
     // ---- fetch all chapters ----
     async function fetchChapters() {
