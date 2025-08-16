@@ -90,7 +90,7 @@
     }
 
     // ---- fetch metadata (browser-side) ----
- async function fetchMetadata() {
+async function fetchMetadata() {
   const url = novelUrlInput.value.trim();
   if (!url) return alert('Please enter a novel URL');
 
@@ -100,24 +100,44 @@
 
     const html = await fetchRawHTML(url);
     const doc  = new DOMParser().parseFromString(html, 'text/html');
-    const $$   = sel => [...doc.querySelectorAll(sel)];
 
-    // Grab chapter links
-    const chapters = $$('.u-chapter.cfirst li a').map((a, idx) => ({
-      title: a.textContent.trim() || `Chapter ${idx+1}`,
-      url: new URL(a.getAttribute('href'), url).href
-    }));
+    // find the last <a> inside .u-chapter.cfirst
+    const lastLink = doc.querySelector('.u-chapter.cfirst li a:last-of-type');
+    if (!lastLink) throw new Error("Couldn't find last chapter link");
+
+    // extract last chapter number (e.g. /p1355.html → 1355)
+    const href = lastLink.getAttribute('href');
+    const match = href.match(/p(\d+)\.html$/);
+    if (!match) throw new Error("Couldn't extract last chapter number");
+    const lastNumber = parseInt(match[1], 10);
+
+    // construct chapter list p1 → plast
+    const chapters = [];
+    for (let i = 1; i <= lastNumber; i++) {
+      chapters.push({
+        title: `Chapter ${i}`,
+        url: new URL(`p${i}.html`, url).href
+      });
+    }
 
     // Metadata
     const title = doc.querySelector('title')?.textContent?.trim() || 'Unknown Title';
     const description = doc.querySelector('meta[name="description"]')?.getAttribute('content') || '';
 
-    novelData.metadata = { title, cover: '', author: [], genres: [], status: '', source: url, description };
+    novelData.metadata = { 
+      title, 
+      cover: '', 
+      author: [], 
+      genres: [], 
+      status: '', 
+      source: url, 
+      description 
+    };
     novelData.chapters = chapters;
 
     log(`\n=== Metadata ===`);
     log(`Title: ${title}`);
-    log(`Chapters found: ${chapters.length}`);
+    log(`Total chapters found: ${chapters.length}`);
     fetchChaptersBtn.disabled = false;
     checkTitle();
     openNuSearch();
@@ -126,6 +146,7 @@
     fetchMetadataBtn.disabled = false;
   }
 }
+
 
     // ---- fetch chapter content (browser-side) ----
   async function fetchChapterContent(chapterUrl) {
