@@ -28,7 +28,12 @@
     <div class="form-group">
       <label for="novelUrl">Novel URL:</label>
       <input type="text" id="novelUrl" placeholder="link">
+      
     </div>
+<div class="form-group">
+  <label for="totalChapters">Total Chapters:</label>
+  <input type="number" id="totalChapters" placeholder="e.g. 1924">
+</div>
 
     <button id="fetchMetadataBtn">Fetch Metadata</button>
     <button id="fetchChaptersBtn" disabled>Fetch Chapters</button>
@@ -45,6 +50,13 @@
   </div>
 
   <script>
+    const totalChaptersInput = document.getElementById('totalChapters');
+
+// Detect if URL is WTR-Lab
+function isWtrLab(url) {
+  return url.includes("wtr-lab.com/en/serie-");
+}
+
     // ---- DOM refs ----
     const consoleOutput   = document.getElementById('console');
     const novelUrlInput   = document.getElementById('novelUrl');
@@ -90,7 +102,7 @@
     }
 
     // ---- fetch metadata (browser-side) ----
-    async function fetchMetadata() {
+ async function fetchMetadata() {
   const url = novelUrlInput.value.trim();
   if (!url) return alert('Please enter a novel URL');
 
@@ -98,111 +110,68 @@
     log('Fetching novel page…');
     fetchMetadataBtn.disabled = true;
 
-    const chapters = [];               // local collector
+    if (isWtrLab(url)) {
+      // --- WTR-Lab Mode ---
+      const totalChaps = parseInt(totalChaptersInput.value.trim(), 10);
+      if (!totalChaps) {
+        alert('Please enter total number of chapters for WTR-Lab novels');
+        fetchMetadataBtn.disabled = false;
+        return;
+      }
 
-    // helper: scrape one page
-    async function scrapeOne(pageUrl) {
-      const html = await fetchRawHTML(pageUrl);
-      const doc  = new DOMParser().parseFromString(html, 'text/html');
-      const $$   = sel => [...doc.querySelectorAll(sel)];
+      log(`Generating chapter links from 1 to ${totalChaps}`);
 
-      // chapters on this page
-      $$('.list-chapter li a').forEach(a =>
+      const chapters = [];
+      for (let i = 1; i <= totalChaps; i++) {
         chapters.push({
-          title: a.getAttribute('title') || a.textContent.trim(),
-          url:   new URL(a.getAttribute('href'), url).href
-        })
-      );
+          title: `Chapter ${i}`,
+          url: `${url}/chapter-${i}`
+        });
+      }
 
-      // next link
-      const next = $$('.pagination li.next a')[0]?.getAttribute('href');
-      return next ? new URL(next, url).href : null;
+      // Basic metadata for WTR-Lab (can be expanded if needed)
+      const html = await fetchRawHTML(url);
+      const doc  = new DOMParser().parseFromString(html, 'text/html');
+      const title = doc.querySelector('h1')?.textContent?.trim() || "Unknown Title";
+      const cover = doc.querySelector('.series-cover img')?.src || "";
+
+      novelData.metadata = { title, cover, author: [], genres: [], status: '', source: url, description: '' };
+      novelData.chapters = chapters;
+
+      log(`Title: ${title}`);
+      log(`Cover: ${cover}`);
+      log(`\nTotal chapters generated: ${chapters.length}`);
+
+      fetchChaptersBtn.disabled = false;
+      return;
     }
+    
+    // ---- existing scraping mode ----
+    // (your current code for other sites goes here)
 
-    // crawl all pages
-    let nextPage = url;
-    while (nextPage) {
-      log(`Scraping chapter list page → ${nextPage}`);
-      nextPage = await scrapeOne(nextPage);
-    }
-
-    // metadata from first page
-    const html = await fetchRawHTML(url);   // already cached by browser
-    const doc  = new DOMParser().parseFromString(html, 'text/html');
-    const $    = sel => doc.querySelector(sel);
-    const $$   = sel => [...doc.querySelectorAll(sel)];
-
-    const title       = $('.text-uppercase long-title')?.textContent?.trim();
-    const coverPath   = $('.image-wrap.zoom img')?.getAttribute('src');
-    const cover       = coverPath ? new URL(coverPath, url).href : '';
-
-    const authorNodes = $$('.info div').find(d => d.querySelector('h3')?.textContent?.trim() === 'Author:')
-                         ?.querySelectorAll('a');
-    const authors     = authorNodes ? [...authorNodes].map(a => a.textContent.trim()) : [];
-
-    const genres      = $$('.info div').find(d => d.querySelector('h3')?.textContent?.trim() === 'Genre:')
-                         ?.querySelectorAll('a');
-    const genreNames  = genres ? [...genres].map(a => a.textContent.trim()) : [];
-
-    const status      = $$('.info div').find(d => d.querySelector('h3')?.textContent?.trim() === 'Status:')
-                         ?.querySelector('a')?.textContent?.trim();
-
-    const source      = $$('.info div').find(d => d.querySelector('h3')?.textContent?.trim() === 'Source:')
-                         ?.textContent?.replace('Source:', '').trim();
-
-    const description = $('.col-xs-12.col-sm-8.col-md-8.desc .desc-text')?.textContent?.trim();
-
-    novelData.metadata = { title, cover, author: authors, genres: genreNames, status, source, description };
-    novelData.chapters = chapters;
-
-    log(`\n=== Metadata ===`);
-    log(`Title: ${title}`);
-    log(`Cover: ${cover}`);
-    log(`Author: ${authors.join(', ')}`);
-    log(`Status: ${status}`);
-    log(`Genres: ${genreNames.join(', ')}`);
-    log(`Description: ${description}`);
-    log(`\nTotal chapters found: ${chapters.length}`);
-
-    fetchChaptersBtn.disabled = false;
-    checkTitle();
-    openNuSearch();
   } catch (err) {
     log(`Error: ${err.message}`);
     fetchMetadataBtn.disabled = false;
   }
-    }
+}
+
     // ---- fetch chapter content (browser-side) ----
-    async function fetchChapterContent(chapterUrl) {
-      const html = await fetchRawHTML(chapterUrl);
-      const doc  = new DOMParser().parseFromString(html, 'text/html');
+async function fetchChapterContent(chapterUrl) {
+  const html = await fetchRawHTML(chapterUrl);
+  const doc  = new DOMParser().parseFromString(html, 'text/html');
 
-      const novelTitle = doc.querySelector('.col-xs-12 a.truyen-title')?.textContent?.trim() || '';
-      const chTitle    = doc.querySelector('.col-xs-12 h2')?.textContent?.trim() || '';
-      const title      = `${novelTitle} - ${chTitle}`;
+  const chTitle = doc.querySelector('h1')?.textContent?.trim() || chapterUrl;
+  let content   = doc.querySelector('.chapter-wrap.menu-target.card-body')?.innerHTML || 'Chapter not found';
 
-      let content = doc.querySelector('#chapter-content')?.innerHTML || 'Chapter not found';
+  // cleanup ads/scripts/images
+  content = content
+    .replace(/<script\b[^>]*>.*?<\/script>/gis, '')
+    .replace(/<iframe[^>]*>.*?<\/iframe>/gis, '')
+    .replace(/<img[^>]*>/g, '')
+    .trim();
 
-      // cleanup
-      content = content
-        .replace(/<iframe[^>]*>.*?<\/iframe>/gis, '')
-        .replace(/<!--.*?-->/gs, '')
-        .replace(/<p>\s*<\/p>/g, '')
-        .replace(/<img[^>]*>/g, '')
-        .replace(/<js[^>]*>/g, '')
-        .replace(/<div\b[^>]*>\s*<\/div>/gis, '')
-        .replace(/<script\b[^>]*>.*?<\/script>/gis, '')
-        .replace(/<noscript\b[^>]*>.*?<\/noscript>/gis, '')
-        .replace(/<div[^>]*class\s*=\s*["']ads[^>]*>.*?<\/div>/gis, '')
-        .replace(/<div[^>]*>\s*<\/div>/gis, '')
-        .replace(/<p>Source: .*?novlove\.com<\/p>/gi, '')
-        .replace(/<div[^>]*class\s*=\s*["'][^"']*\bads-holder\b[^"']*\bads-middle\b[^"']*["'][^>]*>\s*<input[^>]*name\s*=\s*["']IL_IN_ARTICLE["'][^>]*>\s*<\/div>/gis, '')
-  .replace(/<input[^>]*name\s*=\s*["']IL_IN_ARTICLE["'][^>]*>/gis, '')
-  .trim();
-        
-
-      return { title, content };
-    }
+  return { title: chTitle, content };
+}
 
     // ---- fetch all chapters ----
     async function fetchChapters() {
