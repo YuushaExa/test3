@@ -123,7 +123,7 @@ async function fetchMetadata() {
     // Metadata
 const title = document.querySelector('.n-text h1')?.textContent?.trim()
 const coverImg = document.querySelector('.n-img img');
-    const cover = coverPath ? new URL(coverPath, url).href : '';
+const cover = coverImg?.src;
 
 const authorElement = document.querySelector('.n-text p a.bauthor');
 const author = authorElement?.textContent?.trim();
