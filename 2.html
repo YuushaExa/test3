@@ -124,16 +124,7 @@ async function fetchMetadata() {
 const coverPath = document.querySelector('.n-img img')?.getAttribute('src');
 const cover = coverPath ? new URL(coverPath, url).href : '';
 
-const authorNodes = Array.from(document.querySelectorAll('.info div'))
-  .find(d => d.querySelector('h3')?.textContent?.trim() === 'Author:')
-  ?.querySelectorAll('a');
 
-const authors = authorNodes ? Array.from(authorNodes).map(a => a.textContent.trim()) : [];
-const genres = document.querySelectorAll('.tags a');
-const genreNames = Array.from(genres).map(a => a.textContent.trim());
-
-const status = document.querySelector('.u-chapter.cfirst li a:last-of-type');
-const description = document.querySelector('.pintro')?.textContent?.trim();
 
     novelData.metadata = { title, cover };
     novelData.chapters = chapters;
