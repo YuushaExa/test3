@@ -498,7 +498,9 @@ function showEditMetadataForm() {
         <label for="editDescription">Description:</label>
         <textarea id="editDescription" name="description" rows="5">${metadata.description}</textarea>
       </div>
+      <div id="otherWorksStatus"></div>
       <button type="submit">Save Changes</button>
+      <button type="button" id="fetchWorksBtn">Fetch Author's Other Works</button>
       <button type="button" onclick="document.getElementById('metadataForm').remove()">Cancel</button>
     </form>
   `;
@@ -507,24 +509,111 @@ function showEditMetadataForm() {
   formContainer.innerHTML = formHTML;
   document.body.appendChild(formContainer);
 
-document.getElementById('metadataForm').addEventListener('submit', function(event) {
-  event.preventDefault();
-  const formData = new FormData(event.target);
+  // Add event listener for fetching author works
+  document.getElementById('fetchWorksBtn').addEventListener('click', async () => {
+    const authorName = document.getElementById('editAuthors').value;
+    if (!authorName) {
+      alert('Please enter author name first');
+      return;
+    }
+    
+    const statusDiv = document.getElementById('otherWorksStatus');
+    statusDiv.textContent = 'Fetching author works...';
+    statusDiv.style.color = 'blue';
+    
+    try {
+      // Construct author URL - adjust this based on your site's URL structure
+      const authorUrl = `https://ixdzs.tw/author/${encodeURIComponent(authorName)}`;
+      
+      const otherWorksData = await fetchAuthorWorks(authorUrl);
+      novelData.metadata.otherworks = otherWorksData;
+      
+      statusDiv.textContent = `Found ${otherWorksData.length} other works`;
+      statusDiv.style.color = 'green';
+    } catch (error) {
+      statusDiv.textContent = `Error fetching works: ${error.message}`;
+      statusDiv.style.color = 'red';
+    }
+  });
 
-  const newMetadata = {
-    title: formData.get('title'),
-    cover: formData.get('cover'),
-    author: formData.get('authors'),
-    genres: formData.get('genres').split(',').map(genre => genre.trim()),
-    status: formData.get('status'),
-    description: formData.get('description'),
-  };
+  document.getElementById('metadataForm').addEventListener('submit', function(event) {
+    event.preventDefault();
+    const formData = new FormData(event.target);
 
-  novelData.metadata = newMetadata;
-  log('Metadata updated successfully', 'green');
-  document.getElementById('metadataForm').remove();
-});
+    const newMetadata = {
+      title: formData.get('title'),
+      cover: formData.get('cover'),
+      author: formData.get('authors'),
+      genres: formData.get('genres').split(',').map(genre => genre.trim()),
+      status: formData.get('status'),
+      description: formData.get('description'),
+      otherworks: novelData.metadata.otherworks || [],
+    };
 
+    novelData.metadata = newMetadata;
+    log('Metadata updated successfully', 'green');
+    document.getElementById('metadataForm').remove();
+  });
+}
+
+// Updated fetchAuthorWorks function with current selectors
+async function fetchAuthorWorks(authorUrl) {
+  try {
+    log(`Fetching author works from: ${authorUrl}`);
+    const authorHtml = await fetchRawHTML(authorUrl);
+    const authorDoc = new DOMParser().parseFromString(authorHtml, 'text/html');
+    
+    // Get all novel items from the list
+    const works = authorDoc.querySelectorAll('ul.u-list > li.burl');
+
+    if (!works.length) {
+      log('No works found for this author.');
+      return [];
+    }
+
+    const worksData = [];
+
+    works.forEach(work => {
+      // Extract cover image URL
+      const img = work.querySelector('.l-img img')?.src || '';
+      
+      // Extract title and URL
+      const titleEl = work.querySelector('.bname a');
+      const title = titleEl?.textContent?.trim() || 'No Title';
+      const titleHref = titleEl?.href || '#';
+      
+      // Extract author (though we already know it from the URL)
+      const author = work.querySelector('.bauthor a')?.textContent?.trim() || '';
+      
+      // Extract word count and status
+      const wordCount = work.querySelector('.size')?.textContent?.trim() || '';
+      const status = work.querySelector('.end, .lz')?.textContent?.trim() || '';
+      
+      // Extract description
+      const description = work.querySelector('.l-p2')?.textContent?.trim() || '';
+      
+      // Extract latest chapter info
+      const latestChapter = work.querySelector('.l-chapter')?.textContent?.trim() || '';
+      const updateTime = work.querySelector('.l-time')?.textContent?.trim() || '';
+
+      worksData.push({
+        title,
+        url: titleHref,
+        cover: img,
+        author,
+        wordCount,
+        status,
+        description,
+        latestChapter,
+        updateTime
+      });
+    });
+
+    return worksData;
+  } catch (e) {
+    log(`Error fetching author works: ${e.message}`);
+    return [];
+  }
 }
 
 // ---- events ----
@@ -592,6 +681,5 @@ const match = data.some(item =>
 
 
 <!-- ===== /NUInfo patch ===== -->
-    <script src="cninfo.js"></script>
 <script src="ep.js"></script>
 </html>
