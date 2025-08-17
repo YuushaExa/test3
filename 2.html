@@ -466,7 +466,12 @@ fetchChaptersBtn.addEventListener('click', () => {
 
 // ---- Edit metadata ----
 const editMetadataBtn = document.getElementById('editMetadataBtn');
-
+  title, 
+      cover, 
+      author, 
+      status, 
+      genres, 
+      description,
 // ---- helpers ----
 function showEditMetadataForm() {
   const metadata = novelData.metadata;
@@ -484,7 +489,7 @@ function showEditMetadataForm() {
       </div>
       <div class="form-group">
         <label for="editAuthors">Authors (comma-separated):</label>
-        <input type="text" id="editAuthors" name="authors" value="${metadata.author.join(', ')}">
+        <input type="text" id="editAuthors" name="authors" value="${metadata.author}">
       </div>
       <div class="form-group">
         <label for="editGenres">Genres (comma-separated):</label>
@@ -495,32 +500,8 @@ function showEditMetadataForm() {
         <input type="text" id="editStatus" name="status" value="${metadata.status}">
       </div>
       <div class="form-group">
-        <label for="editSource">Source:</label>
-        <input type="text" id="editSource" name="source" value="${metadata.source}">
-      </div>
-      <div class="form-group">
         <label for="editDescription">Description:</label>
         <textarea id="editDescription" name="description" rows="5">${metadata.description}</textarea>
-      </div>
-      <div class="form-group">
-        <label for="editaltitile">Alt Title:</label>
-        <input type="text" id="editaltitile" name="altitile" value="${metadata.altitile || ''}">
-      </div>
-      <div class="form-group">
-        <label for="editdate">Date:</label>
-        <input type="text" id="editdate" name="date" value="${metadata.date || ''}">
-      </div>
-        <div class="form-group">
-        <label for="editlanguage">Language:</label>
-        <input type="text" id="editlanguage" name="language" value="${metadata.language || ''}">
-      </div>
-        <div class="form-group">
-        <label for="editoriginalPublisher">Alt Title:</label>
-        <input type="text" id="editoriginalPublisher" name="originalPublisher" value="${metadata.originalPublisher || ''}">
-      </div>
-          <div class="form-group">
-        <label for="editstatuscoo">Alt Title:</label>
-        <input type="text" id="editstatuscoo" name="statuscoo" value="${metadata.statuscoo || ''}">
       </div>
       <button type="submit">Save Changes</button>
       <button type="button" onclick="document.getElementById('metadataForm').remove()">Cancel</button>
@@ -536,31 +517,15 @@ document.getElementById('metadataForm').addEventListener('submit', async functio
 
   const formData = new FormData(event.target);
 
-  // Get the first author URL if available
-  const firstAuthorUrl = document.querySelector('#showauthors a')?.href || '';
 
-  let otherWorksData = [];
-  if (firstAuthorUrl) {
-    try {
-      otherWorksData = await fetchAuthorWorks(firstAuthorUrl); // now returns array
-    } catch (err) {
-      console.error('Failed to fetch author works:', err);
-    }
-  }
 
   const newMetadata = {
     title: formData.get('title'),
     cover: formData.get('cover'),
-    author: formData.get('authors').split(',').map(author => author.trim()),
+    author: formData.get('author'),
     genres: formData.get('genres').split(',').map(genre => genre.trim()),
     status: formData.get('status'),
-    source: formData.get('source'),
     description: formData.get('description'),
-    altitile: formData.get('altitile') || '',
-    language: formData.get('language') || '',
-    originalPublisher: formData.get('originalPublisher') || '',
-    statuscoo: formData.get('statuscoo') || '',
-    date: formData.get('date') || '',
     otherworks: otherWorksData // <-- now JSON array
   };
 
