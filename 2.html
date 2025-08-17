@@ -120,12 +120,8 @@
       });
     }
 
-    const title = document.querySelector('.n-text h1')?.textContent?.trim();
-const coverPath = document.querySelector('.n-img img')?.getAttribute('src');
-const cover = coverPath ? new URL(coverPath, url).href : '';
-
-
-
+const title = document.querySelector("h1")?.innerText.trim();
+const cover = document.querySelector(".n-img img")?.src;
     novelData.metadata = { title, cover };
     novelData.chapters = chapters;
 
