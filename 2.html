@@ -121,9 +121,8 @@ async function fetchMetadata() {
     }
 
     // Metadata
-const title = document.querySelector('.n-text h1')?.textContent?.trim() || '';
-
-const coverPath = document.querySelector('.n-img img')?.getAttribute('src');
+const title = document.querySelector('.n-text h1').textContent;
+const coverPath = document.querySelector('.n-img img').getAttribute('src');
 const cover = coverPath ? new URL(coverPath, url).href : '';
 
 const author = document.querySelector('.n-text p a.bauthor')?.textContent?.trim() || '';
