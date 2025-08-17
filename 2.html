@@ -102,7 +102,7 @@ async function fetchMetadata() {
     const doc = new DOMParser().parseFromString(html, 'text/html');
 
     // Extract metadata
-    const title = doc.querySelector('title')?.textContent.trim() || 'Untitled';
+    const title = doc.querySelector('.n-text h1')?.textContent.trim() || 'Untitled';
     const cover = doc.querySelector('.n-img img')?.src || '';
     const author = doc.querySelector('.n-text p a.bauthor')?.textContent.trim() || 'Unknown';
     const status = doc.querySelector('.n-text p .lz')?.textContent.trim() || 'Unknown';
@@ -147,7 +147,7 @@ async function fetchMetadata() {
     log(`Author: ${author}`);
     log(`Status: ${status}`);
     log(`Genres: ${genres.join(', ')}`);
-    log(`Description: ${description.substring(0, 100)}...`);
+    log(`Description: ${description}`);
     log(`Total chapters found: ${chapters.length}`);
     fetchChaptersBtn.disabled = false;
     checkTitle();
