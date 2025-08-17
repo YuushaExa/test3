@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>JSON Translator</title>
+  <style>
+    body { font-family: sans-serif; margin: 20px; }
+    textarea { width: 100%; height: 120px; }
+    input, select, button { margin: 5px 0; display: block; }
+    #log { white-space: pre-wrap; background: #f7f7f7; padding: 10px; border: 1px solid #ddd; }
+  </style>
+</head>
+<body>
+  <h1>JSON Translator</h1>
+
+  <input type="file" id="fileInput" accept=".json" />
+  <label>Range (e.g. 1-10):</label>
+  <input type="text" id="rangeInput" value="1-10" />
+
+  <label>MODEL_NAME:</label>
+  <select id="modelName">
+    <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite</option>
+    <option value="gemini-2.5-flash">gemini-2.5-flash</option>
+    <option value="gemini-2.5-pro">gemini-2.5-pro</option>
+    <option value="gemini-2.0-flash">gemini-2.0-flash</option>
+    <option value="gemini-2.0-flash-lite">gemini-2.0-flash-lite</option>
+  </select>
+
+  <label>TITLE_MODEL:</label>
+  <select id="titleModel">
+    <option value="gemini-2.0-flash">gemini-2.0-flash</option>
+    <option value="gemini-2.5-flash">gemini-2.5-flash</option>
+    <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite</option>
+  </select>
+
+  <button id="startBtn">Start Translation</button>
+  <button id="downloadBtn" disabled>Download Result</button>
+
+  <h3>Log:</h3>
+  <div id="log"></div>
+
+<script>
+  const WORKER_URL = "https://curly-pond-translate.yuush.workers.dev";
+
+const TRANSLATION_START_DELAY = 4000; // ms
+let translatedResults = [];
+
+function log(msg) {
+  document.getElementById("log").textContent += msg + "\n";
+}
+
+function parseRange(rangeStr, max) {
+  let [start, end] = rangeStr.split("-").map(Number);
+  if (!start) start = 1;
+  if (!end) end = max;
+  if (start > end) [start, end] = [end, start];
+  return { start, end };
+}
+
+document.getElementById("startBtn").onclick = async () => {
+  const file = document.getElementById("fileInput").files[0];
+  if (!file) return alert("Please upload a JSON file");
+  const text = await file.text();
+  let data = JSON.parse(text);
+
+  const { start, end } = parseRange(
+    document.getElementById("rangeInput").value,
+    data.length
+  );
+  const items = data.slice(start - 1, end);
+
+  const modelName = document.getElementById("modelName").value;
+  const titleModel = document.getElementById("titleModel").value;
+
+  log(`Processing items ${start}-${end} of ${data.length}`);
+
+  // 1️⃣ Batch title translation (chunks of 50)
+  let translatedTitles = [];
+  for (let i = 0; i < items.length; i += 50) {
+    const batch = items.slice(i, i + 50).map(it => it.title);
+    log(`Batch translating titles ${i + 1}-${i + batch.length}...`);
+
+    try {
+      const res = await fetch(`${WORKER_URL}/translateTitles`,
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          titles: batch,
+          titleModel
+        })
+      });
+      const result = await res.json();
+      translatedTitles.push(...result.titles);
+    } catch (err) {
+      log(`❌ Error in batch title translation: ${err.message}`);
+      translatedTitles.push(...batch); // fallback: keep original
+    }
+  }
+
+  // attach translated titles to items
+  for (let i = 0; i < items.length; i++) {
+    items[i].title = translatedTitles[i] || items[i].title;
+  }
+
+  // 2️⃣ Sequential content translation
+  translatedResults = [];
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    log(`[${i + 1}/${items.length}] Translating content: ${item.title}`);
+
+    try {
+  const res = await fetch(`${WORKER_URL}/translate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          item,
+          modelName
+        })
+      });
+      const result = await res.json();
+      translatedResults.push(result);
+      log(`✅ Translated content for: ${item.title.substring(0,50)}...`);
+    } catch (err) {
+      log(`❌ Error: ${err.message}`);
+      translatedResults.push({ ...item, error: err.message });
+    }
+
+    if (i < items.length - 1) {
+      await new Promise(r => setTimeout(r, TRANSLATION_START_DELAY));
+    }
+  }
+
+  document.getElementById("downloadBtn").disabled = false;
+  log("🎉 All translations complete!");
+};
+
+document.getElementById("downloadBtn").onclick = () => {
+  const blob = new Blob([JSON.stringify(translatedResults, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "translated.json";
+  a.click();
+  URL.revokeObjectURL(url);
+};
+</script>
+
+</body>
+</html>
