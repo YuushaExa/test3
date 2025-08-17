@@ -151,7 +151,6 @@ const authorUrl = doc.querySelector('.n-text a.bauthor')?.getAttribute('href') |
     log(`Total chapters found: ${chapters.length}`);
     fetchChaptersBtn.disabled = false;
     checkTitle();
-    openNuSearch();
   } catch (err) {
     log(`Error: ${err.message}`, 'red');
     fetchMetadataBtn.disabled = false;
@@ -510,11 +509,14 @@ function showEditMetadataForm() {
   document.body.appendChild(formContainer);
 
   // Add event listener for fetching author works
-  document.getElementById('fetchWorksBtn').addEventListener('click', async () => {
-    const authorName = document.getElementById('editAuthors').value;
-    if (!authorName) {
-      alert('Please enter author name first');
-      return;
+// Updated fetchAuthorWorks function call
+document.getElementById('fetchWorksBtn').addEventListener('click', async () => {
+    // Get the author URL from the novelData metadata
+    const authorUrl = novelData.metadata.authorUrl;
+    
+    if (!authorUrl) {
+        alert('No author URL found in metadata');
+        return;
     }
     
     const statusDiv = document.getElementById('otherWorksStatus');
@@ -522,17 +524,16 @@ function showEditMetadataForm() {
     statusDiv.style.color = 'blue';
     
     try {
+        const otherWorksData = await fetchAuthorWorks(authorUrl);
+        novelData.metadata.otherworks = otherWorksData;
         
-      const otherWorksData = await fetchAuthorWorks(authorUrl);
-      novelData.metadata.otherworks = otherWorksData;
-      
-      statusDiv.textContent = `Found ${otherWorksData.length} other works`;
-      statusDiv.style.color = 'green';
+        statusDiv.textContent = `Found ${otherWorksData.length} other works`;
+        statusDiv.style.color = 'green';
     } catch (error) {
-      statusDiv.textContent = `Error fetching works: ${error.message}`;
-      statusDiv.style.color = 'red';
+        statusDiv.textContent = `Error fetching works: ${error.message}`;
+        statusDiv.style.color = 'red';
     }
-  });
+});
 
   document.getElementById('metadataForm').addEventListener('submit', function(event) {
     event.preventDefault();
