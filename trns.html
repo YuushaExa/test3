@@ -81,7 +81,7 @@ document.getElementById("startBtn").onclick = async () => {
     log(`Batch translating titles ${i + 1}-${i + batch.length}...`);
 
     try {
-      const res = await fetch(`${WORKER_URL}/translateTitles`,
+      const res = await fetch(`${WORKER_URL}/translateTitles`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
