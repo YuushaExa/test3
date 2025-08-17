@@ -158,31 +158,7 @@ const authorUrl = Url ? new URL(Url, url).href : null;
     fetchChaptersBtn.disabled = false;
     checkTitle();
 
-      // Automatically fetch author's other works if author URL exists
-      if (authorUrl) {
-        log('\nFetching author\'s other works...');
-        try {
-          const otherWorks = await fetchAuthorWorks(authorUrl);
-          novelData.metadata.otherworks = otherWorks;
-          log(`Found ${otherWorks.length} other works by this author`, 'green');
-          
-          // Automatically save metadata after fetching other works
-          log('\nSaving metadata with author works...');
-          const saveSuccess = await saveMetadata();
-          if (saveSuccess) {
-            log('Metadata saved successfully with author works', 'green');
-          }
-        } catch (err) {
-          log(`Error fetching author works: ${err.message}`, 'red');
-          // Still try to save metadata even if author works fetch fails
-          await saveMetadata();
-        }
-      } else {
-        log('No author URL found - skipping author works fetch', 'yellow');
-        // Save metadata even without author works
-        await saveMetadata();
-      }
-      editMetadataBtn.disabled = false;
+
 
   } catch (err) {
     log(`Error: ${err.message}`, 'red');
