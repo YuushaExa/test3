@@ -90,7 +90,7 @@
     }
 
     // ---- fetch metadata (browser-side) ----
-  async function fetchMetadata() {
+async function fetchMetadata() {
   const url = novelUrlInput.value.trim();
   if (!url) return alert('Please enter a novel URL');
 
@@ -99,7 +99,17 @@
     fetchMetadataBtn.disabled = true;
 
     const html = await fetchRawHTML(url);
-    const doc  = new DOMParser().parseFromString(html, 'text/html');
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+
+    // Extract metadata
+    const title = doc.querySelector('title')?.textContent.trim() || 'Untitled';
+    const cover = doc.querySelector('.n-img img')?.src || '';
+    const author = doc.querySelector('.n-text p a.bauthor')?.textContent.trim() || 'Unknown';
+    const status = doc.querySelector('.n-text p .lz')?.textContent.trim() || 'Unknown';
+    const description = doc.querySelector('#intro')?.textContent.trim() || '';
+    
+    // Extract genres/tags
+    const genres = Array.from(doc.querySelectorAll('.tags em a')).map(a => a.textContent.trim());
 
     // find the last <a> inside .u-chapter.cfirst
     const lastLink = doc.querySelector('.u-chapter.cfirst li a:last-of-type');
@@ -120,9 +130,15 @@
       });
     }
 
-const title = document.querySelector("h1")?.innerText.trim();
-const cover = document.querySelector(".n-img img")?.src;
-    novelData.metadata = { title, cover };
+    novelData.metadata = { 
+      title, 
+      cover, 
+      author, 
+      status, 
+      genres, 
+      description,
+      source: url
+    };
     novelData.chapters = chapters;
 
     log(`\n=== Metadata ===`);
@@ -130,18 +146,17 @@ const cover = document.querySelector(".n-img img")?.src;
     log(`Cover: ${cover}`);
     log(`Author: ${author}`);
     log(`Status: ${status}`);
-    log(`Genres: ${genres}`);
-    log(`Description: ${description}`);
+    log(`Genres: ${genres.join(', ')}`);
+    log(`Description: ${description.substring(0, 100)}...`);
     log(`Total chapters found: ${chapters.length}`);
     fetchChaptersBtn.disabled = false;
     checkTitle();
     openNuSearch();
   } catch (err) {
-    log(`Error: ${err.message}`);
+    log(`Error: ${err.message}`, 'red');
     fetchMetadataBtn.disabled = false;
   }
 }
-
 
     // ---- fetch chapter content (browser-side) ----
   async function fetchChapterContent(chapterUrl) {
