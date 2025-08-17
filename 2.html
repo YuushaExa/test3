@@ -147,15 +147,15 @@ if (introNode) {
     .trim();
 }
 
-    novelData.metadata = { title, cover, author: authors, genres: genreNames, status, description };
+    novelData.metadata = { title, cover, author, genres, status, description };
     novelData.chapters = chapters;
 
     log(`\n=== Metadata ===`);
     log(`Title: ${title}`);
     log(`Cover: ${cover}`);
-    log(`Author: ${authors.join(', ')}`);
+    log(`Author: ${author}`);
     log(`Status: ${status}`);
-    log(`Genres: ${genreNames.join(', ')}`);
+    log(`Genres: ${genreNames}`);
     log(`Description: ${description}`);
     log(`Total chapters found: ${chapters.length}`);
     fetchChaptersBtn.disabled = false;
