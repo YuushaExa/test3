@@ -158,6 +158,19 @@ const authorUrl = Url ? new URL(Url, url).href : null;
     fetchChaptersBtn.disabled = false;
     checkTitle();
 
+if (authorUrl) {
+        log('\nFetching author\'s other works...');
+        try {
+          const otherWorks = await fetchAuthorWorks(authorUrl);
+          novelData.metadata.otherworks = otherWorks;
+          log(`Found ${otherWorks.length} other works by this author`, 'green');
+        } catch (err) {
+          log(`Error fetching author works: ${err.message}`, 'red');
+        }
+      } else {
+        log('No author URL found - skipping author works fetch', 'yellow');
+      }
+
 
 
   } catch (err) {
