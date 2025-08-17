@@ -512,25 +512,21 @@ function showEditMetadataForm() {
   formContainer.innerHTML = formHTML;
   document.body.appendChild(formContainer);
 
-document.getElementById('metadataForm').addEventListener('submit', async function(event) {
+document.getElementById('metadataForm').addEventListener('submit', function(event) {
   event.preventDefault();
-
   const formData = new FormData(event.target);
-
-
 
   const newMetadata = {
     title: formData.get('title'),
     cover: formData.get('cover'),
-    author: formData.get('author'),
+    author: formData.get('authors'),
     genres: formData.get('genres').split(',').map(genre => genre.trim()),
     status: formData.get('status'),
     description: formData.get('description'),
-    otherworks: otherWorksData // <-- now JSON array
   };
 
   novelData.metadata = newMetadata;
-  log('Metadata updated successfully (including other works as JSON)', 'green');
+  log('Metadata updated successfully', 'green');
   document.getElementById('metadataForm').remove();
 });
 
