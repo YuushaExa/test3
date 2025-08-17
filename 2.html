@@ -105,7 +105,9 @@ async function fetchMetadata() {
     const title = doc.querySelector('.n-text h1')?.textContent.trim() || 'Untitled';
     const cover = doc.querySelector('.n-img img')?.src || '';
     const author = doc.querySelector('.n-text p a.bauthor')?.textContent.trim() || 'Unknown';
-    const status = doc.querySelector('.n-text p .lz')?.textContent.trim() || 'Unknown';
+const status = doc.querySelector('.n-text p .lz')?.textContent.trim() 
+            || doc.querySelector('.n-text p .end')?.textContent.trim() 
+            || 'Unknown';
     const description = doc.querySelector('#intro')?.textContent.trim() || '';
 
 const Url = doc.querySelector('.n-text a.bauthor')?.getAttribute('href') || null;
