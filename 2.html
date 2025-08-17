@@ -120,32 +120,22 @@ async function fetchMetadata() {
       });
     }
 
-    // Metadata
-const novelElement = document.querySelector('.novel');
+    const title = document.querySelector('.n-text h1')?.textContent?.trim();
+const coverPath = document.querySelector('.n-img img')?.getAttribute('src');
+const cover = coverPath ? new URL(coverPath, url).href : '';
 
-// Extract image URL
-const cover = novelElement.querySelector('.n-img img').src;
+const authorNodes = Array.from(document.querySelectorAll('.info div'))
+  .find(d => d.querySelector('h3')?.textContent?.trim() === 'Author:')
+  ?.querySelectorAll('a');
 
-// Extract title text
-const title = novelElement.querySelector('.n-text h1 font font').textContent;
+const authors = authorNodes ? Array.from(authorNodes).map(a => a.textContent.trim()) : [];
+const genres = document.querySelectorAll('.tags a');
+const genreNames = Array.from(genres).map(a => a.textContent.trim());
 
+const status = document.querySelector('.u-chapter.cfirst li a:last-of-type');
+const description = document.querySelector('.pintro')?.textContent?.trim();
 
-const author = document.querySelector('.n-text p a.bauthor')?.textContent?.trim() || '';
-
-const status = document.querySelector('.n-text p .lz')?.textContent?.trim() || '';
-
-const genreNodes = document.querySelectorAll('.tags a');
-const genres = Array.from(genreNodes).map(a => a.textContent.trim());
-
-const introNode = document.querySelector('#intro');
-let description = '';
-if (introNode) {
-  description = introNode.innerText
-    .replace(/\s+/g, ' ') 
-    .trim();
-}
-
-    novelData.metadata = { title, cover, author, genres, status, description };
+    novelData.metadata = { title, cover };
     novelData.chapters = chapters;
 
     log(`\n=== Metadata ===`);
