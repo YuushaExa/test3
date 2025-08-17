@@ -107,7 +107,11 @@ async function fetchMetadata() {
     const author = doc.querySelector('.n-text p a.bauthor')?.textContent.trim() || 'Unknown';
     const status = doc.querySelector('.n-text p .lz')?.textContent.trim() || 'Unknown';
     const description = doc.querySelector('#intro')?.textContent.trim() || '';
-const authorUrl = doc.querySelector('.n-text a.bauthor')?.getAttribute('href') || null;
+
+const Url = doc.querySelector('.n-text a.bauthor')?.getAttribute('href') || null;
+const authorUrl = Url ? new URL(Url, url).href : null;
+
+    
     // Extract genres/tags
     const genres = Array.from(doc.querySelectorAll('.tags em a')).map(a => a.textContent.trim());
 
