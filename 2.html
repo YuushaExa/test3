@@ -121,29 +121,23 @@ async function fetchMetadata() {
     }
 
     // Metadata
-// Title
 const title = document.querySelector('.n-text h1')?.textContent?.trim() || '';
 
-// Cover image
 const coverPath = document.querySelector('.n-img img')?.getAttribute('src');
 const cover = coverPath ? new URL(coverPath, url).href : '';
 
-// Author
 const author = document.querySelector('.n-text p a.bauthor')?.textContent?.trim() || '';
 
-    // Genres (from .tags a)
+const status = document.querySelector('.n-text p .lz')?.textContent?.trim() || '';
+
 const genreNodes = document.querySelectorAll('.tags a');
 const genres = Array.from(genreNodes).map(a => a.textContent.trim());
 
-// Status (e.g., serialization)
-const status = document.querySelector('.n-text p .lz')?.textContent?.trim() || '';
-
-// Description (cleaned intro text)
 const introNode = document.querySelector('#intro');
 let description = '';
 if (introNode) {
   description = introNode.innerText
-    .replace(/\s+/g, ' ')   // normalize spaces
+    .replace(/\s+/g, ' ') 
     .trim();
 }
 
