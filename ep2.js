@@ -145,7 +145,7 @@ ${Array.isArray(this.novelData.metadata.otherworks) && this.novelData.metadata.o
             ? `<img src="${escapeXML(work.cover)}" alt="${escapeHTMLContent(work.title)}" style="margin-right: 15px;" />` // UPDATED
             : '<div style="margin-right: 15px;"></div>'}
           <div>
-            <strong><a href="${escapeXML(work.url)}">${escapeHTMLContent(work.title)}</a></strong><br /> <!-- UPDATED -->
+            <strong>${escapeHTMLContent(work.title)}</strong><br /> <!-- UPDATED -->
             ${work.genres && work.genres.length ? `<em>${work.genres.map(escapeHTMLContent).join(', ')}</em>` : ''} <!-- UPDATED -->
           </div>
         </div>
