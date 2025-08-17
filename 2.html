@@ -540,38 +540,34 @@ document.getElementById('metadataForm').addEventListener('submit', async functio
 
   const formData = new FormData(event.target);
 
-  // Get the first author URL if available
-  const firstAuthorUrl = document.querySelector('#showauthors a')?.href || '';
-
-  let otherWorksData = [];
-  if (firstAuthorUrl) {
-    try {
-      otherWorksData = await fetchAuthorWorks(firstAuthorUrl); // now returns array
-    } catch (err) {
-      console.error('Failed to fetch author works:', err);
-    }
-  }
-
   const newMetadata = {
     title: formData.get('title'),
     cover: formData.get('cover'),
-    author: formData.get('authors').split(',').map(author => author.trim()),
-    genres: formData.get('genres').split(',').map(genre => genre.trim()),
+    author: formData.get('authors')?.split(',').map(a => a.trim()) || [],
+    genres: formData.get('genres')?.split(',').map(g => g.trim()) || [],
     status: formData.get('status'),
     source: formData.get('source'),
     description: formData.get('description'),
-    altitile: formData.get('altitile') || '',
-    language: formData.get('language') || '',
-    originalPublisher: formData.get('originalPublisher') || '',
-    statuscoo: formData.get('statuscoo') || '',
-    date: formData.get('date') || '',
-    otherworks: otherWorksData // <-- now JSON array
+    altitile: formData.get('altitile'),
+    date: formData.get('date'),
+    language: formData.get('language'),
+    originalPublisher: formData.get('originalPublisher'),
+    statuscoo: formData.get('statuscoo')
   };
 
+  // Update the main data store
   novelData.metadata = newMetadata;
-  log('Metadata updated successfully (including other works as JSON)', 'green');
+
+  log('Metadata updated successfully!', 'green');
+
+  // Remove the form from DOM
   document.getElementById('metadataForm').remove();
+
+  // Re-enable buttons if necessary
+  fetchChaptersBtn.disabled = false;
+  createEpubBtn.disabled = novelData.chapters.length === 0;
 });
+
 
 }
 
