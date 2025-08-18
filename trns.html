@@ -79,10 +79,7 @@
 
 <script>
 const WORKER_URL = "https://curly-pond-translate.yuush.workers.dev";
-
 let translatedResults = [];
-let originalData = [];
-let rangeStart = 1;
 
 function log(msg) {
   const consoleBox = document.getElementById("console");
@@ -168,6 +165,7 @@ document.getElementById("startBtn").onclick = async () => {
     // 2️⃣ Content translation (ordered)
     translatedResults = new Array(items.length); // pre-allocate
     let completed = 0;
+    let index = 0;
 
     function updateProgress() {
       const percent = Math.round((completed / items.length) * 100);
@@ -175,45 +173,49 @@ document.getElementById("startBtn").onclick = async () => {
       document.getElementById("statusText").textContent = `${percent}% Completed`;
     }
 
-    async function processItem(item, index) {
-      log(`[${index + 1}/${items.length}] Sending: ${item.title}`);
-      
-      try {
-        const res = await fetch(`${WORKER_URL}/translate`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ item, modelName })
-        });
+    function dispatchNext() {
+      if (index >= items.length) return;
 
-        if (!res.ok) throw new Error(await res.text());
+      const item = items[index];
+      const currentIndex = index; // preserve order
+      log(`[${currentIndex + 1}/${items.length}] Sending: ${item.title}`);
+      index++;
 
-        const result = await res.json();
-        translatedResults[index] = result;
-        log(`✅ Finished: ${item.title.substring(0, 50)}...`);
-      } catch (err) {
-        log(`❌ Error: ${err.message}`);
-        translatedResults[index] = { ...item, error: err.message };
-      } finally {
-        completed++;
-        updateProgress();
-        if (completed === items.length) {
-          document.getElementById("downloadBtn").disabled = false;
-          log("🎉 All translations complete!");
+      (async () => {
+        try {
+          const res = await fetch(`${WORKER_URL}/translate`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ item, modelName })
+          });
+
+          if (!res.ok) throw new Error(await res.text());
+
+          const result = await res.json();
+          translatedResults[currentIndex] = result; // keep order
+          log(`✅ Finished: ${item.title.substring(0, 50)}...`);
+        } catch (err) {
+          log(`❌ Error: ${err.message}`);
+          translatedResults[currentIndex] = { ...item, error: err.message }; // keep position
+        } finally {
+          completed++;
+          updateProgress();
+          if (completed === items.length) {
+            document.getElementById("downloadBtn").disabled = false;
+            log("🎉 All translations complete!");
+          }
         }
-      }
+      })();
     }
 
-    // Process items sequentially with delay
-    async function processWithDelay() {
-      for (let i = 0; i < items.length; i++) {
-        await processItem(items[i], i);
-        if (i < items.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, getTranslationDelay()));
-        }
+    dispatchNext();
+    const timer = setInterval(() => {
+      if (index >= items.length) {
+        clearInterval(timer);
+      } else {
+        dispatchNext();
       }
-    }
-
-    await processWithDelay();
+    }, getTranslationDelay());
 
   } catch (err) {
     log(`❌ ${err.message}`);
@@ -221,8 +223,7 @@ document.getElementById("startBtn").onclick = async () => {
 };
 
 document.getElementById("downloadBtn").onclick = () => {
-  const finalJson = originalData.map((item, i) => translatedResults[i] || item);
-  const blob = new Blob([JSON.stringify(finalJson, null, 2)], { type: "application/json" });
+  const blob = new Blob([JSON.stringify(translatedResults, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
