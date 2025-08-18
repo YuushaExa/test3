@@ -79,7 +79,10 @@
 
 <script>
 const WORKER_URL = "https://curly-pond-translate.yuush.workers.dev";
+
 let translatedResults = [];
+let originalData = [];
+let rangeStart = 1;
 
 function log(msg) {
   const consoleBox = document.getElementById("console");
@@ -124,22 +127,21 @@ document.getElementById("startBtn").onclick = async () => {
   document.getElementById("downloadBtn").disabled = true;
 
   try {
-    let data = await loadJsonData();
+    originalData = await loadJsonData();
 
-let fullResults = [...data]; // start with original JSON
-let translatedResults = new Array(data.length); // preserve original size
+    const { start, end } = parseRange(
+      document.getElementById("rangeInput").value,
+      originalData.length
+    );
+    rangeStart = start;
+    const items = originalData.slice(start - 1, end);
 
-const { start, end } = parseRange(
-  document.getElementById("rangeInput").value,
-  data.length
-);
-const items = data.slice(start - 1, end);
-
+    translatedResults = new Array(originalData.length);
 
     const modelName = document.getElementById("modelName").value;
     const titleModel = document.getElementById("titleModel").value;
 
-    log(`Processing items ${start}-${end} of ${data.length}`);
+    log(`Processing items ${start}-${end} of ${originalData.length}`);
 
     // 1️⃣ Batch title translation
     let translatedTitles = [];
@@ -167,7 +169,6 @@ const items = data.slice(start - 1, end);
     }
 
     // 2️⃣ Content translation (ordered)
-    translatedResults = new Array(items.length); // pre-allocate
     let completed = 0;
     let index = 0;
 
@@ -181,7 +182,7 @@ const items = data.slice(start - 1, end);
       if (index >= items.length) return;
 
       const item = items[index];
-      const currentIndex = index; // preserve order
+      const currentIndex = index;
       log(`[${currentIndex + 1}/${items.length}] Sending: ${item.title}`);
       index++;
 
@@ -196,11 +197,11 @@ const items = data.slice(start - 1, end);
           if (!res.ok) throw new Error(await res.text());
 
           const result = await res.json();
-          translatedResults[currentIndex] = result; // keep order
+          translatedResults[currentIndex + (rangeStart - 1)] = result;
           log(`✅ Finished: ${item.title.substring(0, 50)}...`);
         } catch (err) {
           log(`❌ Error: ${err.message}`);
-          translatedResults[currentIndex] = { ...item, error: err.message }; // keep position
+          translatedResults[currentIndex + (rangeStart - 1)] = { ...item, error: err.message };
         } finally {
           completed++;
           updateProgress();
@@ -227,7 +228,7 @@ const items = data.slice(start - 1, end);
 };
 
 document.getElementById("downloadBtn").onclick = () => {
-  const finalJson = translatedResults.map((res, i) => res || data[i]); 
+  const finalJson = originalData.map((item, i) => translatedResults[i] || item);
   const blob = new Blob([JSON.stringify(finalJson, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -236,7 +237,6 @@ document.getElementById("downloadBtn").onclick = () => {
   a.click();
   URL.revokeObjectURL(url);
 };
-
 </script>
 </body>
 </html>
