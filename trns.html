@@ -1,194 +1,129 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>JSON Translator</title>
+  <meta charset="UTF-8">
+  <title>Gemini Translator</title>
   <style>
-    body { font-family: sans-serif; margin: 20px; }
-    textarea { width: 100%; height: 120px; }
-    input, select, button { margin: 5px 0; display: block; }
-    #log { white-space: pre-wrap; background: #f7f7f7; padding: 10px; border: 1px solid #ddd; }
-    #progressWrapper { width: 100%; background: #eee; height: 20px; margin-top: 10px; }
-    #progressBar { width: 0%; height: 100%; background: #4caf50; }
+    body { font-family: sans-serif; margin: 2em; }
+    textarea { width: 100%; height: 150px; }
+    button { margin: 0.5em 0; }
+    select { margin: 0.5em; }
+    pre { background: #eee; padding: 1em; max-height: 200px; overflow-y: auto; }
   </style>
 </head>
 <body>
-  <h1>JSON Translator</h1>
+  <h2>Gemini Translator</h2>
 
-  <input type="file" id="fileInput" accept=".json" />
-  <label>Range (e.g. 1-10):</label>
-  <input type="text" id="rangeInput" value="1-10" />
+  <label>Choose Gemini Key:
+    <select id="keySelect">
+      <option value="Key1">Key1</option>
+      <option value="Key2">Key2</option>
+      <option value="Key3">Key3</option>
+      <option value="Key4">Key4</option>
+    </select>
+  </label>
 
-  <label>MODEL_NAME:</label>
-  <select id="modelName">
-    <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite</option>
-    <option value="gemini-2.5-flash">gemini-2.5-flash</option>
-    <option value="gemini-2.5-pro">gemini-2.5-pro</option>
-    <option value="gemini-2.0-flash">gemini-2.0-flash</option>
-    <option value="gemini-2.0-flash-lite">gemini-2.0-flash-lite</option>
-  </select>
+  <label>Dispatch Interval:
+    <select id="intervalSelect">
+      <option value="4000">4s</option>
+      <option value="8000">8s</option>
+      <option value="12000">12s</option>
+    </select>
+  </label>
 
-  <label>TITLE_MODEL:</label>
-  <select id="titleModel">
-    <option value="gemini-2.0-flash">gemini-2.0-flash</option>
-    <option value="gemini-2.5-flash">gemini-2.5-flash</option>
-    <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite</option>
-  </select>
+  <br>
 
-  <label>Dispatch Interval:</label>
-  <select id="dispatchInterval">
-    <option value="4000">4 sec</option>
-    <option value="8000">8 sec</option>
-    <option value="12000">12 sec</option>
-  </select>
-
-  <label>API Key:</label>
-  <select id="apiKeySelect">
-    <option value="Key1">Key1</option>
-    <option value="Key2">Key2</option>
-    <option value="Key3">Key3</option>
-    <option value="Key4">Key4</option>
-  </select>
-
+  <textarea id="input" placeholder="Paste your JSON array of items here"></textarea>
+  <br>
   <button id="startBtn">Start Translation</button>
-  <button id="downloadBtn" disabled>Download Result</button>
+  <button id="downloadBtn" disabled>Download Results</button>
 
-  <h3>Progress:</h3>
-  <div id="progressWrapper"><div id="progressBar"></div></div>
+  <h3>Logs</h3>
+  <pre id="logs"></pre>
 
-  <h3>Log:</h3>
-  <div id="log"></div>
+  <script>
+    const WORKER_URL = "https://curly-pond-translate.yuush.workers.dev";
 
-<script>
-const WORKER_URL = "https://curly-pond-translate.yuush.workers.dev";
-let translatedResults = [];
+    let items = [];
+    let translatedResults = [];
 
-function log(msg) {
-  document.getElementById("log").textContent += msg + "\n";
-}
-
-function updateProgress(done, total) {
-  const percent = Math.round((done / total) * 100);
-  document.getElementById("progressBar").style.width = percent + "%";
-}
-
-function parseRange(rangeStr, max) {
-  let [start, end] = rangeStr.split("-").map(Number);
-  if (!start) start = 1;
-  if (!end) end = max;
-  if (start > end) [start, end] = [end, start];
-  return { start, end };
-}
-
-document.getElementById("startBtn").onclick = async () => {
-  const file = document.getElementById("fileInput").files[0];
-  if (!file) return alert("Please upload a JSON file");
-  const text = await file.text();
-  let data = JSON.parse(text);
-
-  const { start, end } = parseRange(
-    document.getElementById("rangeInput").value,
-    data.length
-  );
-  const items = data.slice(start - 1, end);
-
-  const modelName = document.getElementById("modelName").value;
-  const titleModel = document.getElementById("titleModel").value;
-  const dispatchInterval = Number(document.getElementById("dispatchInterval").value);
-  const keyId = document.getElementById("apiKeySelect").value;
-
-  log(`Processing items ${start}-${end} of ${data.length}`);
-
-  // 1️⃣ Batch title translation
-  let translatedTitles = [];
-  for (let i = 0; i < items.length; i += 50) {
-    const batch = items.slice(i, i + 50).map(it => it.title);
-    log(`Batch translating titles ${i + 1}-${i + batch.length}...`);
-
-    try {
-      const res = await fetch(`${WORKER_URL}/translateTitles`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ titles: batch, titleModel, keyId })
-      });
-      if (!res.ok) {
-        const errText = await res.text();
-        throw new Error(`HTTP ${res.status}: ${errText}`);
-      }
-      const result = await res.json();
-      translatedTitles.push(...result.titles);
-    } catch (err) {
-      log(`❌ Error in batch title translation: ${err.message}`);
-      translatedTitles.push(...batch); // fallback: keep original
+    function log(msg) {
+      const logs = document.getElementById("logs");
+      logs.textContent += msg + "\n";
+      logs.scrollTop = logs.scrollHeight;
     }
-  }
 
-  // attach translated titles
-  for (let i = 0; i < items.length; i++) {
-    items[i].title = translatedTitles[i] || items[i].title;
-  }
-
-  // 2️⃣ Fire-and-forget content translation every N seconds
-  translatedResults = [];
-  let completed = 0;
-  let index = 0;
-
-  function dispatchNext() {
-    if (index >= items.length) return;
-    const item = items[index];
-    log(`[${index + 1}/${items.length}] Sending to Gemini: ${item.title}`);
-    index++;
-
-    (async () => {
+    document.getElementById("startBtn").addEventListener("click", () => {
       try {
-        const res = await fetch(`${WORKER_URL}/translate`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ item, modelName, keyId })
-        });
-
-        if (!res.ok) {
-          const errText = await res.text();
-          throw new Error(`HTTP ${res.status}: ${errText}`);
-        }
-
-        const result = await res.json();
-        translatedResults.push(result);
-        log(`✅ Finished: ${item.title.substring(0, 50)}...`);
+        items = JSON.parse(document.getElementById("input").value);
       } catch (err) {
-        log(`❌ Error: ${err.message}`);
-        translatedResults.push({ ...item, error: err.message });
-      } finally {
-        completed++;
-        updateProgress(completed, items.length);
-        if (completed === items.length) {
-          document.getElementById("downloadBtn").disabled = false;
-          log("🎉 All translations complete!");
-        }
+        return log("❌ Invalid JSON input");
       }
-    })();
-  }
 
-  dispatchNext(); // first one immediately
-  const timer = setInterval(() => {
-    if (index >= items.length) {
-      clearInterval(timer);
-    } else {
-      dispatchNext();
+      translatedResults = [];
+      document.getElementById("downloadBtn").disabled = true;
+
+      const keyId = document.getElementById("keySelect").value;
+      const interval = parseInt(document.getElementById("intervalSelect").value, 10);
+
+      log(`🚀 Starting translation, interval = ${interval/1000}s, using ${keyId}`);
+      dispatchPipeline(items, keyId, interval);
+    });
+
+    function dispatchPipeline(items, keyId, interval) {
+      let i = 0;
+
+      function dispatchNext() {
+        if (i >= items.length) return;
+
+        const item = items[i];
+        log(`[${i+1}/${items.length}] Sending: ${item.title}`);
+        i++;
+
+        (async () => {
+          try {
+            const res = await fetch(`${WORKER_URL}/translate`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ item, modelName: "gemini-1.5-flash", keyId })
+            });
+
+            if (!res.ok) throw new Error(await res.text());
+
+            const result = await res.json();
+            translatedResults.push(result);
+            log(`✅ Finished: ${item.title}`);
+
+            if (translatedResults.length === items.length) {
+              document.getElementById("downloadBtn").disabled = false;
+              log("🎉 All translations complete!");
+            }
+          } catch (err) {
+            translatedResults.push({ ...item, error: err.message });
+            log(`❌ Error: ${err.message}`);
+          }
+        })();
+      }
+
+      dispatchNext(); // first immediately
+      const timer = setInterval(() => {
+        if (i >= items.length) {
+          clearInterval(timer);
+        } else {
+          dispatchNext();
+        }
+      }, interval);
     }
-  }, dispatchInterval);
-};
 
-document.getElementById("downloadBtn").onclick = () => {
-  const blob = new Blob([JSON.stringify(translatedResults, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "translated.json";
-  a.click();
-  URL.revokeObjectURL(url);
-};
-</script>
-
+    document.getElementById("downloadBtn").addEventListener("click", () => {
+      const blob = new Blob([JSON.stringify(translatedResults, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "translated.json";
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+  </script>
 </body>
 </html>
