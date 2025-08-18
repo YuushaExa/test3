@@ -13,6 +13,7 @@
     button{background:#4CAF50;color:#fff;border:none;padding:10px 15px;border-radius:4px;cursor:pointer;font-size:16px;margin-right:10px}
     button:disabled{background:#ccc}
     #console{background:#1e1e1e;color:#d4d4d4;padding:15px;border-radius:4px;font-family:'Courier New',Courier,monospace;height:300px;overflow-y:auto;white-space:pre-wrap;margin-top:20px}
+    .log-line{margin:0;padding:2px 0;border-bottom:1px solid rgba(255,255,255,0.05)}
     .progress-container{margin-top:15px;display:none}
     progress{width:100%}
     .status{text-align:center;margin:10px 0;font-weight:bold}
@@ -82,7 +83,10 @@ let translatedResults = [];
 
 function log(msg) {
   const consoleBox = document.getElementById("console");
-  consoleBox.textContent += msg + "\n";
+  const line = document.createElement("div");
+  line.className = "log-line";
+  line.textContent = msg;
+  consoleBox.appendChild(line);
   consoleBox.scrollTop = consoleBox.scrollHeight;
 }
 
@@ -114,7 +118,7 @@ function getTranslationDelay() {
 }
 
 document.getElementById("startBtn").onclick = async () => {
-  document.getElementById("console").textContent = "";
+  document.getElementById("console").innerHTML = "";
   document.getElementById("progressContainer").style.display = "block";
   document.getElementById("progressBar").value = 0;
   document.getElementById("downloadBtn").disabled = true;
@@ -158,8 +162,8 @@ document.getElementById("startBtn").onclick = async () => {
       items[i].title = translatedTitles[i] || items[i].title;
     }
 
-    // 2️⃣ Content translation
-    translatedResults = [];
+    // 2️⃣ Content translation (ordered)
+    translatedResults = new Array(items.length); // pre-allocate
     let completed = 0;
     let index = 0;
 
@@ -173,7 +177,8 @@ document.getElementById("startBtn").onclick = async () => {
       if (index >= items.length) return;
 
       const item = items[index];
-      log(`[${index + 1}/${items.length}] Sending: ${item.title}`);
+      const currentIndex = index; // preserve order
+      log(`[${currentIndex + 1}/${items.length}] Sending: ${item.title}`);
       index++;
 
       (async () => {
@@ -187,11 +192,11 @@ document.getElementById("startBtn").onclick = async () => {
           if (!res.ok) throw new Error(await res.text());
 
           const result = await res.json();
-          translatedResults.push(result);
+          translatedResults[currentIndex] = result; // keep order
           log(`✅ Finished: ${item.title.substring(0, 50)}...`);
         } catch (err) {
           log(`❌ Error: ${err.message}`);
-          translatedResults.push({ ...item, error: err.message });
+          translatedResults[currentIndex] = { ...item, error: err.message }; // keep position
         } finally {
           completed++;
           updateProgress();
