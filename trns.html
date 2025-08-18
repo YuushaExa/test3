@@ -8,6 +8,8 @@
     textarea { width: 100%; height: 120px; }
     input, select, button { margin: 5px 0; display: block; }
     #log { white-space: pre-wrap; background: #f7f7f7; padding: 10px; border: 1px solid #ddd; }
+    #progressWrapper { width: 100%; background: #eee; height: 20px; margin-top: 10px; }
+    #progressBar { width: 0%; height: 100%; background: #4caf50; }
   </style>
 </head>
 <body>
@@ -33,20 +35,41 @@
     <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite</option>
   </select>
 
+  <label>Dispatch Interval:</label>
+  <select id="dispatchInterval">
+    <option value="4000">4 sec</option>
+    <option value="8000">8 sec</option>
+    <option value="12000">12 sec</option>
+  </select>
+
+  <label>API Key:</label>
+  <select id="apiKeySelect">
+    <option value="Key1">Key1</option>
+    <option value="Key2">Key2</option>
+    <option value="Key3">Key3</option>
+    <option value="Key4">Key4</option>
+  </select>
+
   <button id="startBtn">Start Translation</button>
   <button id="downloadBtn" disabled>Download Result</button>
+
+  <h3>Progress:</h3>
+  <div id="progressWrapper"><div id="progressBar"></div></div>
 
   <h3>Log:</h3>
   <div id="log"></div>
 
 <script>
-  const WORKER_URL = "https://curly-pond-translate.yuush.workers.dev";
-
-const TRANSLATION_START_DELAY = 4000; // ms
+const WORKER_URL = "https://curly-pond-translate.yuush.workers.dev";
 let translatedResults = [];
 
 function log(msg) {
   document.getElementById("log").textContent += msg + "\n";
+}
+
+function updateProgress(done, total) {
+  const percent = Math.round((done / total) * 100);
+  document.getElementById("progressBar").style.width = percent + "%";
 }
 
 function parseRange(rangeStr, max) {
@@ -71,10 +94,12 @@ document.getElementById("startBtn").onclick = async () => {
 
   const modelName = document.getElementById("modelName").value;
   const titleModel = document.getElementById("titleModel").value;
+  const dispatchInterval = Number(document.getElementById("dispatchInterval").value);
+  const keyId = document.getElementById("apiKeySelect").value;
 
   log(`Processing items ${start}-${end} of ${data.length}`);
 
-  // 1️⃣ Batch title translation (chunks of 50)
+  // 1️⃣ Batch title translation
   let translatedTitles = [];
   for (let i = 0; i < items.length; i += 50) {
     const batch = items.slice(i, i + 50).map(it => it.title);
@@ -84,11 +109,12 @@ document.getElementById("startBtn").onclick = async () => {
       const res = await fetch(`${WORKER_URL}/translateTitles`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          titles: batch,
-          titleModel
-        })
+        body: JSON.stringify({ titles: batch, titleModel, keyId })
       });
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(`HTTP ${res.status}: ${errText}`);
+      }
       const result = await res.json();
       translatedTitles.push(...result.titles);
     } catch (err) {
@@ -97,41 +123,60 @@ document.getElementById("startBtn").onclick = async () => {
     }
   }
 
-  // attach translated titles to items
+  // attach translated titles
   for (let i = 0; i < items.length; i++) {
     items[i].title = translatedTitles[i] || items[i].title;
   }
 
-  // 2️⃣ Sequential content translation
+  // 2️⃣ Fire-and-forget content translation every N seconds
   translatedResults = [];
-  for (let i = 0; i < items.length; i++) {
-    const item = items[i];
-    log(`[${i + 1}/${items.length}] Translating content: ${item.title}`);
+  let completed = 0;
+  let index = 0;
 
-    try {
-  const res = await fetch(`${WORKER_URL}/translate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          item,
-          modelName
-        })
-      });
-      const result = await res.json();
-      translatedResults.push(result);
-      log(`✅ Translated content for: ${item.title.substring(0,50)}...`);
-    } catch (err) {
-      log(`❌ Error: ${err.message}`);
-      translatedResults.push({ ...item, error: err.message });
-    }
+  function dispatchNext() {
+    if (index >= items.length) return;
+    const item = items[index];
+    log(`[${index + 1}/${items.length}] Sending to Gemini: ${item.title}`);
+    index++;
 
-    if (i < items.length - 1) {
-      await new Promise(r => setTimeout(r, TRANSLATION_START_DELAY));
-    }
+    (async () => {
+      try {
+        const res = await fetch(`${WORKER_URL}/translate`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ item, modelName, keyId })
+        });
+
+        if (!res.ok) {
+          const errText = await res.text();
+          throw new Error(`HTTP ${res.status}: ${errText}`);
+        }
+
+        const result = await res.json();
+        translatedResults.push(result);
+        log(`✅ Finished: ${item.title.substring(0, 50)}...`);
+      } catch (err) {
+        log(`❌ Error: ${err.message}`);
+        translatedResults.push({ ...item, error: err.message });
+      } finally {
+        completed++;
+        updateProgress(completed, items.length);
+        if (completed === items.length) {
+          document.getElementById("downloadBtn").disabled = false;
+          log("🎉 All translations complete!");
+        }
+      }
+    })();
   }
 
-  document.getElementById("downloadBtn").disabled = false;
-  log("🎉 All translations complete!");
+  dispatchNext(); // first one immediately
+  const timer = setInterval(() => {
+    if (index >= items.length) {
+      clearInterval(timer);
+    } else {
+      dispatchNext();
+    }
+  }, dispatchInterval);
 };
 
 document.getElementById("downloadBtn").onclick = () => {
