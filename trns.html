@@ -126,11 +126,15 @@ document.getElementById("startBtn").onclick = async () => {
   try {
     let data = await loadJsonData();
 
-    const { start, end } = parseRange(
-      document.getElementById("rangeInput").value,
-      data.length
-    );
-    const items = data.slice(start - 1, end);
+let fullResults = [...data]; // start with original JSON
+let translatedResults = new Array(data.length); // preserve original size
+
+const { start, end } = parseRange(
+  document.getElementById("rangeInput").value,
+  data.length
+);
+const items = data.slice(start - 1, end);
+
 
     const modelName = document.getElementById("modelName").value;
     const titleModel = document.getElementById("titleModel").value;
@@ -223,7 +227,8 @@ document.getElementById("startBtn").onclick = async () => {
 };
 
 document.getElementById("downloadBtn").onclick = () => {
-  const blob = new Blob([JSON.stringify(translatedResults, null, 2)], { type: "application/json" });
+  const finalJson = translatedResults.map((res, i) => res || data[i]); 
+  const blob = new Blob([JSON.stringify(finalJson, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -231,6 +236,7 @@ document.getElementById("downloadBtn").onclick = () => {
   a.click();
   URL.revokeObjectURL(url);
 };
+
 </script>
 </body>
 </html>
