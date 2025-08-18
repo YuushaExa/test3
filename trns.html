@@ -127,21 +127,18 @@ document.getElementById("startBtn").onclick = async () => {
   document.getElementById("downloadBtn").disabled = true;
 
   try {
-    originalData = await loadJsonData();
+    let data = await loadJsonData();
 
     const { start, end } = parseRange(
       document.getElementById("rangeInput").value,
-      originalData.length
+      data.length
     );
-    rangeStart = start;
-    const items = originalData.slice(start - 1, end);
-
-    translatedResults = new Array(originalData.length);
+    const items = data.slice(start - 1, end);
 
     const modelName = document.getElementById("modelName").value;
     const titleModel = document.getElementById("titleModel").value;
 
-    log(`Processing items ${start}-${end} of ${originalData.length}`);
+    log(`Processing items ${start}-${end} of ${data.length}`);
 
     // 1️⃣ Batch title translation
     let translatedTitles = [];
@@ -169,8 +166,8 @@ document.getElementById("startBtn").onclick = async () => {
     }
 
     // 2️⃣ Content translation (ordered)
+    translatedResults = new Array(items.length); // pre-allocate
     let completed = 0;
-    let index = 0;
 
     function updateProgress() {
       const percent = Math.round((completed / items.length) * 100);
@@ -178,49 +175,45 @@ document.getElementById("startBtn").onclick = async () => {
       document.getElementById("statusText").textContent = `${percent}% Completed`;
     }
 
-    function dispatchNext() {
-      if (index >= items.length) return;
+    async function processItem(item, index) {
+      log(`[${index + 1}/${items.length}] Sending: ${item.title}`);
+      
+      try {
+        const res = await fetch(`${WORKER_URL}/translate`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ item, modelName })
+        });
 
-      const item = items[index];
-      const currentIndex = index;
-      log(`[${currentIndex + 1}/${items.length}] Sending: ${item.title}`);
-      index++;
+        if (!res.ok) throw new Error(await res.text());
 
-      (async () => {
-        try {
-          const res = await fetch(`${WORKER_URL}/translate`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ item, modelName })
-          });
-
-          if (!res.ok) throw new Error(await res.text());
-
-          const result = await res.json();
-          translatedResults[currentIndex + (rangeStart - 1)] = result;
-          log(`✅ Finished: ${item.title.substring(0, 50)}...`);
-        } catch (err) {
-          log(`❌ Error: ${err.message}`);
-          translatedResults[currentIndex + (rangeStart - 1)] = { ...item, error: err.message };
-        } finally {
-          completed++;
-          updateProgress();
-          if (completed === items.length) {
-            document.getElementById("downloadBtn").disabled = false;
-            log("🎉 All translations complete!");
-          }
+        const result = await res.json();
+        translatedResults[index] = result;
+        log(`✅ Finished: ${item.title.substring(0, 50)}...`);
+      } catch (err) {
+        log(`❌ Error: ${err.message}`);
+        translatedResults[index] = { ...item, error: err.message };
+      } finally {
+        completed++;
+        updateProgress();
+        if (completed === items.length) {
+          document.getElementById("downloadBtn").disabled = false;
+          log("🎉 All translations complete!");
         }
-      })();
+      }
     }
 
-    dispatchNext();
-    const timer = setInterval(() => {
-      if (index >= items.length) {
-        clearInterval(timer);
-      } else {
-        dispatchNext();
+    // Process items sequentially with delay
+    async function processWithDelay() {
+      for (let i = 0; i < items.length; i++) {
+        await processItem(items[i], i);
+        if (i < items.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, getTranslationDelay()));
+        }
       }
-    }, getTranslationDelay());
+    }
+
+    await processWithDelay();
 
   } catch (err) {
     log(`❌ ${err.message}`);
