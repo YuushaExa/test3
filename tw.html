@@ -1,280 +1,136 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Novel Crawler</title>
+  <meta charset="UTF-8">
+  <title>Novel Crawler with Translation</title>
   <style>
-    body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;max-width:800px;margin:0 auto;padding:20px;background:#f5f5f5}
-    h1{color:#333;text-align:center}
-    .container{background:#fff;padding:20px;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,.1)}
-    .form-group{margin-bottom:15px}
-    label{display:block;margin-bottom:5px;font-weight:bold}
-    input[type=text]{width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;box-sizing:border-box}
-    button{background:#4CAF50;color:#fff;border:none;padding:10px 15px;border-radius:4px;cursor:pointer;font-size:16px;margin-right:10px}
-    button:disabled{background:#ccc}
-    #console, #console-translate{padding:15px;border-radius:4px;font-family:'Courier New',Courier,monospace;height:300px;overflow-y:auto;white-space:pre-wrap;margin-top:20px}
-    #console{background:#1e1e1e;color:#d4d4d4;}
-    #console-translate{background:#f0f0ff;color:#000;}
-    .progress-container{margin-top:15px;display:none}
-    progress{width:100%}
-    .status{text-align:center;margin:10px 0;font-weight:bold}
-    /* Make the JSON-like view readable */
-    .json-item{margin-bottom:8px}
-    .json-key,.json-syntax{color:#444}
-    .json-key,.json-syntax{user-select:text}
-    .json-key,.json-syntax{font-weight:bold}
-    .tval{background:rgba(255,255,0,.08);padding:0 2px}
-    .muted{opacity:.7}
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background: #fafafa;
+    }
+    #console, #console-translate {
+      background: #111;
+      color: #0f0;
+      padding: 15px;
+      border-radius: 4px;
+      font-family: "Courier New", Courier, monospace;
+      height: 300px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      margin-top: 20px;
+    }
+    #console-translate {
+      background: #f0f0ff;
+      color: #000;
+    }
+    button {
+      margin: 5px;
+      padding: 10px 15px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    #progressContainer {
+      display: none;
+      margin-top: 10px;
+    }
+    #progressBar {
+      height: 20px;
+      background: #0f0;
+      width: 0%;
+    }
+    pre span[translate="no"] {
+      color: darkred;
+      font-weight: bold;
+    }
   </style>
-  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 </head>
 <body>
-  <div class="container">
-    <h1>Novel Crawler</h1>
+  <h2>Novel Crawler</h2>
 
-    <div class="form-group">
-      <label for="novelUrl">Novel URL:</label>
-      <input type="text" id="novelUrl" placeholder="link">
-    </div>
+  <input id="novelUrl" type="text" placeholder="Enter novel URL" style="width:400px;">
+  <button id="crawlBtn">Crawl Novel</button>
+  <button id="fetchChaptersBtn" disabled>Fetch Chapters</button>
+  <button id="downloadBtn" disabled>Download TXT</button>
+  <button id="saveToJsonBtn" disabled>Save to JSON</button>
+  <button id="saveTranslationBtn" disabled>Save Translation</button>
 
-    <button id="fetchMetadataBtn">Fetch Metadata</button>
-    <button id="fetchChaptersBtn" disabled>Fetch Chapters</button>
-    <button id="downloadBtn" disabled>Download as JSON</button>
-
-    <div class="progress-container" id="progressContainer">
-      <div class="status" id="statusText">Processing...</div>
-      <progress id="progressBar" value="0" max="100"></progress>
-    </div>
-
-    <div id="console"></div>
-
-    <!-- Translation console -->
-    <div id="console-translate" class="notranslate"></div>
-    <div class="muted">Tip: Use Chrome’s Translate to convert only the highlighted values. Keys and punctuation are protected.</div>
-    <button id="saveTranslationBtn" disabled>Save Translation</button>
+  <div id="progressContainer">
+    <div id="progressBar"></div>
   </div>
 
+  <div id="console"></div>
+  <pre id="console-translate"></pre>
+
   <script>
-    // ---- DOM refs ----
-    const consoleOutput   = document.getElementById('console');
-    const consoleTranslate= document.getElementById('console-translate');
+    const crawlBtn = document.getElementById('crawlBtn');
+    const fetchChaptersBtn = document.getElementById('fetchChaptersBtn');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const saveToJsonBtn = document.getElementById('saveToJsonBtn');
     const saveTranslationBtn = document.getElementById('saveTranslationBtn');
-    const novelUrlInput   = document.getElementById('novelUrl');
-    const fetchMetadataBtn= document.getElementById('fetchMetadataBtn');
-    const fetchChaptersBtn= document.getElementById('fetchChaptersBtn');
-    const downloadBtn     = document.getElementById('downloadBtn');
+    const consoleDiv = document.getElementById('console');
+    const consoleTranslate = document.getElementById('console-translate');
     const progressContainer = document.getElementById('progressContainer');
-    const progressBar     = document.getElementById('progressBar');
-    const statusText      = document.getElementById('statusText');
+    const progressBar = document.getElementById('progressBar');
 
-    // ---- config ----
-    const WORKER_URL = 'https://curly-pond-9050.yuush.workers.dev';
-
-    // ---- helpers ----
-    function log(msg, color = '') {
-      const el = document.createElement('div');
-      el.textContent = msg;
-      if (color) { el.style.color = color; el.style.fontWeight = 'bold'; }
-      consoleOutput.appendChild(el);
-      consoleOutput.scrollTop = consoleOutput.scrollHeight;
-    }
-
-    function updateProgress(current, total) {
-      const pct = Math.round((current / total) * 100);
-      progressBar.value = pct;
-      statusText.textContent = `Processing ${current}/${total} (${pct}%)`;
-    }
-
-    // ---- data store ----
-    let novelData = { metadata: null, chapters: [] };
-
-    // ---- fetch raw html via worker ----
-    async function fetchRawHTML(targetUrl) {
-      const res = await fetch(`${WORKER_URL}/api/raw?url=${encodeURIComponent(targetUrl)}`);
-      if (!res.ok) throw new Error(`raw fetch ${res.status}`);
-      return res.text();
-    }
-
-    // ---- fetch metadata ----
-    async function fetchMetadata() {
-      const url = novelUrlInput.value.trim();
-      if (!url) return alert('Please enter a novel URL');
-
-      try {
-        log('Fetching novel page…');
-        fetchMetadataBtn.disabled = true;
-
-        const html = await fetchRawHTML(url);
-        const doc = new DOMParser().parseFromString(html, 'text/html');
-
-        const title = doc.querySelector('.n-text h1')?.textContent.trim() || 'Untitled';
-        const cover = doc.querySelector('.n-img img')?.src || '';
-        const author = doc.querySelector('.n-text p a.bauthor')?.textContent.trim() || 'Unknown';
-        const status = doc.querySelector('.n-text p .lz')?.textContent.trim() 
-            || doc.querySelector('.n-text p .end')?.textContent.trim() 
-            || 'Unknown';
-        const description = doc.querySelector('#intro')?.textContent.trim() || '';
-        const Url = doc.querySelector('.n-text a.bauthor')?.getAttribute('href') || null;
-        const authorUrl = Url ? new URL(Url, url).href : null;
-        const genres = Array.from(doc.querySelectorAll('.tags em a')).map(a => a.textContent.trim());
-
-        const lastLink = doc.querySelector('.u-chapter.cfirst li a:last-of-type');
-        if (!lastLink) throw new Error("Couldn't find last chapter link");
-        const href = lastLink.getAttribute('href');
-        const match = href.match(/p(\d+)\.html$/);
-        if (!match) throw new Error("Couldn't extract last chapter number");
-        const lastNumber = parseInt(match[1], 10);
-
-        const chapters = [];
-        for (let i = 1; i <= lastNumber; i++) {
-          chapters.push({
-            title: `Chapter ${i}`,
-            url: new URL(`p${i}.html`, url).href
-          });
-        }
-
-        novelData.metadata = { title, cover, author, status, genres, description, authorUrl };
-        novelData.chapters = chapters;
-
-        log(`\n=== Metadata ===`);
-        log(`Title: ${title}`);
-        log(`Cover: ${cover}`);
-        log(`Author: ${author}`);
-        log(`Status: ${status}`);
-        log(`Genres: ${genres.join(', ')}`);
-        log(`Description: ${description}`);
-        log(`Total chapters found: ${chapters.length}`);
-        fetchChaptersBtn.disabled = false;
-
-      } catch (err) {
-        log(`Error: ${err.message}`, 'red');
-        fetchMetadataBtn.disabled = false;
-      }
-    }
-
-    // ---- fetch chapter content ----
-    async function fetchChapterContent(chapterUrl) {
-      const html = await fetchRawHTML(chapterUrl);
-      const doc  = new DOMParser().parseFromString(html, 'text/html');
-      const title = doc.querySelector('.page-content h3')?.textContent?.trim() || 'Untitled Chapter';
-      const paragraphs = [...doc.querySelectorAll('.page-content p')]
-        .filter(p => !p.classList.contains('abg') && !p.closest('.ad') && !p.closest('.ads'))
-        .map(p => p.textContent.trim())
-        .filter(txt => txt.length > 0);
-      const content = paragraphs.map(txt => `<p>${txt}</p>`).join('\n');
-      return { title, content };
-    }
-
-    // ===== TRANSLATION-SAFE FLOW =====
+    let novelData = { title: '', author: '', chapters: [] };
     let currentBatchIndex = 0;
     const batchSize = 100;
-    let currentBatchStart = 0;
-    let currentBatchData = []; // raw fetched objects for this batch
 
-    // Render a JSON-looking DOM where only values are translatable
-    function showTranslateJson(batch, startIndex) {
-      currentBatchStart = startIndex;
-      currentBatchData = batch;
+    // Logging utility
+    function log(msg, color="lime") {
+      consoleDiv.innerHTML += `<span style="color:${color}">${msg}</span>\n`;
+      consoleDiv.scrollTop = consoleDiv.scrollHeight;
+    }
 
-      consoleTranslate.innerHTML = ''; // clear
+    function updateProgress(done, total) {
+      const pct = Math.floor((done/total)*100);
+      progressBar.style.width = pct + "%";
+    }
 
-      const wrapper = document.createElement('div');
-      wrapper.setAttribute('translate', 'no'); // default: protect everything
-      // But we'll turn values back to translate="yes" explicitly
+    // Crawl metadata (dummy example)
+    async function crawlNovel() {
+      const url = document.getElementById('novelUrl').value.trim();
+      if (!url) return alert("Enter a novel URL");
+      log(`Crawling ${url} ...`);
 
-      // Opening bracket [
-      const openArr = document.createElement('div');
-      openArr.className = 'json-syntax';
-      openArr.textContent = '[';
-      wrapper.appendChild(openArr);
+      // Simulated chapters
+      novelData = {
+        title: "示例小说",
+        author: "作者名",
+        chapters: Array.from({length: 350}, (_,i)=>({
+          title: `第${i+1}章`,
+          url: `https://example.com/chapter/${i+1}`
+        }))
+      };
+      log(`Found ${novelData.chapters.length} chapters.`);
+      fetchChaptersBtn.disabled = false;
+    }
 
-      batch.forEach((item, i) => {
-        const idx = startIndex + i;
+    // Simulated fetch
+    async function fetchChapterContent(url) {
+      return new Promise(res=>setTimeout(()=>{
+        res({ content: "这是章节内容 ..." });
+      },100));
+    }
 
-        const line = document.createElement('div');
-        line.className = 'json-item';
-
-        // Build one object visually:
-        // { "index": idx, "title": "VAL", "content": "VAL" }[,]
-        line.innerHTML = `
-          <span class="json-syntax" translate="no">{ </span>
-          <span class="json-key" translate="no">"index"</span>
-          <span class="json-syntax" translate="no">: </span>
-          <span class="json-syntax" translate="no">${idx}</span>
-          <span class="json-syntax" translate="no">, </span>
-
-          <span class="json-key" translate="no">"title"</span>
-          <span class="json-syntax" translate="no">: "</span>
-          <span class="tval" translate="yes" lang="zh" data-i="${i}" data-k="title">${escapeHTML(item.title)}</span>
-          <span class="json-syntax" translate="no">", </span>
-
-          <span class="json-key" translate="no">"content"</span>
-          <span class="json-syntax" translate="no">: "</span>
-          <span class="tval" translate="yes" lang="zh" data-i="${i}" data-k="content">${item.content}</span>
-          <span class="json-syntax" translate="no">" </span>
-          <span class="json-syntax" translate="no">}</span>${i < batch.length - 1 ? '<span class="json-syntax" translate="no">,</span>' : ''}
-        `;
-
-        wrapper.appendChild(line);
-      });
-
-      // Closing bracket ]
-      const closeArr = document.createElement('div');
-      closeArr.className = 'json-syntax';
-      closeArr.textContent = ']';
-      wrapper.appendChild(closeArr);
-
-      consoleTranslate.appendChild(wrapper);
+    // Show JSON but lock keys
+    function showTranslateJson(batch) {
+      let text = JSON.stringify(batch, null, 2);
+      // highlight and protect keys
+      text = text.replace(/"title"/g, '<span translate="no">"title"</span>')
+                 .replace(/"content"/g, '<span translate="no">"content"</span>');
+      consoleTranslate.innerHTML = text;
       saveTranslationBtn.disabled = false;
     }
 
-    // Read back translated values from DOM (no JSON.parse!)
-    function readTranslatedBatchFromDOM() {
-      if (!currentBatchData.length) return [];
-
-      const out = [];
-      for (let i = 0; i < currentBatchData.length; i++) {
-        const tTitle = consoleTranslate.querySelector(`.tval[data-i="${i}"][data-k="title"]`);
-        const tContent = consoleTranslate.querySelector(`.tval[data-i="${i}"][data-k="content"]`);
-
-        // title: read text content (no HTML expected)
-        const newTitle = (tTitle?.textContent ?? '').trim();
-
-        // content: preserve innerHTML (it contains <p>…</p> blocks)
-        // also unescape accidental smart quotes if needed (optional)
-        let newContent = tContent ? tContent.innerHTML : '';
-
-        out.push({
-          ...currentBatchData[i],
-          title: newTitle,
-          content: newContent
-        });
-      }
-      return out;
-    }
-
-    // Basic HTML escaper for safety (used for titles)
-    function escapeHTML(str) {
-      return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
-    }
-
+    // Fetch all chapters in batches
     async function fetchChapters() {
-      if (!novelData.chapters.length) return alert('No chapters found');
-      try {
-        fetchChaptersBtn.disabled = true;
-        progressContainer.style.display = 'block';
-        currentBatchIndex = 0;
-        await fetchNextBatch();
-      } catch (err) {
-        log(`Error: ${err.message}`, 'red');
-        fetchChaptersBtn.disabled = false;
-        progressContainer.style.display = 'none';
-      }
+      if (!novelData.chapters.length) return alert("No chapters found");
+      fetchChaptersBtn.disabled = true;
+      progressContainer.style.display = "block";
+      currentBatchIndex = 0;
+      await fetchNextBatch();
     }
 
     async function fetchNextBatch() {
@@ -283,84 +139,85 @@
       const end = Math.min(start + batchSize, total);
 
       if (start >= total) {
-        log('\n✅ All chapters processed!', 'green');
+        log("\n✅ All chapters processed!", "green");
         downloadBtn.disabled = false;
-        progressContainer.style.display = 'none';
+        saveToJsonBtn.disabled = false;
+        progressContainer.style.display = "none";
         saveTranslationBtn.disabled = true;
         return;
       }
 
-      log(`\nFetching batch ${currentBatchIndex + 1}: chapters ${start + 1}-${end}`);
+      log(`\nFetching batch ${currentBatchIndex+1}: chapters ${start+1}-${end}`);
       const slice = novelData.chapters.slice(start, end);
 
-      const promises = slice.map(async (ch, idx) => {
-        log(`Fetching ${start + idx + 1}/${total} - ${ch.title}`);
+      const promises = slice.map(async (ch, idx)=>{
+        log(`Fetching ${start+idx+1}/${total} - ${ch.title}`);
         const data = await fetchChapterContent(ch.url);
-        return { ...ch, ...data };
+        return {...ch, ...data};
       });
 
       const results = await Promise.all(promises);
-      results.forEach((r, idx) => (novelData.chapters[start + idx] = r));
-      updateProgress(end, total);
+      results.forEach((r,i)=>novelData.chapters[start+i]=r);
 
-      // Show translation-safe JSON-like view
-      showTranslateJson(results, start);
+      updateProgress(end,total);
+      showTranslateJson(results);
     }
 
+    // Save translations
     saveTranslationBtn.addEventListener('click', () => {
       try {
-        const translated = readTranslatedBatchFromDOM();
-        if (!translated.length) {
-          alert('No translated values detected.');
-          return;
-        }
+        // Remove spans, keep valid JSON
+        let translatedText = consoleTranslate.textContent.trim();
+        if (!translatedText) return alert("No translated text");
 
-        // Sanity check: lengths match
-        if (translated.length !== currentBatchData.length) {
-          alert('Mismatch in translated item count. Please try again.');
-          return;
-        }
+        const translatedJson = JSON.parse(translatedText);
+        const start = currentBatchIndex * batchSize;
 
-        // Write back to the main array
-        for (let i = 0; i < translated.length; i++) {
-          const idx = currentBatchStart + i;
-          novelData.chapters[idx] = {
-            ...novelData.chapters[idx],
-            title: translated[i].title,
-            content: translated[i].content
+        for (let i=0; i<translatedJson.length; i++) {
+          novelData.chapters[start+i] = {
+            ...novelData.chapters[start+i],
+            title: translatedJson[i].title,
+            content: translatedJson[i].content
           };
         }
 
-        log(`✅ Saved translation for batch ${currentBatchIndex + 1}`, 'green');
+        log(`✅ Saved translation for batch ${currentBatchIndex+1}`, "green");
         saveTranslationBtn.disabled = true;
-
-        // Next batch
         currentBatchIndex++;
         fetchNextBatch();
-      } catch (err) {
-        log(`Error saving translation: ${err.message}`, 'red');
+      } catch(err) {
+        log(`Error parsing translation JSON: ${err.message}`, "red");
       }
     });
 
-    // ---- export JSON ----
-    function downloadJson() {
-      if (!novelData.metadata?.title) return alert('No data to save');
-      const cleanData = {
-        ...novelData,
-        chapters: novelData.chapters.map(({ url, ...rest }) => rest)
-      };
-      const blob = new Blob([JSON.stringify(cleanData, null, 2)], { type: 'application/json' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `${novelData.metadata.title.replace(/[^a-z0-9]/gi, '_')}.json`;
+    // Download TXT
+    function downloadTXT() {
+      const txt = novelData.chapters.map(c=>`${c.title}\n${c.content}\n`).join("\n\n");
+      const blob = new Blob([txt], {type:"text/plain"});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = novelData.title+".txt";
       a.click();
-      URL.revokeObjectURL(a.href);
+      URL.revokeObjectURL(url);
     }
 
-    // ---- events ----
-    fetchMetadataBtn.addEventListener('click', fetchMetadata);
+    // Save to JSON file
+    function saveToJson() {
+      const blob = new Blob([JSON.stringify(novelData,null,2)], {type:"application/json"});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = novelData.title+".json";
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    // Event listeners
+    crawlBtn.addEventListener('click', crawlNovel);
     fetchChaptersBtn.addEventListener('click', fetchChapters);
-    downloadBtn.addEventListener('click', downloadJson);
+    downloadBtn.addEventListener('click', downloadTXT);
+    saveToJsonBtn.addEventListener('click', saveToJson);
   </script>
 </body>
 </html>
