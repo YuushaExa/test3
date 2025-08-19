@@ -46,7 +46,8 @@
 <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap">
   <button id="saveTranslationBtn" disabled>Save Translation</button>
 </div>
-
+<button id="scrollToBottomBtn" style="padding: 8px 16px; background: #333; color: white; border: none; border-radius: 4px; cursor: pointer; margin-top: 10px;">
+ Scroll to Bottom</button>
 <div id="console-translate" translate="yes"
      class="console-like"
      style="background:#121212;color:#e6e6e6;padding:15px;border-radius:4px;
@@ -917,7 +918,38 @@ saveTranslationBtn.addEventListener('click', () => {
   });
 });
 
+    document.addEventListener('DOMContentLoaded', function() {
+    const scrollButton = document.getElementById('scrollToBottomBtn');
+    const consoleDiv = document.getElementById('console-translate');
     
+    scrollButton.addEventListener('click', function() {
+        scrollToBottom(consoleDiv);
+    });
+    
+    function scrollToBottom(element) {
+        const targetScrollTop = element.scrollHeight - element.clientHeight;
+        const duration = 800; // milliseconds - moderate speed
+        const startScrollTop = element.scrollTop;
+        const distance = targetScrollTop - startScrollTop;
+        const startTime = performance.now();
+        
+        function animateScroll(currentTime) {
+            const elapsedTime = currentTime - startTime;
+            const progress = Math.min(elapsedTime / duration, 1);
+            
+            // Easing function for smooth animation
+            const easeInOutQuad = t => t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+            
+            element.scrollTop = startScrollTop + (distance * easeInOutQuad(progress));
+            
+            if (progress < 1) {
+                requestAnimationFrame(animateScroll);
+            }
+        }
+        
+        requestAnimationFrame(animateScroll);
+    }
+});
   </script>
 </body>
 
