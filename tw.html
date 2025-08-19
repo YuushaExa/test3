@@ -1,365 +1,261 @@
 <!DOCTYPE html>
 <html lang="en">
-<head> 
+<head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Novel Crawler</title>
   <style>
-    body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;max-width:800px;margin:0 auto;padding:20px;background:#f5f5f5}
-    h1{color:#333;text-align:center}
-    .container{background:#fff;padding:20px;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,.1)}
-    .form-group{margin-bottom:15px}
-    label{display:block;margin-bottom:5px;font-weight:bold}
-    input[type=text]{width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;box-sizing:border-box}
-    button{background:#4CAF50;color:#fff;border:none;padding:10px 15px;border-radius:4px;cursor:pointer;font-size:16px;margin-right:10px;margin-bottom:10px}
-    button:disabled{background:#ccc}
-    button.secondary{background:#2196F3}
-    button.warning{background:#FF9800}
-    #console, #console-translate{padding:15px;border-radius:4px;font-family:'Courier New',Courier,monospace;height:300px;overflow-y:auto;white-space:pre-wrap;margin-top:20px}
-    #console{background:#1e1e1e;color:#d4d4d4;}
-    #console-translate{background:#f0f0ff;color:#000;}
-    .progress-container{margin-top:15px;display:none}
+    body{font-family:'Segoe UI',Tahoma,sans-serif;max-width:900px;margin:0 auto;padding:20px;background:#f5f5f5}
+    h1{text-align:center}
+    .container{background:#fff;padding:20px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.1)}
+    .form-group{margin-bottom:12px}
+    label{display:block;margin-bottom:4px;font-weight:bold}
+    input[type=text],textarea{width:100%;padding:6px;border:1px solid #ccc;border-radius:4px;box-sizing:border-box}
+    button{background:#4CAF50;color:#fff;border:none;padding:8px 12px;margin:4px 2px;border-radius:4px;cursor:pointer}
+    button:disabled{background:#aaa}
+    #console,#console-translate{padding:12px;border-radius:4px;font-family:monospace;height:250px;overflow-y:auto;white-space:pre-wrap;margin-top:12px}
+    #console{background:#1e1e1e;color:#d4d4d4}
+    #console-translate{background:#f0f0ff;color:#000}
+    .progress-container{margin-top:12px;display:none}
     progress{width:100%}
-    .status{text-align:center;margin:10px 0;font-weight:bold}
-    .json-viewer {padding:15px;border-radius:4px;background:#f8f8f8;border:1px solid #ddd;max-height:300px;overflow-y:auto;margin-top:20px}
-    .json-key {color: #881391;}
-    .json-string {color: #c41a16;}
-    .json-number {color: #1c00cf;}
-    .json-boolean {color: #0d22aa;}
-    .json-null {color: #808080;}
+    .status{text-align:center;margin:6px 0;font-weight:bold}
+    .json-item{margin-bottom:6px}
+    .json-key,.json-syntax{color:#444;font-weight:bold}
+    .tval{background:rgba(255,255,0,.1);padding:0 2px}
+    .muted{opacity:.7;font-size:.9em}
   </style>
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 </head>
 <body>
-  <div class="container">
-    <h1>Novel Crawler</h1>
+<div class="container">
+  <h1>Novel Crawler</h1>
 
-    <div class="form-group">
-      <label for="novelUrl">Novel URL:</label>
-      <input type="text" id="novelUrl" placeholder="link">
-    </div>
-
-    <button id="fetchMetadataBtn">Fetch Metadata</button>
-    <button id="fetchChaptersBtn" disabled>Fetch Chapters</button>
-    <button id="downloadBtn" disabled>Download as JSON</button>
-    <button id="saveToJsonBtn" disabled>Save JSON</button> 
-    <button id="editMetadataBtn" disabled>Edit Metadata</button>
-    <button id="saveMetadataBtn">Save Metadata</button>
-
-    <div class="progress-container" id="progressContainer">
-      <div class="status" id="statusText">Processing...</div>
-      <progress id="progressBar" value="0" max="100"></progress>
-    </div>
-
-    <div id="console"></div>
-    <div id="json-display" class="json-viewer"></div>
-    <button id="copyJsonBtn" class="secondary" style="display:none">Copy JSON to Clipboard</button>
-    <div id="console-translate" style="display:none"></div>
-    <button id="saveTranslationBtn" disabled>Save Translation</button>
+  <div class="form-group">
+    <label for="novelUrl">Novel URL:</label>
+    <input type="text" id="novelUrl" placeholder="https://...">
   </div>
 
-  <script>
-    // ---- DOM refs ----
-    const consoleOutput   = document.getElementById('console');
-    const consoleTranslate= document.getElementById('console-translate');
-    const jsonDisplay     = document.getElementById('json-display');
-    const copyJsonBtn     = document.getElementById('copyJsonBtn');
-    const saveTranslationBtn = document.getElementById('saveTranslationBtn');
-    const novelUrlInput   = document.getElementById('novelUrl');
-    const fetchMetadataBtn= document.getElementById('fetchMetadataBtn');
-    const fetchChaptersBtn= document.getElementById('fetchChaptersBtn');
-    const downloadBtn     = document.getElementById('downloadBtn');
-    const saveToJsonBtn   = document.getElementById('saveToJsonBtn'); 
-    const progressContainer = document.getElementById('progressContainer');
-    const progressBar     = document.getElementById('progressBar');
-    const statusText      = document.getElementById('statusText');
+  <div>
+    <button id="fetchMetadataBtn">Fetch Metadata</button>
+    <button id="editMetadataBtn" disabled>Edit Metadata</button>
+    <button id="saveMetadataBtn" disabled>Save Metadata</button>
+    <button id="fetchChaptersBtn" disabled>Fetch Chapters</button>
+    <button id="saveTranslationBtn" disabled>Save Translation</button>
+    <button id="createEpubBtn" disabled>Create EPUB</button>
+    <button id="downloadEpubBtn" disabled>Download EPUB</button>
+    <button id="downloadJsonBtn" disabled>Download JSON</button>
+  </div>
 
-    // ---- config ----
-    const WORKER_URL = 'https://curly-pond-9050.yuush.workers.dev';
+  <div class="progress-container" id="progressContainer">
+    <div class="status" id="statusText">Processing…</div>
+    <progress id="progressBar" value="0" max="100"></progress>
+  </div>
 
-    // ---- helpers ----
-    function log(msg, color = '') {
-      const messageElement = document.createElement('div');
-      messageElement.textContent = msg;
-      if (color) {
-        messageElement.style.color = color;
-        messageElement.style.fontWeight = 'bold';
-      }
-      consoleOutput.appendChild(messageElement);
-      consoleOutput.scrollTop = consoleOutput.scrollHeight;
-    }
+  <div id="console"></div>
+  <div id="console-translate" class="notranslate"></div>
+  <div class="muted">Tip: Use Chrome’s Translate for the highlighted values. Keys and punctuation are protected.</div>
+</div>
 
-    function updateProgress(current, total) {
-      const pct = Math.round((current / total) * 100);
-      progressBar.value = pct;
-      statusText.textContent = `Processing ${current}/${total} (${pct}%)`;
-    }
+<script>
+const consoleOutput=document.getElementById('console');
+const consoleTranslate=document.getElementById('console-translate');
+const novelUrlInput=document.getElementById('novelUrl');
 
-    // ---- JSON syntax highlighter ----
-    function syntaxHighlight(json) {
-      if (typeof json != 'string') {
-        json = JSON.stringify(json, null, 2);
-      }
-      
-      json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      
-      return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
-        let cls = 'json-number';
-        if (/^"/.test(match)) {
-          if (/:$/.test(match)) {
-            cls = 'json-key';
-          } else {
-            cls = 'json-string';
-          }
-        } else if (/true|false/.test(match)) {
-          cls = 'json-boolean';
-        } else if (/null/.test(match)) {
-          cls = 'json-null';
-        }
-        return '<span class="' + cls + '">' + match + '</span>';
-      });
-    }
+const fetchMetadataBtn=document.getElementById('fetchMetadataBtn');
+const editMetadataBtn=document.getElementById('editMetadataBtn');
+const saveMetadataBtn=document.getElementById('saveMetadataBtn');
+const fetchChaptersBtn=document.getElementById('fetchChaptersBtn');
+const saveTranslationBtn=document.getElementById('saveTranslationBtn');
+const createEpubBtn=document.getElementById('createEpubBtn');
+const downloadEpubBtn=document.getElementById('downloadEpubBtn');
+const downloadJsonBtn=document.getElementById('downloadJsonBtn');
 
-    // ---- JSON validation and cleaning ----
-    function cleanJsonString(jsonString) {
-      // Replace common translation artifacts
-      return jsonString
-        .replace(/[“”]/g, '"')           // Replace curly quotes with straight quotes
-        .replace(/[‘’]/g, "'")            // Replace curly single quotes
-        .replace(/：/g, ':')              // Replace full-width colon
-        .replace(/，/g, ',')              // Replace full-width comma
-        .replace(/（/g, '(').replace(/）/g, ')') // Replace full-width parentheses
-        .replace(/！/g, '!').replace(/？/g, '?') // Replace full-width punctuation
-        .replace(/\s*:\s*/g, ': ')        // Normalize spaces around colons
-        .replace(/\s*,\s*/g, ', ')       // Normalize spaces around commas
-        .replace(/}\s*{/g, '}, {')       // Fix missing comma between objects
-        .replace(/\]\s*{/g, '], {')      // Fix missing comma after array
-        .replace(/}\s*\[/g, '}, [')       // Fix missing comma before array
-        .replace(/""/g, '"')             // Fix double quotes
-        .replace(/(\w)\s*"/g, '$1 "')    // Fix missing colon or comma before string
-        .replace(/"\s*(\w)/g, '" $1')    // Fix missing colon or comma after string
-        .replace(/([}\]"])\s*(\w)/g, '$1, $2') // Add missing comma
-        .replace(/(\w)\s*([{["])/g, '$1, $2'); // Add missing comma
-    }
+const progressContainer=document.getElementById('progressContainer');
+const progressBar=document.getElementById('progressBar');
+const statusText=document.getElementById('statusText');
 
-    function isValidJson(str) {
-      try {
-        JSON.parse(str);
-        return true;
-      } catch (e) {
-        return false;
-      }
-    }
+const WORKER_URL="https://curly-pond-9050.yuush.workers.dev";
 
-    // ---- data store ----
-    let novelData = { metadata: null, chapters: [] };
+function log(msg,color=""){const el=document.createElement('div');el.textContent=msg;if(color){el.style.color=color;el.style.fontWeight="bold"}consoleOutput.appendChild(el);consoleOutput.scrollTop=consoleOutput.scrollHeight;}
+function updateProgress(cur,total){const pct=Math.round((cur/total)*100);progressBar.value=pct;statusText.textContent=`Processing ${cur}/${total} (${pct}%)`;}
 
-    // ---- fetch raw html via worker ----
-    async function fetchRawHTML(targetUrl) {
-      const res = await fetch(`${WORKER_URL}/api/raw?url=${encodeURIComponent(targetUrl)}`);
-      if (!res.ok) throw new Error(`raw fetch ${res.status}`);
-      return res.text();
-    }
+// Data
+let novelData={metadata:null,chapters:[]};
 
-    // ---- fetch metadata (browser-side) ----
-    async function fetchMetadata() {
-      const url = novelUrlInput.value.trim();
-      if (!url) return alert('Please enter a novel URL');
+// Worker fetch
+async function fetchRawHTML(u){const r=await fetch(`${WORKER_URL}/api/raw?url=${encodeURIComponent(u)}`);if(!r.ok)throw new Error(r.status);return r.text();}
 
-      try {
-        log('Fetching novel page…');
-        fetchMetadataBtn.disabled = true;
+// Metadata
+async function fetchMetadata(){
+  const url=novelUrlInput.value.trim();if(!url)return alert("Enter URL");
+  try{
+    log("Fetching novel page…");
+    fetchMetadataBtn.disabled=true;
+    const html=await fetchRawHTML(url);
+    const doc=new DOMParser().parseFromString(html,"text/html");
+    const title=doc.querySelector(".n-text h1")?.textContent.trim()||"Untitled";
+    const cover=doc.querySelector(".n-img img")?.src||"";
+    const author=doc.querySelector(".n-text p a.bauthor")?.textContent.trim()||"Unknown";
+    const status=doc.querySelector(".n-text p .lz")?.textContent.trim()||doc.querySelector(".n-text p .end")?.textContent.trim()||"Unknown";
+    const description=doc.querySelector("#intro")?.textContent.trim()||"";
+    const Url=doc.querySelector(".n-text a.bauthor")?.getAttribute("href")||null;
+    const authorUrl=Url?new URL(Url,url).href:null;
+    const genres=Array.from(doc.querySelectorAll(".tags em a")).map(a=>a.textContent.trim());
+    const lastLink=doc.querySelector(".u-chapter.cfirst li a:last-of-type");
+    if(!lastLink)throw new Error("No last chapter link");
+    const match=lastLink.getAttribute("href").match(/p(\d+)\.html$/);if(!match)throw new Error("Bad chapter url");
+    const lastNumber=parseInt(match[1],10);
+    const chapters=[];for(let i=1;i<=lastNumber;i++){chapters.push({title:`Chapter ${i}`,url:new URL(`p${i}.html`,url).href});}
+    novelData.metadata={title,cover,author,status,genres,description,authorUrl};
+    novelData.chapters=chapters;
+    log("=== Metadata ===");log(`Title: ${title}`);log(`Author: ${author}`);log(`Status: ${status}`);log(`Chapters: ${chapters.length}`);
+    editMetadataBtn.disabled=false;fetchChaptersBtn.disabled=false;
+  }catch(e){log("Error "+e.message,"red");fetchMetadataBtn.disabled=false;}
+}
 
-        const html = await fetchRawHTML(url);
-        const doc = new DOMParser().parseFromString(html, 'text/html');
+// Metadata editor inline
+function editMetadata(){
+  if(!novelData.metadata)return;
+  consoleOutput.innerHTML=`
+    <div><label>Title<input id="mTitle" type="text" value="${novelData.metadata.title}"></label></div>
+    <div><label>Author<input id="mAuthor" type="text" value="${novelData.metadata.author}"></label></div>
+    <div><label>Status<input id="mStatus" type="text" value="${novelData.metadata.status}"></label></div>
+    <div><label>Genres<input id="mGenres" type="text" value="${novelData.metadata.genres.join(", ")}"></label></div>
+    <div><label>Cover URL<input id="mCover" type="text" value="${novelData.metadata.cover}"></label></div>
+    <div><label>Author URL<input id="mAuthorUrl" type="text" value="${novelData.metadata.authorUrl||""}"></label></div>
+    <div><label>Description<textarea id="mDesc">${novelData.metadata.description}</textarea></label></div>
+  `;
+  saveMetadataBtn.disabled=false;
+}
 
-        const title = doc.querySelector('.n-text h1')?.textContent.trim() || 'Untitled';
-        const cover = doc.querySelector('.n-img img')?.src || '';
-        const author = doc.querySelector('.n-text p a.bauthor')?.textContent.trim() || 'Unknown';
-        const status = doc.querySelector('.n-text p .lz')?.textContent.trim() 
-            || doc.querySelector('.n-text p .end')?.textContent.trim() 
-            || 'Unknown';
-        const description = doc.querySelector('#intro')?.textContent.trim() || '';
-        const Url = doc.querySelector('.n-text a.bauthor')?.getAttribute('href') || null;
-        const authorUrl = Url ? new URL(Url, url).href : null;
-        const genres = Array.from(doc.querySelectorAll('.tags em a')).map(a => a.textContent.trim());
+function saveMetadata(){
+  novelData.metadata.title=document.getElementById("mTitle").value.trim();
+  novelData.metadata.author=document.getElementById("mAuthor").value.trim();
+  novelData.metadata.status=document.getElementById("mStatus").value.trim();
+  novelData.metadata.genres=document.getElementById("mGenres").value.split(",").map(g=>g.trim()).filter(Boolean);
+  novelData.metadata.cover=document.getElementById("mCover").value.trim();
+  novelData.metadata.authorUrl=document.getElementById("mAuthorUrl").value.trim();
+  novelData.metadata.description=document.getElementById("mDesc").value.trim();
+  log("✅ Metadata updated","green");
+  saveMetadataBtn.disabled=true;
+}
 
-        const lastLink = doc.querySelector('.u-chapter.cfirst li a:last-of-type');
-        if (!lastLink) throw new Error("Couldn't find last chapter link");
-        const href = lastLink.getAttribute('href');
-        const match = href.match(/p(\d+)\.html$/);
-        if (!match) throw new Error("Couldn't extract last chapter number");
-        const lastNumber = parseInt(match[1], 10);
+// Chapter fetch
+async function fetchChapterContent(u){
+  const html=await fetchRawHTML(u);
+  const doc=new DOMParser().parseFromString(html,"text/html");
+  const title=doc.querySelector(".page-content h3")?.textContent.trim()||"Untitled";
+  const paras=[...doc.querySelectorAll(".page-content p")].filter(p=>!p.classList.contains("abg")&&!p.closest(".ad")&&!p.closest(".ads")).map(p=>p.textContent.trim()).filter(t=>t.length>0);
+  return{title,content:paras.map(t=>`<p>${t}</p>`).join("\n")};
+}
 
-        const chapters = [];
-        for (let i = 1; i <= lastNumber; i++) {
-          chapters.push({
-            title: `Chapter ${i}`,
-            url: new URL(`p${i}.html`, url).href
-          });
-        }
+// Translation flow
+let currentBatchIndex=0;const batchSize=50;let currentBatchStart=0;let currentBatchData=[];
+function escapeHTML(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
 
-        novelData.metadata = { title, cover, author, status, genres, description, authorUrl };
-        novelData.chapters = chapters;
+function showTranslateJson(batch,start){
+  currentBatchStart=start;currentBatchData=batch;
+  consoleTranslate.innerHTML="";
+  const wrap=document.createElement("div");wrap.setAttribute("translate","no");
+  wrap.innerHTML+="[";
+  batch.forEach((it,i)=>{
+    wrap.innerHTML+=`
+      <div class="json-item">
+      { "index": ${start+i}, "title": "<span class='tval' translate='yes' data-i='${i}' data-k='title'>${escapeHTML(it.title)}</span>", 
+      "content": "<span class='tval' translate='yes' data-i='${i}' data-k='content'>${it.content}</span>" }${i<batch.length-1?",":""}
+      </div>`;
+  });
+  wrap.innerHTML+="]";
+  consoleTranslate.appendChild(wrap);
+  saveTranslationBtn.disabled=false;
+}
 
-        log(`\n=== Metadata ===`);
-        log(`Title: ${title}`);
-        log(`Cover: ${cover}`);
-        log(`Author: ${author}`);
-        log(`Status: ${status}`);
-        log(`Genres: ${genres.join(', ')}`);
-        log(`Description: ${description}`);
-        log(`Total chapters found: ${chapters.length}`);
-        fetchChaptersBtn.disabled = false;
+function readTranslatedBatch(){
+  return currentBatchData.map((it,i)=>({
+    ...it,
+    title:(consoleTranslate.querySelector(`.tval[data-i='${i}'][data-k='title']`)?.textContent||"").trim(),
+    content:(consoleTranslate.querySelector(`.tval[data-i='${i}'][data-k='content']`)?.innerHTML||"")
+  }));
+}
 
-      } catch (err) {
-        log(`Error: ${err.message}`, 'red');
-        fetchMetadataBtn.disabled = false;
-      }
-    }
+async function fetchChapters(){
+  if(!novelData.chapters.length)return;
+  fetchChaptersBtn.disabled=true;
+  progressContainer.style.display="block";
+  currentBatchIndex=0;
+  await fetchNextBatch();
+}
 
-    // ---- fetch chapter content ----
-    async function fetchChapterContent(chapterUrl) {
-      const html = await fetchRawHTML(chapterUrl);
-      const doc  = new DOMParser().parseFromString(html, 'text/html');
-      const title = doc.querySelector('.page-content h3')?.textContent?.trim() || 'Untitled Chapter';
-      const paragraphs = [...doc.querySelectorAll('.page-content p')]
-        .filter(p => !p.classList.contains('abg') && !p.closest('.ad') && !p.closest('.ads'))
-        .map(p => p.textContent.trim())
-        .filter(txt => txt.length > 0);
-      const content = paragraphs.map(txt => `<p>${txt}</p>`).join('\n');
-      return { title, content };
-    }
+async function fetchNextBatch(){
+  const total=novelData.chapters.length;
+  const start=currentBatchIndex*batchSize;
+  const end=Math.min(start+batchSize,total);
+  if(start>=total){log("✅ All chapters fetched","green");progressContainer.style.display="none";createEpubBtn.disabled=false;downloadJsonBtn.disabled=false;return;}
+  const slice=novelData.chapters.slice(start,end);
+  log(`Fetching batch ${currentBatchIndex+1}: ${start+1}-${end}`);
+  const res=await Promise.all(slice.map((ch,idx)=>fetchChapterContent(ch.url)));
+  res.forEach((r,i)=>novelData.chapters[start+i]={...slice[i],...r});
+  updateProgress(end,total);
+  showTranslateJson(res,start);
+}
 
-    // ---- TRANSLATION MODE ----
-    let currentBatchIndex = 0;
-    let batchSize = 100;
+saveTranslationBtn.addEventListener("click",()=>{
+  const trans=readTranslatedBatch();
+  trans.forEach((t,i)=>{novelData.chapters[currentBatchStart+i]={...novelData.chapters[currentBatchStart+i],title:t.title,content:t.content}});
+  log(`Saved batch ${currentBatchIndex+1}`,"green");
+  saveTranslationBtn.disabled=true;
+  currentBatchIndex++;fetchNextBatch();
+});
 
-    function showTranslateJson(batch) {
-      // Display JSON with syntax highlighting (read-only)
-      jsonDisplay.innerHTML = syntaxHighlight(batch);
-      copyJsonBtn.style.display = 'block';
-      saveTranslationBtn.disabled = false;
-    }
+// Export JSON
+function downloadJson(){
+  const clean={...novelData,chapters:novelData.chapters.map(({url,...rest})=>rest)};
+  const blob=new Blob([JSON.stringify(clean,null,2)],{type:"application/json"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);
+  a.download=`${novelData.metadata.title.replace(/[^a-z0-9]/gi,"_")}.json`;a.click();
+  URL.revokeObjectURL(a.href);
+}
 
-    async function fetchChapters() {
-      if (!novelData.chapters.length) return alert('No chapters found');
-      try {
-        fetchChaptersBtn.disabled = true;
-        progressContainer.style.display = 'block';
-        currentBatchIndex = 0;
-        await fetchNextBatch();
-      } catch (err) {
-        log(`Error: ${err.message}`, 'red');
-        fetchChaptersBtn.disabled = false;
-        progressContainer.style.display = 'none';
-      }
-    }
+// EPUB
+let lastEpubBlob=null;
+function createEpub(){
+  const zip=new JSZip();
+  zip.file("mimetype","application/epub+zip");
+  const meta=novelData.metadata;
+  // container
+  zip.file("META-INF/container.xml",`<?xml version="1.0"?>
+    <container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+    <rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles></container>`);
+  // chapters
+  novelData.chapters.forEach((ch,i)=>{
+    zip.file(`OEBPS/ch${i+1}.xhtml`,`<?xml version="1.0" encoding="utf-8"?>
+    <html xmlns="http://www.w3.org/1999/xhtml"><head><title>${ch.title}</title></head><body><h2>${ch.title}</h2>${ch.content}</body></html>`);
+  });
+  // toc & opf minimal
+  const manifest=novelData.chapters.map((ch,i)=>`<item id="c${i+1}" href="ch${i+1}.xhtml" media-type="application/xhtml+xml"/>`).join("\n");
+  const spine=novelData.chapters.map((ch,i)=>`<itemref idref="c${i+1}"/>`).join("\n");
+  const opf=`<?xml version="1.0" encoding="utf-8"?>
+  <package version="2.0" xmlns="http://www.idpf.org/2007/opf" unique-identifier="BookId">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>${meta.title}</dc:title><dc:creator>${meta.author}</dc:creator><dc:language>en</dc:language></metadata>
+  <manifest>${manifest}</manifest><spine toc="ncx">${spine}</spine></package>`;
+  zip.file("OEBPS/content.opf",opf);
+  zip.generateAsync({type:"blob"}).then(b=>{lastEpubBlob=b;log("✅ EPUB created","green");downloadEpubBtn.disabled=false;});
+}
 
-    async function fetchNextBatch() {
-      const total = novelData.chapters.length;
-      const start = currentBatchIndex * batchSize;
-      const end = Math.min(start + batchSize, total);
+function downloadEpub(){
+  if(!lastEpubBlob)return;
+  const a=document.createElement("a");a.href=URL.createObjectURL(lastEpubBlob);
+  a.download=`${novelData.metadata.title.replace(/[^a-z0-9]/gi,"_")}.epub`;a.click();URL.revokeObjectURL(a.href);
+}
 
-      if (start >= total) {
-        log('\n✅ All chapters processed!', 'green');
-        downloadBtn.disabled = false;
-        saveToJsonBtn.disabled = false;
-        progressContainer.style.display = 'none';
-        saveTranslationBtn.disabled = true;
-        copyJsonBtn.style.display = 'none';
-        return;
-      }
-
-      log(`\nFetching batch ${currentBatchIndex + 1}: chapters ${start + 1}-${end}`);
-      const slice = novelData.chapters.slice(start, end);
-      const promises = slice.map(async (ch, idx) => {
-        log(`Fetching ${start + idx + 1}/${total} - ${ch.title}`);
-        const data = await fetchChapterContent(ch.url);
-        return { ...ch, ...data };
-      });
-
-      const results = await Promise.all(promises);
-      results.forEach((r, idx) => (novelData.chapters[start + idx] = r));
-      updateProgress(end, total);
-
-      // Show for manual translation
-      showTranslateJson(results);
-    }
-
-    saveTranslationBtn.addEventListener('click', () => {
-      try {
-        // Show a prompt for pasting translated JSON
-        const translatedJsonStr = prompt("Please paste the translated JSON here:");
-        if (!translatedJsonStr) return;
-        
-        // Clean the JSON string
-        const cleanedJsonStr = cleanJsonString(translatedJsonStr);
-        
-        // Validate JSON
-        if (!isValidJson(cleanedJsonStr)) {
-          alert("Invalid JSON format. Please check your translation and try again.");
-          return;
-        }
-        
-        const translatedJson = JSON.parse(cleanedJsonStr);
-        const start = currentBatchIndex * batchSize;
-        
-        for (let i = 0; i < translatedJson.length; i++) {
-          novelData.chapters[start + i] = {
-            ...novelData.chapters[start + i],
-            ...translatedJson[i]
-          };
-        }
-        
-        log(`✅ Saved translation for batch ${currentBatchIndex + 1}`, 'green');
-        saveTranslationBtn.disabled = true;
-        copyJsonBtn.style.display = 'none';
-        jsonDisplay.innerHTML = '';
-        currentBatchIndex++;
-        fetchNextBatch();
-      } catch (err) {
-        log(`Error parsing translation JSON: ${err.message}`, 'red');
-        alert("Error parsing JSON. Please ensure you've copied the complete and valid JSON.");
-      }
-    });
-
-    // Copy JSON to clipboard
-    copyJsonBtn.addEventListener('click', () => {
-      const batch = novelData.chapters.slice(
-        currentBatchIndex * batchSize,
-        Math.min((currentBatchIndex + 1) * batchSize, novelData.chapters.length)
-      );
-      
-      const jsonString = JSON.stringify(batch, null, 2);
-      navigator.clipboard.writeText(jsonString)
-        .then(() => {
-          log('✅ JSON copied to clipboard!', 'green');
-        })
-        .catch(err => {
-          log(`Error copying to clipboard: ${err.message}`, 'red');
-        });
-    });
-
-    // ---- export JSON ----
-    function downloadJson() {
-      if (!novelData.metadata?.title) return alert('No data to save');
-      const cleanData = {
-        ...novelData,
-        chapters: novelData.chapters.map(({ url, ...rest }) => rest)
-      };
-      const blob = new Blob([JSON.stringify(cleanData, null, 2)], { type: 'application/json' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `${novelData.metadata.title.replace(/[^a-z0-9]/gi, '_')}.json`;
-      a.click();
-      URL.revokeObjectURL(a.href);
-    }
-
-    // ---- events ----
-    fetchMetadataBtn.addEventListener('click', fetchMetadata);
-    fetchChaptersBtn.addEventListener('click', fetchChapters);
-    downloadBtn.addEventListener('click', downloadJson);
-  </script>
+// Events
+fetchMetadataBtn.onclick=fetchMetadata;
+editMetadataBtn.onclick=editMetadata;
+saveMetadataBtn.onclick=saveMetadata;
+fetchChaptersBtn.onclick=fetchChapters;
+downloadJsonBtn.onclick=downloadJson;
+createEpubBtn.onclick=createEpub;
+downloadEpubBtn.onclick=downloadEpub;
+</script>
 </body>
 </html>
