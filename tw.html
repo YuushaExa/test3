@@ -780,6 +780,22 @@ function renderTranslationBatchToConsole(batch, startIndex) {
   log('Use your browser "Translate" UI (or right-click → Translate) to translate the visible text, then click "Save Translation".', 'green');
 }
 
+function buildBatchObjects(start, end) {
+  const arr = [];
+  for (let i = start; i < end; i++) {
+    const ch = novelData.chapters[i];
+    // ensure we have content/title from fetch
+    const titleRaw = ch.title || `Chapter ${i+1}`;
+    const paragraphs = splitParagraphsFromContent(ch.content);
+    arr.push({
+      _index: i,
+      _titleRaw: titleRaw,
+      _paragraphs: paragraphs
+    });
+  }
+  return arr;
+}
+    
 // Read back translated visible text and inject into novelData for the range [start, end)
 function extractAndSaveTranslatedBatch(start, end) {
   for (let i = start; i < end; i++) {
