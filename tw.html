@@ -43,19 +43,17 @@
 
     <div id="console"></div>
 
-<div id="console-translate" style="
-  background:#f0f0ff;
-  color:#000;
-  padding:15px;
-  border-radius:4px;
-  font-family:'Courier New',Courier,monospace;
-  height:300px;
-  overflow-y:auto;
-  white-space:pre-wrap;
-  margin-top:20px">
+<div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap">
+  <button id="saveTranslationBtn" disabled>Save Translation</button>
 </div>
 
-<button id="saveTranslationBtn" disabled>Save Translation</button>
+<div id="console-translate" translate="yes"
+     class="console-like"
+     style="background:#121212;color:#e6e6e6;padding:15px;border-radius:4px;
+            font-family:'Courier New',Courier,monospace;height:320px;
+            overflow-y:auto;white-space:pre; margin-top:8px; border:1px solid #333">
+</div>
+
 
   </div>
 
@@ -218,43 +216,30 @@ if (authorUrl) {
 
 
     // ---- fetch all chapters ----
-    async function fetchChapters() {
-      if (!novelData.chapters.length) return alert('No chapters found');
-      try {
-        fetchChaptersBtn.disabled = true;
-        progressContainer.style.display = 'block';
+  // ---- fetch all chapters, BUT in translation-first batches (NEW) ----
+async function fetchChapters() {
+  if (!novelData.chapters.length) return alert('No chapters found');
+  try {
+    fetchChaptersBtn.disabled = true;
+    progressContainer.style.display = 'block';
 
-        const batchSize = 100;
-        const total = novelData.chapters.length;
-        let done = 0;
+    // initialize batch state
+    totalChaptersCount = novelData.chapters.length;
+    translateCursor    = 0;
 
-        for (let i = 0; i < total; i += batchSize) {
-          const slice = novelData.chapters.slice(i, i + batchSize);
-          const promises = slice.map(async (ch, idx) => {
-            log(`Fetching ${i + idx + 1}/${total} - ${ch.title}`);
-            const data = await fetchChapterContent(ch.url);
-            return { ...ch, ...data };
-          });
+    // Kick off the first 100; the rest continues via Save Translation
+    await fetchNextTranslateBatch();
 
-          const results = await Promise.all(promises);
-          results.forEach((r, idx) => (novelData.chapters[i + idx] = r));
+    // Enable EPUB button only after at least first batch is translated back in
+    // (we also enable it at the end of all batches)
+    createEpubBtn.disabled = true;
+  } catch (err) {
+    log(`Error: ${err.message}`, 'red');
+    fetchChaptersBtn.disabled = false;
+    progressContainer.style.display = 'none';
+  }
+}
 
-          done += results.length;
-          updateProgress(done, total);
-          await new Promise(r => setTimeout(r, 300)); // polite delay
-        }
-
-        log('\nAll chapters fetched!');
-        downloadBtn.disabled = false;
-        saveToJsonBtn.disabled = false; 
-        progressContainer.style.display = 'none';
- 
-      } catch (err) {
-        log(`Error: ${err.message}`);
-        fetchChaptersBtn.disabled = false;
-        progressContainer.style.display = 'none';
-      }
-    }
 
 // ---- Save Metadata ----
 async function saveMetadata() {
@@ -700,98 +685,187 @@ const match = data.some(item =>
   }
 }
 
-const consoleTranslate = document.getElementById('console-translate');
+// ====== TRANSLATION BATCH FLOW (NEW) ======
+const consoleTranslate   = document.getElementById('console-translate');
 const saveTranslationBtn = document.getElementById('saveTranslationBtn');
 
-// state for batching translation
-let currentBatchIndex = 0;
-let batchSize = 100;
+// State for batched fetching/translation
+let translateBatchSize = 100;
+let translateCursor    = 0;      // next chapter index to fetch
+let totalChaptersCount = 0;      // filled after metadata is loaded
 
-// Utility: display JSON in translate console
-function showTranslateJson(batch) {
-  consoleTranslate.textContent = JSON.stringify(batch, null, 2);
-  saveTranslationBtn.disabled = false;
+// small util: escape HTML for safe rendering
+function esc(s='') {
+  return String(s)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;');
 }
 
-// Fetch chapters in batches (modified version)
-async function fetchChapters() {
-  if (!novelData.chapters.length) return alert('No chapters found');
-  
-  try {
-    fetchChaptersBtn.disabled = true;
-    progressContainer.style.display = 'block';
-    currentBatchIndex = 0;
-    await fetchNextBatch(); // start first batch
-  } catch (err) {
-    log(`Error: ${err.message}`, 'red');
-    fetchChaptersBtn.disabled = false;
-    progressContainer.style.display = 'none';
+// Extract paragraphs (plain text) from our chapter HTML content
+function splitParagraphsFromContent(html) {
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html || '';
+  const ps = Array.from(tmp.querySelectorAll('p'))
+    .map(p => (p.textContent || '').trim())
+    .filter(Boolean);
+  return ps.length ? ps : (html ? [tmp.textContent.trim()] : []);
+}
+
+// Render a JSON-LIKE block where:
+//  - keys + punctuation are marked notranslate
+//  - values are left translatable
+//  - we keep data-index attributes so we can rebuild reliably
+function renderTranslationBatchToConsole(batch, startIndex) {
+  consoleTranslate.innerHTML = ''; // clear previous
+  const wrap = (txt, cls='notranslate') =>
+    `<span class="${cls}" translate="no">${esc(txt)}</span>`;
+
+  const lines = [];
+  lines.push(wrap('[')); // open array
+
+  batch.forEach((ch, i) => {
+    const idx = startIndex + i;
+    const parts = [];
+    parts.push(wrap('{'));
+    parts.push(`  ${wrap('"index"')}${wrap(': ')}${wrap(String(idx))}${wrap(',')}`);
+
+    // title (translatable)
+    parts.push(
+      `  ${wrap('"title"')}${wrap(': ')}"${`<span class="translatable" data-field="title" data-index="${idx}">${esc(ch._titleRaw)}</span>`}"${wrap(',')}`
+    );
+
+    // paragraphs (translatable items)
+    parts.push(`  ${wrap('"paragraphs"')}${wrap(': ')}${wrap('[')}`);
+    ch._paragraphs.forEach((p, pi) => {
+      const line = `    "${`<span class="translatable" data-field="p" data-index="${idx}" data-p-index="${pi}">${esc(p)}</span>`}"${pi < ch._paragraphs.length-1 ? wrap(',') : ''}`;
+      parts.push(line);
+    });
+    parts.push(`  ${wrap(']')}`);
+
+    parts.push(wrap('}') + (i < batch.length-1 ? wrap(',') : ''));
+    lines.push(parts.join('\n'));
+  });
+
+  lines.push(wrap(']')); // close array
+  consoleTranslate.innerHTML = lines.join('\n');
+
+  // Enable save button so the user can confirm after translating the page
+  saveTranslationBtn.disabled = false;
+
+  // Helpful hint in the main console
+  log('Shown first/next 100 chapters in console-translate. Use the browser “Translate to English”, review, then press “Save Translation”.', 'green');
+}
+
+// Build batch object that we will render & later rehydrate
+function buildBatchObjects(start, end) {
+  const arr = [];
+  for (let i = start; i < end; i++) {
+    const ch = novelData.chapters[i];
+    // ensure we have content/title from fetch
+    const titleRaw = ch.title || `Chapter ${i+1}`;
+    const paragraphs = splitParagraphsFromContent(ch.content);
+    arr.push({
+      _index: i,
+      _titleRaw: titleRaw,
+      _paragraphs: paragraphs
+    });
+  }
+  return arr;
+}
+
+// After the page is Google-translated, read back the translated values
+// and write them into novelData.chapters (as HTML <p>…</p> joined)
+function extractAndSaveTranslatedBatch(start, end) {
+  // For each chapter index in this batch, pull title + paragraphs
+  for (let i = start; i < end; i++) {
+    const titleEl = consoleTranslate.querySelector(`.translatable[data-field="title"][data-index="${i}"]`);
+    const pEls    = consoleTranslate.querySelectorAll(`.translatable[data-field="p"][data-index="${i}"]`);
+
+    // Fallbacks (in case user didn't translate)
+    const newTitle = titleEl ? titleEl.textContent.trim() : (novelData.chapters[i].title || `Chapter ${i+1}`);
+
+    const paras = pEls.length
+      ? Array.from(pEls).map(n => (n.textContent || '').trim()).filter(Boolean)
+      : splitParagraphsFromContent(novelData.chapters[i].content);
+
+    // Rebuild proper HTML content from translated paragraphs
+    const newContent = paras.map(t => `<p>${esc(t)}</p>`).join('\n');
+
+    // Write into the canonical data
+    novelData.chapters[i].title   = newTitle || novelData.chapters[i].title;
+    novelData.chapters[i].content = newContent || novelData.chapters[i].content;
   }
 }
 
-// Fetch one batch at a time
-async function fetchNextBatch() {
-  const total = novelData.chapters.length;
-  const start = currentBatchIndex * batchSize;
-  const end = Math.min(start + batchSize, total);
-
-  if (start >= total) {
-    log('\n✅ All chapters processed!', 'green');
-    downloadBtn.disabled = false;
-    saveToJsonBtn.disabled = false;
+// Fetch next N chapters (Chinese), then show them in the translate console
+async function fetchNextTranslateBatch() {
+  const total = totalChaptersCount || novelData.chapters.length;
+  if (translateCursor >= total) {
+    // Done
+    log('All chapters processed through translate-save flow!', 'green');
     progressContainer.style.display = 'none';
+    downloadBtn.disabled     = false;
+    saveToJsonBtn.disabled   = false;
+    createEpubBtn.disabled   = false; // in case it was waiting
     saveTranslationBtn.disabled = true;
     return;
   }
 
-  log(`\nFetching batch ${currentBatchIndex + 1}: chapters ${start + 1}-${end}`);
+  progressContainer.style.display = 'block';
+  const start = translateCursor;
+  const end   = Math.min(start + translateBatchSize, total);
 
-  const slice = novelData.chapters.slice(start, end);
+  // Fetch this batch (Chinese source)
+  const promises = [];
+  for (let i = start; i < end; i++) {
+    // only fetch if not fetched yet
+    if (!novelData.chapters[i].content) {
+      promises.push((async (idx) => {
+        log(`Fetching ${idx+1}/${total} - ${novelData.chapters[idx].title}`);
+        const data = await fetchChapterContent(novelData.chapters[idx].url);
+        novelData.chapters[idx] = { ...novelData.chapters[idx], ...data };
+      })(i));
+    }
+  }
 
-  const promises = slice.map(async (ch, idx) => {
-    log(`Fetching ${start + idx + 1}/${total} - ${ch.title}`);
-    const data = await fetchChapterContent(ch.url);
-    return { ...ch, ...data };
-  });
+  await Promise.all(promises);
 
-  const results = await Promise.all(promises);
-  results.forEach((r, idx) => (novelData.chapters[start + idx] = r));
-
+  // Update progress UI to "fetched this batch"
   updateProgress(end, total);
+  statusText.textContent = `Ready to translate ${start+1}–${end} / ${total}`;
 
-  // Show batch in translate console
-  showTranslateJson(results);
+  // Build + render batch into the translation console
+  const batchObjs = buildBatchObjects(start, end);
+  renderTranslationBatchToConsole(batchObjs, start);
+
+  // Now we wait for the user to Google-Translate the page
+  // and click "Save Translation".
 }
 
-// Save translation button handler
+// Wire the save button: read translations back, move to next batch
 saveTranslationBtn.addEventListener('click', () => {
+  const total = totalChaptersCount || novelData.chapters.length;
+  const start = translateCursor;
+  const end   = Math.min(start + translateBatchSize, total);
+
   try {
-    const translatedText = consoleTranslate.textContent.trim();
-    if (!translatedText) {
-      return alert('No translated text found in console.');
-    }
-
-    const translatedJson = JSON.parse(translatedText);
-    const start = currentBatchIndex * batchSize;
-    const end = start + translatedJson.length;
-
-    // overwrite chapters with translated ones
-    for (let i = 0; i < translatedJson.length; i++) {
-      novelData.chapters[start + i] = {
-        ...novelData.chapters[start + i],
-        ...translatedJson[i]
-      };
-    }
-
-    log(`✅ Saved translation for batch ${currentBatchIndex + 1}`, 'green');
-    saveTranslationBtn.disabled = true;
-
-    // move to next batch
-    currentBatchIndex++;
-    fetchNextBatch();
-  } catch (err) {
-    log(`Error parsing translation JSON: ${err.message}`, 'red');
+    extractAndSaveTranslatedBatch(start, end);
+    log(`Saved translated chapters ${start+1}–${end}.`, 'green');
+  } catch (e) {
+    log(`Error saving translation: ${e.message}`, 'red');
+    return;
   }
+
+  // Advance cursor & fetch next batch
+  translateCursor = end;
+  consoleTranslate.innerHTML = '';
+  saveTranslationBtn.disabled = true;
+
+  // Auto-continue
+  fetchNextTranslateBatch().catch(err => {
+    log(`Error loading next batch: ${err.message}`, 'red');
+  });
 });
 
     
