@@ -19,6 +19,13 @@
     .progress-container{margin-top:15px;display:none}
     progress{width:100%}
     .status{text-align:center;margin:10px 0;font-weight:bold}
+    /* Make the JSON-like view readable */
+    .json-item{margin-bottom:8px}
+    .json-key,.json-syntax{color:#444}
+    .json-key,.json-syntax{user-select:text}
+    .json-key,.json-syntax{font-weight:bold}
+    .tval{background:rgba(255,255,0,.08);padding:0 2px}
+    .muted{opacity:.7}
   </style>
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 </head>
@@ -34,9 +41,6 @@
     <button id="fetchMetadataBtn">Fetch Metadata</button>
     <button id="fetchChaptersBtn" disabled>Fetch Chapters</button>
     <button id="downloadBtn" disabled>Download as JSON</button>
-    <button id="saveToJsonBtn" disabled>Save JSON</button> 
-    <button id="editMetadataBtn" disabled>Edit Metadata</button>
-    <button id="saveMetadataBtn">Save Metadata</button>
 
     <div class="progress-container" id="progressContainer">
       <div class="status" id="statusText">Processing...</div>
@@ -44,7 +48,10 @@
     </div>
 
     <div id="console"></div>
-    <div id="console-translate"></div>
+
+    <!-- Translation console -->
+    <div id="console-translate" class="notranslate"></div>
+    <div class="muted">Tip: Use Chrome’s Translate to convert only the highlighted values. Keys and punctuation are protected.</div>
     <button id="saveTranslationBtn" disabled>Save Translation</button>
   </div>
 
@@ -57,7 +64,6 @@
     const fetchMetadataBtn= document.getElementById('fetchMetadataBtn');
     const fetchChaptersBtn= document.getElementById('fetchChaptersBtn');
     const downloadBtn     = document.getElementById('downloadBtn');
-    const saveToJsonBtn   = document.getElementById('saveToJsonBtn'); 
     const progressContainer = document.getElementById('progressContainer');
     const progressBar     = document.getElementById('progressBar');
     const statusText      = document.getElementById('statusText');
@@ -67,13 +73,10 @@
 
     // ---- helpers ----
     function log(msg, color = '') {
-      const messageElement = document.createElement('div');
-      messageElement.textContent = msg;
-      if (color) {
-        messageElement.style.color = color;
-        messageElement.style.fontWeight = 'bold';
-      }
-      consoleOutput.appendChild(messageElement);
+      const el = document.createElement('div');
+      el.textContent = msg;
+      if (color) { el.style.color = color; el.style.fontWeight = 'bold'; }
+      consoleOutput.appendChild(el);
       consoleOutput.scrollTop = consoleOutput.scrollHeight;
     }
 
@@ -93,7 +96,7 @@
       return res.text();
     }
 
-    // ---- fetch metadata (browser-side) ----
+    // ---- fetch metadata ----
     async function fetchMetadata() {
       const url = novelUrlInput.value.trim();
       if (!url) return alert('Please enter a novel URL');
@@ -163,13 +166,101 @@
       return { title, content };
     }
 
-    // ---- TRANSLATION MODE ----
+    // ===== TRANSLATION-SAFE FLOW =====
     let currentBatchIndex = 0;
-    let batchSize = 100;
+    const batchSize = 100;
+    let currentBatchStart = 0;
+    let currentBatchData = []; // raw fetched objects for this batch
 
-    function showTranslateJson(batch) {
-      consoleTranslate.textContent = JSON.stringify(batch, null, 2);
+    // Render a JSON-looking DOM where only values are translatable
+    function showTranslateJson(batch, startIndex) {
+      currentBatchStart = startIndex;
+      currentBatchData = batch;
+
+      consoleTranslate.innerHTML = ''; // clear
+
+      const wrapper = document.createElement('div');
+      wrapper.setAttribute('translate', 'no'); // default: protect everything
+      // But we'll turn values back to translate="yes" explicitly
+
+      // Opening bracket [
+      const openArr = document.createElement('div');
+      openArr.className = 'json-syntax';
+      openArr.textContent = '[';
+      wrapper.appendChild(openArr);
+
+      batch.forEach((item, i) => {
+        const idx = startIndex + i;
+
+        const line = document.createElement('div');
+        line.className = 'json-item';
+
+        // Build one object visually:
+        // { "index": idx, "title": "VAL", "content": "VAL" }[,]
+        line.innerHTML = `
+          <span class="json-syntax" translate="no">{ </span>
+          <span class="json-key" translate="no">"index"</span>
+          <span class="json-syntax" translate="no">: </span>
+          <span class="json-syntax" translate="no">${idx}</span>
+          <span class="json-syntax" translate="no">, </span>
+
+          <span class="json-key" translate="no">"title"</span>
+          <span class="json-syntax" translate="no">: "</span>
+          <span class="tval" translate="yes" lang="zh" data-i="${i}" data-k="title">${escapeHTML(item.title)}</span>
+          <span class="json-syntax" translate="no">", </span>
+
+          <span class="json-key" translate="no">"content"</span>
+          <span class="json-syntax" translate="no">: "</span>
+          <span class="tval" translate="yes" lang="zh" data-i="${i}" data-k="content">${item.content}</span>
+          <span class="json-syntax" translate="no">" </span>
+          <span class="json-syntax" translate="no">}</span>${i < batch.length - 1 ? '<span class="json-syntax" translate="no">,</span>' : ''}
+        `;
+
+        wrapper.appendChild(line);
+      });
+
+      // Closing bracket ]
+      const closeArr = document.createElement('div');
+      closeArr.className = 'json-syntax';
+      closeArr.textContent = ']';
+      wrapper.appendChild(closeArr);
+
+      consoleTranslate.appendChild(wrapper);
       saveTranslationBtn.disabled = false;
+    }
+
+    // Read back translated values from DOM (no JSON.parse!)
+    function readTranslatedBatchFromDOM() {
+      if (!currentBatchData.length) return [];
+
+      const out = [];
+      for (let i = 0; i < currentBatchData.length; i++) {
+        const tTitle = consoleTranslate.querySelector(`.tval[data-i="${i}"][data-k="title"]`);
+        const tContent = consoleTranslate.querySelector(`.tval[data-i="${i}"][data-k="content"]`);
+
+        // title: read text content (no HTML expected)
+        const newTitle = (tTitle?.textContent ?? '').trim();
+
+        // content: preserve innerHTML (it contains <p>…</p> blocks)
+        // also unescape accidental smart quotes if needed (optional)
+        let newContent = tContent ? tContent.innerHTML : '';
+
+        out.push({
+          ...currentBatchData[i],
+          title: newTitle,
+          content: newContent
+        });
+      }
+      return out;
+    }
+
+    // Basic HTML escaper for safety (used for titles)
+    function escapeHTML(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
     }
 
     async function fetchChapters() {
@@ -194,7 +285,6 @@
       if (start >= total) {
         log('\n✅ All chapters processed!', 'green');
         downloadBtn.disabled = false;
-        saveToJsonBtn.disabled = false;
         progressContainer.style.display = 'none';
         saveTranslationBtn.disabled = true;
         return;
@@ -202,6 +292,7 @@
 
       log(`\nFetching batch ${currentBatchIndex + 1}: chapters ${start + 1}-${end}`);
       const slice = novelData.chapters.slice(start, end);
+
       const promises = slice.map(async (ch, idx) => {
         log(`Fetching ${start + idx + 1}/${total} - ${ch.title}`);
         const data = await fetchChapterContent(ch.url);
@@ -212,28 +303,42 @@
       results.forEach((r, idx) => (novelData.chapters[start + idx] = r));
       updateProgress(end, total);
 
-      // Show for manual translation
-      showTranslateJson(results);
+      // Show translation-safe JSON-like view
+      showTranslateJson(results, start);
     }
 
     saveTranslationBtn.addEventListener('click', () => {
       try {
-        const translatedText = consoleTranslate.textContent.trim();
-        if (!translatedText) return alert('No translated text found');
-        const translatedJson = JSON.parse(translatedText);
-        const start = currentBatchIndex * batchSize;
-        for (let i = 0; i < translatedJson.length; i++) {
-          novelData.chapters[start + i] = {
-            ...novelData.chapters[start + i],
-            ...translatedJson[i]
+        const translated = readTranslatedBatchFromDOM();
+        if (!translated.length) {
+          alert('No translated values detected.');
+          return;
+        }
+
+        // Sanity check: lengths match
+        if (translated.length !== currentBatchData.length) {
+          alert('Mismatch in translated item count. Please try again.');
+          return;
+        }
+
+        // Write back to the main array
+        for (let i = 0; i < translated.length; i++) {
+          const idx = currentBatchStart + i;
+          novelData.chapters[idx] = {
+            ...novelData.chapters[idx],
+            title: translated[i].title,
+            content: translated[i].content
           };
         }
+
         log(`✅ Saved translation for batch ${currentBatchIndex + 1}`, 'green');
         saveTranslationBtn.disabled = true;
+
+        // Next batch
         currentBatchIndex++;
         fetchNextBatch();
       } catch (err) {
-        log(`Error parsing translation JSON: ${err.message}`, 'red');
+        log(`Error saving translation: ${err.message}`, 'red');
       }
     });
 
