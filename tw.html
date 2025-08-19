@@ -47,7 +47,7 @@
   <button id="saveTranslationBtn" disabled>Save Translation</button>
 </div>
 <button id="scroll-btn">Scroll to Bottom</button>
-<button id="find-chinese-btn">Find & Scroll to Chinese</button>
+
 <div id="console-translate" translate="yes"
      class="console-like"
      style="background:#121212;color:#e6e6e6;padding:15px;border-radius:4px;
@@ -920,11 +920,11 @@ saveTranslationBtn.addEventListener('click', () => {
 
 // scroll
 
- const consoleDiv = document.getElementById('console-translate');
+     const btn = document.getElementById('scroll-btn');
+  const consoleDiv = document.getElementById('console-translate');
 
-  // Scroll-to-bottom logic (unchanged)
-  document.getElementById('scroll-btn').addEventListener('click', () => {
-    const btn = event.target;
+  btn.addEventListener('click', () => {
+    // Disable button during animation
     btn.disabled = true;
     btn.textContent = 'Scrolling...';
 
@@ -950,53 +950,6 @@ saveTranslationBtn.addEventListener('click', () => {
     }
 
     requestAnimationFrame(step);
-  });
-
-  // Find-Chinese logic
-  document.getElementById('find-chinese-btn').addEventListener('click', () => {
-    const text = consoleDiv.textContent;
-    const chineseRegex = /[\u4e00-\u9fff]/;        // Basic CJK Unified Ideographs
-    const match = text.match(chineseRegex);
-
-    if (match) {
-      // Create a Range for the first Chinese character
-      const walker = document.createTreeWalker(
-        consoleDiv,
-        NodeFilter.SHOW_TEXT,
-        null,
-        false
-      );
-
-      let charOffset = 0;
-      let foundNode = null;
-      let foundOffsetInNode = 0;
-
-      let node;
-      while ((node = walker.nextNode())) {
-        const nodeText = node.textContent;
-        const idx = nodeText.search(chineseRegex);
-        if (idx !== -1) {
-          foundNode = node;
-          foundOffsetInNode = idx;
-          break;
-        }
-        charOffset += nodeText.length;
-      }
-
-      if (foundNode) {
-        const range = document.createRange();
-        range.setStart(foundNode, foundOffsetInNode);
-        range.setEnd(foundNode, foundOffsetInNode + 1);
-
-        // Scroll the range into view
-        range.startContainer.parentNode.scrollIntoView({
-          behavior: 'smooth',
-          block: 'center'
-        });
-      }
-    } else {
-      alert('No Chinese characters found.');
-    }
   });
   </script>
 </body>
