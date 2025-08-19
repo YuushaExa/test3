@@ -694,7 +694,11 @@ let translateBatchSize = 100;
 let translateCursor    = 0;      // next chapter index to fetch
 let totalChaptersCount = 0;      // filled after metadata is loaded
 
-// small util: escape HTML for safe rendering
+// ---------------------
+// Replace previous renderTranslationBatchToConsole + extractAndSaveTranslatedBatch
+// ---------------------
+
+// Utility: escape HTML
 function esc(s='') {
   return String(s)
     .replace(/&/g,'&amp;')
@@ -702,101 +706,123 @@ function esc(s='') {
     .replace(/>/g,'&gt;');
 }
 
-// Extract paragraphs (plain text) from our chapter HTML content
-function splitParagraphsFromContent(html) {
-  const tmp = document.createElement('div');
-  tmp.innerHTML = html || '';
-  const ps = Array.from(tmp.querySelectorAll('p'))
-    .map(p => (p.textContent || '').trim())
-    .filter(Boolean);
-  return ps.length ? ps : (html ? [tmp.textContent.trim()] : []);
-}
-
-// Render a JSON-LIKE block where:
-//  - keys + punctuation are marked notranslate
-//  - values are left translatable
-//  - we keep data-index attributes so we can rebuild reliably
+// Render a batch so:
+// - Hidden: JSON string (translate="no") — exact structure preserved
+// - Visible: plain text only (title, newline, paragraphs) and each text piece has .translatable spans
 function renderTranslationBatchToConsole(batch, startIndex) {
-  consoleTranslate.innerHTML = ''; // clear previous
-  const wrap = (txt, cls='notranslate') =>
-    `<span class="${cls}" translate="no">${esc(txt)}</span>`;
+  // Clear console-translate
+  consoleTranslate.innerHTML = '';
 
-  const lines = [];
-  lines.push(wrap('[')); // open array
+  // Build hidden JSON structure (array of objects)
+  const jsonArray = batch.map((ch, i) => ({
+    index: ch._index,
+    title: ch._titleRaw,
+    paragraphs: ch._paragraphs.slice() // copy
+  }));
 
-  batch.forEach((ch, i) => {
-    const idx = startIndex + i;
-    const parts = [];
-    parts.push(wrap('{'));
-    parts.push(`  ${wrap('"index"')}${wrap(': ')}${wrap(String(idx))}${wrap(',')}`);
+  // Hidden JSON holder (not translated)
+  const hiddenPre = document.createElement('pre');
+  hiddenPre.style.display = 'none';
+  hiddenPre.setAttribute('translate', 'no'); // prevent browser translate
+  hiddenPre.className = 'hidden-json';
+  hiddenPre.textContent = JSON.stringify(jsonArray, null, 2);
+  consoleTranslate.appendChild(hiddenPre);
 
-    // title (translatable)
-    parts.push(
-      `  ${wrap('"title"')}${wrap(': ')}"${`<span class="translatable" data-field="title" data-index="${idx}">${esc(ch._titleRaw)}</span>`}"${wrap(',')}`
-    );
+  // Visible container (this will be what the user translates)
+  const visContainer = document.createElement('div');
+  visContainer.setAttribute('translate', 'yes');
 
-    // paragraphs (translatable items)
-    parts.push(`  ${wrap('"paragraphs"')}${wrap(': ')}${wrap('[')}`);
-    ch._paragraphs.forEach((p, pi) => {
-      const line = `    "${`<span class="translatable" data-field="p" data-index="${idx}" data-p-index="${pi}">${esc(p)}</span>`}"${pi < ch._paragraphs.length-1 ? wrap(',') : ''}`;
-      parts.push(line);
+  // For each chapter, output pure text: Title, blank line, then paragraphs joined with blank line
+  batch.forEach((ch, idx) => {
+    const chapterIndex = startIndex + idx;
+
+    const chapterDiv = document.createElement('div');
+    chapterDiv.className = 'visible-ch';
+    chapterDiv.dataset.index = chapterIndex;
+
+    // Title (single line)
+    const titleDiv = document.createElement('div');
+    titleDiv.className = 'translatable title';
+    titleDiv.dataset.index = chapterIndex;
+    titleDiv.textContent = ch._titleRaw || `Chapter ${chapterIndex + 1}`;
+
+    // Add a blank-line visually after title with margin
+    titleDiv.style.marginBottom = '8px';
+    chapterDiv.appendChild(titleDiv);
+
+    // Paragraphs: each paragraph in its own div so the translator can translate them individually
+    ch._paragraphs.forEach((pText, pIdx) => {
+      const pDiv = document.createElement('div');
+      pDiv.className = 'translatable para';
+      pDiv.dataset.index = chapterIndex;
+      pDiv.dataset.pIndex = pIdx;
+      pDiv.style.marginBottom = '6px';
+      pDiv.textContent = pText;
+      chapterDiv.appendChild(pDiv);
     });
-    parts.push(`  ${wrap(']')}`);
 
-    parts.push(wrap('}') + (i < batch.length-1 ? wrap(',') : ''));
-    lines.push(parts.join('\n'));
+    // Add an extra blank line between chapters
+    const sep = document.createElement('div');
+    sep.style.height = '14px';
+
+    visContainer.appendChild(chapterDiv);
+    visContainer.appendChild(sep);
   });
 
-  lines.push(wrap(']')); // close array
-  consoleTranslate.innerHTML = lines.join('\n');
+  // Append visible container after hidden JSON
+  consoleTranslate.appendChild(visContainer);
 
-  // Enable save button so the user can confirm after translating the page
+  // Enable Save Translation button for user to click after translating the page
   saveTranslationBtn.disabled = false;
 
-  // Helpful hint in the main console
-  log('Shown first/next 100 chapters in console-translate. Use the browser “Translate to English”, review, then press “Save Translation”.', 'green');
+  // Log for the user
+  log(`Rendered chapters ${startIndex + 1}–${startIndex + batch.length} for translation (visible text only).`, 'green');
+  log('Use your browser "Translate" UI (or right-click → Translate) to translate the visible text, then click "Save Translation".', 'green');
 }
 
-// Build batch object that we will render & later rehydrate
-function buildBatchObjects(start, end) {
-  const arr = [];
-  for (let i = start; i < end; i++) {
-    const ch = novelData.chapters[i];
-    // ensure we have content/title from fetch
-    const titleRaw = ch.title || `Chapter ${i+1}`;
-    const paragraphs = splitParagraphsFromContent(ch.content);
-    arr.push({
-      _index: i,
-      _titleRaw: titleRaw,
-      _paragraphs: paragraphs
-    });
-  }
-  return arr;
-}
-
-// After the page is Google-translated, read back the translated values
-// and write them into novelData.chapters (as HTML <p>…</p> joined)
+// Read back translated visible text and inject into novelData for the range [start, end)
 function extractAndSaveTranslatedBatch(start, end) {
-  // For each chapter index in this batch, pull title + paragraphs
   for (let i = start; i < end; i++) {
-    const titleEl = consoleTranslate.querySelector(`.translatable[data-field="title"][data-index="${i}"]`);
-    const pEls    = consoleTranslate.querySelectorAll(`.translatable[data-field="p"][data-index="${i}"]`);
+    // Find title element and paragraph elements for this index
+    const titleEl = consoleTranslate.querySelector(`.visible-ch[data-index="${i}"] .translatable.title[data-index="${i}"]`);
+    const paraEls = consoleTranslate.querySelectorAll(`.visible-ch[data-index="${i}"] .translatable.para[data-index="${i}"]`);
 
-    // Fallbacks (in case user didn't translate)
-    const newTitle = titleEl ? titleEl.textContent.trim() : (novelData.chapters[i].title || `Chapter ${i+1}`);
+    // Gather translated values; fallback to original if missing
+    const newTitle = titleEl && titleEl.textContent.trim()
+      ? titleEl.textContent.trim()
+      : (novelData.chapters[i].title || `Chapter ${i+1}`);
 
-    const paras = pEls.length
-      ? Array.from(pEls).map(n => (n.textContent || '').trim()).filter(Boolean)
-      : splitParagraphsFromContent(novelData.chapters[i].content);
+    const paras = [];
+    if (paraEls && paraEls.length) {
+      paraEls.forEach(pNode => {
+        const t = (pNode.textContent || '').trim();
+        if (t) paras.push(t);
+      });
+    } else {
+      // If translator removed paragraph nodes for some reason, fall back to splitting existing content
+      const fallBackParas = splitParagraphsFromContent(novelData.chapters[i].content);
+      fallBackParas.forEach(p => { if (p) paras.push(p); });
+    }
 
-    // Rebuild proper HTML content from translated paragraphs
-    const newContent = paras.map(t => `<p>${esc(t)}</p>`).join('\n');
+    // Rebuild safe HTML content (we escape the translated text to avoid injected HTML)
+    const newContent = paras.map(p => `<p>${esc(p)}</p>`).join('\n');
 
-    // Write into the canonical data
-    novelData.chapters[i].title   = newTitle || novelData.chapters[i].title;
-    novelData.chapters[i].content = newContent || novelData.chapters[i].content;
+    // Save into canonical structure (overwriting title + content)
+    novelData.chapters[i].title = newTitle;
+    novelData.chapters[i].content = newContent;
   }
+
+  // After writing back, clear visible console to avoid accidental re-saving
+  consoleTranslate.querySelectorAll('.visible-ch').forEach(n => n.remove());
+  // Keep hidden JSON removed as well (we will generate a new hidden JSON on next batch)
+  const hidden = consoleTranslate.querySelector('.hidden-json');
+  if (hidden) hidden.remove();
+
+  log(`Saved translation for chapters ${start + 1}–${end}.`, 'green');
 }
+
+
+
 
 // Fetch next N chapters (Chinese), then show them in the translate console
 async function fetchNextTranslateBatch() {
