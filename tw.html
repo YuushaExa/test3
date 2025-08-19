@@ -705,7 +705,14 @@ function esc(s='') {
     .replace(/</g,'&lt;')
     .replace(/>/g,'&gt;');
 }
-
+function splitParagraphsFromContent(html) {
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html || '';
+  const ps = Array.from(tmp.querySelectorAll('p'))
+    .map(p => (p.textContent || '').trim())
+    .filter(Boolean);
+  return ps.length ? ps : (html ? [tmp.textContent.trim()] : []);
+}
 // Render a batch so:
 // - Hidden: JSON string (translate="no") — exact structure preserved
 // - Visible: plain text only (title, newline, paragraphs) and each text piece has .translatable spans
