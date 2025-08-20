@@ -691,7 +691,7 @@ const consoleTranslate   = document.getElementById('console-translate');
 const saveTranslationBtn = document.getElementById('saveTranslationBtn');
 
 // State for batched fetching/translation
-let translateBatchSize = 1;
+let translateBatchSize = 5;
 let translateCursor    = 0;      // next chapter index to fetch
 let totalChaptersCount = 0;      // filled after metadata is loaded
 
@@ -926,7 +926,7 @@ saveTranslationBtn.addEventListener('click', handleSaveTranslation);
 
     function scrollToBottom(element) {
         const targetScrollTop = element.scrollHeight - element.clientHeight;
-        const duration        = 3000;              // ms
+        const duration        = 5000;              // ms
         const startScrollTop  = element.scrollTop;
         const distance        = targetScrollTop - startScrollTop;
         const startTime       = performance.now();
@@ -946,7 +946,7 @@ saveTranslationBtn.addEventListener('click', handleSaveTranslation);
                 requestAnimationFrame(animateScroll);
             } else {
                 handleSaveTranslation();
-                 setTimeout(() =>  scrollToBottom(consoleTranslate), 3000);
+                 setTimeout(() =>  scrollToBottom(consoleTranslate), 5000);
             }
         }
 
