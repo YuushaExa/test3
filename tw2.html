@@ -756,44 +756,51 @@ async function translateChapters() {
 
   const model        = modelSelect.value;
   const apiKeyIndex  = parseInt(apiKeyIndexInput.value, 10) || 1;
-  const delaySec     = parseInt(delayInput.value, 10) || 8;
+  const delayMs      = (parseInt(delayInput.value, 10) || 8) * 1000;
 
-  // new range parser
   const rangeStr     = document.getElementById('chapterRange').value;
   const indices      = parseChapterRange(rangeStr, novelData.chapters.length);
   const chaptersToDo = indices ?? [...Array(novelData.chapters.length).keys()];
 
-  log(`Starting translation of ${chaptersToDo.length} chapter(s) with ${model}...`);
+  log(`Starting translation of ${chaptersToDo.length} chapter(s) with ${model}…`);
 
-  for (let j = 0; j < chaptersToDo.length; j++) {
-    const i = chaptersToDo[j];         // actual chapter index
-    const ch = novelData.chapters[i];
+  // Array of {index, ch} in the right order
+  const queue = chaptersToDo.map(i => ({ index: i, ch: novelData.chapters[i] }));
 
-    try {
-      log(`→ Translating chapter ${i + 1}: ${ch.title}`);
-
-      const res = await fetch(`${WORKER_URL}/api/translate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model, apiKeyIndex, text: { title: ch.title, content: ch.content } })
-      });
-      const data = await res.json();
-      if (!res.ok || !data.success) throw new Error(data.error || 'Translation failed');
-
-      ch.title   = data.translated.title;
-      ch.content = data.translated.content;
-
-      log(`✓ Translated chapter ${i + 1}`, 'green');
-    } catch (err) {
-      log(`Error translating chapter ${i + 1}: ${err.message}`, 'red');
+  // Fire the first one immediately, then every delayMs
+  let nextTime = Date.now();
+  const schedule = () => {
+    if (!queue.length) {
+      log('All selected chapters translated ✅', 'green');
+      return;
     }
 
-    if (j < chaptersToDo.length - 1) {
-      await new Promise(r => setTimeout(r, delaySec * 1000));
-    }
-  }
+    const { index, ch } = queue.shift();
+    log(`→ Translating chapter ${index + 1}: ${ch.title}`);
 
-  log('All selected chapters translated ✅', 'green');
+    // send the request but don’t await it here
+    fetch(`${WORKER_URL}/api/translate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model, apiKeyIndex, text: { title: ch.title, content: ch.content } })
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (!data.success) throw new Error(data.error || 'Translation failed');
+        ch.title   = data.translated.title;
+        ch.content = data.translated.content;
+        log(`✓ Translated chapter ${index + 1}`, 'green');
+      })
+      .catch(err => log(`Error translating chapter ${index + 1}: ${err.message}`, 'red'));
+
+    // next slot
+    nextTime += delayMs;
+    const now = Date.now();
+    const wait = Math.max(0, nextTime - now);
+    setTimeout(schedule, wait);
+  };
+
+  schedule();   // kick off
 }
 
 translateBtn.addEventListener('click', translateChapters);
