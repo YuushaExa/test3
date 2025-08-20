@@ -731,52 +731,63 @@ fetchChaptersBtn.addEventListener('click', () => {
   }, 500);
 });
 
+function parseChapterRange(str, max) {
+  if (!str.trim()) return null; // null = “all”
+
+  const set = new Set();
+  const parts = str.split(',').map(s => s.trim());
+
+  for (const p of parts) {
+    if (/^\d+$/.test(p)) {
+      const n = parseInt(p, 10);
+      if (n >= 1 && n <= max) set.add(n - 1);
+    } else if (/^\d+\s*-\s*\d+$/.test(p)) {
+      const [a, b] = p.split('-').map(Number);
+      for (let i = Math.max(1, a); i <= Math.min(max, b); i++) set.add(i - 1);
+    }
+  }
+  return [...set].sort((a, b) => a - b);
+}
+    
 // Translate function
 async function translateChapters() {
   if (!novelData.chapters.length) return alert('No chapters loaded');
 
-  const model = modelSelect.value;
-  const apiKeyIndex = parseInt(apiKeyIndexInput.value, 10) || 1;
-  const delaySec = parseInt(delayInput.value, 10) || 8;
-  const maxChapters = parseInt(chapterCountInput.value, 10) || novelData.chapters.length;
+  const model        = modelSelect.value;
+  const apiKeyIndex  = parseInt(apiKeyIndexInput.value, 10) || 1;
+  const delaySec     = parseInt(delayInput.value, 10) || 8;
 
-  log(`Starting translation with ${model} using API key #${apiKeyIndex}...`);
+  // new range parser
+  const rangeStr     = document.getElementById('chapterRange').value;
+  const indices      = parseChapterRange(rangeStr, novelData.chapters.length);
+  const chaptersToDo = indices ?? [...Array(novelData.chapters.length).keys()];
 
-  for (let i = 0; i < maxChapters; i++) {
+  log(`Starting translation of ${chaptersToDo.length} chapter(s) with ${model}...`);
+
+  for (let j = 0; j < chaptersToDo.length; j++) {
+    const i = chaptersToDo[j];         // actual chapter index
     const ch = novelData.chapters[i];
 
     try {
       log(`→ Translating chapter ${i + 1}: ${ch.title}`);
 
-      const response = await fetch(`${WORKER_URL}/api/translate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model,
-          apiKeyIndex,
-          text: {
-            title: ch.title,
-            content: ch.content
-          }
-        })
+      const res = await fetch(`${WORKER_URL}/api/translate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model, apiKeyIndex, text: { title: ch.title, content: ch.content } })
       });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || 'Translation failed');
 
-      const result = await response.json();
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || 'Translation failed');
-      }
-
-      // Replace title & content with translated version
-      ch.title = result.translated.title;
-      ch.content = result.translated.content;
+      ch.title   = data.translated.title;
+      ch.content = data.translated.content;
 
       log(`✓ Translated chapter ${i + 1}`, 'green');
-
     } catch (err) {
       log(`Error translating chapter ${i + 1}: ${err.message}`, 'red');
     }
 
-    if (i < maxChapters - 1) {
+    if (j < chaptersToDo.length - 1) {
       await new Promise(r => setTimeout(r, delaySec * 1000));
     }
   }
