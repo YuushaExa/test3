@@ -791,7 +791,11 @@ async function translateChapters() {
         ch.content = data.translated.content;
         log(`✓ Translated chapter ${index + 1}`, 'green');
       })
-      .catch(err => log(`Error translating chapter ${index + 1}: ${err.message}`, 'red'));
+      .catch(err => {
+  const msg = `Error translating chapter ${index + 1}: ${err.message}`;
+   console.error(msg, err);      
+   log(msg, 'red');                
+ });
 
     // next slot
     nextTime += delayMs;
