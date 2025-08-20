@@ -916,6 +916,8 @@ function handleSaveTranslation() {
   fetchNextTranslateBatch().catch(err => {
     log(`Error loading next batch: ${err.message}`, 'red');
   });
+
+  scrollToBottom(consoleDiv);
 }
 
 // Add event listener
@@ -953,6 +955,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         requestAnimationFrame(animateScroll);
+      handleSaveTranslation()
     }
 });
   </script>
