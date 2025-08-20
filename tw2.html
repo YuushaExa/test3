@@ -42,6 +42,34 @@
     </div>
 
     <div id="console"></div>
+    <hr>
+<h3>Translation</h3>
+<div class="form-group">
+  <label for="translateModel">Model:</label>
+  <select id="translateModel">
+    <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash-Lite (1000)</option>
+    <option value="gemini-2.5-flash">Gemini 2.5 Flash (200)</option>
+    <option value="gemini-2.5-pro">Gemini 2.5 Pro (100)</option>
+  </select>
+</div>
+
+<div class="form-group">
+  <label for="apiKeyIndex">API Key #:</label>
+  <input type="number" id="apiKeyIndex" value="1" min="1" />
+</div>
+
+<div class="form-group">
+  <label for="delaySeconds">Delay (sec, 4, 8, 12):</label>
+  <input type="number" id="delaySeconds" value="8" min="1" />
+</div>
+
+<div class="form-group">
+  <label for="chapterCount">Chapters to Translate:</label>
+  <input type="number" id="chapterCount" placeholder="leave empty for all" />
+</div>
+
+<button id="translateBtn" disabled>Translate</button>
+
   </div>
 
   <script>
@@ -684,6 +712,79 @@ const match = data.some(item =>
     log(`Error checking title: ${err.message}`);
   }
 }
+
+    // trn
+
+    const translateBtn = document.getElementById('translateBtn');
+const modelSelect = document.getElementById('translateModel');
+const apiKeyIndexInput = document.getElementById('apiKeyIndex');
+const delayInput = document.getElementById('delaySeconds');
+const chapterCountInput = document.getElementById('chapterCount');
+
+// Enable translate button after chapters exist
+fetchChaptersBtn.addEventListener('click', () => {
+  const check = setInterval(() => {
+    if (novelData.chapters.length && novelData.chapters[0]?.content) {
+      translateBtn.disabled = false;
+      clearInterval(check);
+    }
+  }, 500);
+});
+
+// Translate function
+async function translateChapters() {
+  if (!novelData.chapters.length) return alert('No chapters loaded');
+
+  const model = modelSelect.value;
+  const apiKeyIndex = parseInt(apiKeyIndexInput.value, 10) || 1;
+  const delaySec = parseInt(delayInput.value, 10) || 8;
+  const maxChapters = parseInt(chapterCountInput.value, 10) || novelData.chapters.length;
+
+  log(`Starting translation with ${model} using API key #${apiKeyIndex}...`);
+
+  for (let i = 0; i < maxChapters; i++) {
+    const ch = novelData.chapters[i];
+
+    try {
+      log(`→ Translating chapter ${i + 1}: ${ch.title}`);
+
+      const response = await fetch(`${WORKER_URL}/api/translate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model,
+          apiKeyIndex,
+          text: {
+            title: ch.title,
+            content: ch.content
+          }
+        })
+      });
+
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Translation failed');
+      }
+
+      // Replace title & content with translated version
+      ch.title = result.translated.title;
+      ch.content = result.translated.content;
+
+      log(`✓ Translated chapter ${i + 1}`, 'green');
+
+    } catch (err) {
+      log(`Error translating chapter ${i + 1}: ${err.message}`, 'red');
+    }
+
+    if (i < maxChapters - 1) {
+      await new Promise(r => setTimeout(r, delaySec * 1000));
+    }
+  }
+
+  log('All selected chapters translated ✅', 'green');
+}
+
+translateBtn.addEventListener('click', translateChapters);
 
   </script>
 </body>
