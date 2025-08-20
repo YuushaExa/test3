@@ -140,24 +140,18 @@ const genres = Array.from(doc.querySelectorAll('.novel_info li'))
     
    // all chapters
 
-    const showAllBtn = doc.querySelector('#button_show_all_chatper');
-    if (!showAllBtn) throw new Error('Could not locate chapter-count button');
-    const totalMatch = showAllBtn.textContent.trim().match(/(\d+)/);
-    if (!totalMatch) throw new Error('Could not parse chapter count');
-    const totalChapters = parseInt(totalMatch[1], 10);
+const showAllBtn = doc.querySelector('#button_show_all_chatper');
+const totalMatch = showAllBtn?.textContent?.match(/(\d+)/);
+if (!totalMatch) throw new Error('Cannot determine chapter count');
+const lastNumber = parseInt(totalMatch[1], 10);  
 
-    const firstAnchor = doc.querySelector('[role="listitem"] a');
-    if (!firstAnchor) throw new Error('Could not locate any chapter link');
- 
-    const baseHref = firstAnchor.href.split('&page=')[0] + '&page=';
-
-    const chapters = [];
-    for (let i = 1; i <= totalChapters; i++) {
-      chapters.push({
-        title: `第${i}章`,
-        url: `${baseHref}${i}`
-      });
-    }
+const chapters = [];
+for (let i = 1; i <= lastNumber; i++) {
+  chapters.push({
+    title: `Chapter ${i}`,
+    url  : new URL(`p${i}.html`, url).href   
+  });
+}
 
     novelData.metadata = { 
       title, 
