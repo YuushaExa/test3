@@ -925,38 +925,43 @@ saveTranslationBtn.addEventListener('click', handleSaveTranslation);
 
 // scroll
 
-document.addEventListener('DOMContentLoaded', function() {
-    const scrollButton = document.getElementById('scroll-btn');
-    const consoleDiv = document.getElementById('console-translate');
-    
-    scrollButton.addEventListener('click', function() {
-        scrollToBottom(consoleDiv);
-    });
-    
     function scrollToBottom(element) {
         const targetScrollTop = element.scrollHeight - element.clientHeight;
-        const duration = 800; // milliseconds - moderate speed
-        const startScrollTop = element.scrollTop;
-        const distance = targetScrollTop - startScrollTop;
-        const startTime = performance.now();
-        
+        const duration        = 800;              // ms
+        const startScrollTop  = element.scrollTop;
+        const distance        = targetScrollTop - startScrollTop;
+        const startTime       = performance.now();
+
         function animateScroll(currentTime) {
             const elapsedTime = currentTime - startTime;
-            const progress = Math.min(elapsedTime / duration, 1);
-            
-            // Easing function for smooth animation
-            const easeInOutQuad = t => t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
-            
-            element.scrollTop = startScrollTop + (distance * easeInOutQuad(progress));
-            
+            const progress    = Math.min(elapsedTime / duration, 1);
+
+            // easing
+            const easeInOutQuad = t =>
+                t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+
+            element.scrollTop =
+                startScrollTop + (distance * easeInOutQuad(progress));
+
             if (progress < 1) {
                 requestAnimationFrame(animateScroll);
+            } else {
+                // --- animation finished ---
+                handleSaveTranslation();
             }
         }
-        
+
         requestAnimationFrame(animateScroll);
-      handleSaveTranslation()
     }
+
+document.addEventListener('DOMContentLoaded', function () {
+    const scrollButton = document.getElementById('scroll-btn');
+    const consoleDiv   = document.getElementById('console-translate');
+
+    scrollButton.addEventListener('click', function () {
+        scrollToBottom(consoleDiv);
+    });
+
 });
   </script>
 </body>
