@@ -133,10 +133,13 @@ const status =
 const description = doc.querySelector('.description p')?.textContent.trim();
 const authorUrl = doc.querySelector('.novel_info li:nth-child(2) a')?.href || '';
 
-const genres = Array.from(doc.querySelectorAll('.novel_info li'))
-  .map(li => li.textContent.trim())
-  .find(text => text.startsWith('類別：'))
-  ?.replace(/^類別：\s*/, '') || '';
+const genreText =
+  Array.from(doc.querySelectorAll('.novel_info li'))
+       .find(li => li.textContent.trim().startsWith('類別：'))
+       ?.textContent.replace(/^類別：\s*/, '')
+       ?.trim() || '';
+
+const genres = genreText ? [genreText] : [];
     
    // all chapters
 
