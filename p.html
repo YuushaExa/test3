@@ -131,8 +131,8 @@ const status =
   doc.querySelector('.novel_info li:nth-child(4)')?.textContent.replace('狀態：', '').trim()
   || 'Unknown';
 const description = doc.querySelector('.description p')?.textContent.trim();
-const authorUrl = doc.querySelector('.novel_info li:nth-child(2) a')?.href || '';
-
+const Url = doc.querySelector('.novel_info li:nth-child(2) a')?.href || '';
+const authorUrl = Url ? new URL(Url, url).href : null;
 const genreText =
   Array.from(doc.querySelectorAll('.novel_info li'))
        .find(li => li.textContent.trim().startsWith('類別：'))
