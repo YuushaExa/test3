@@ -919,38 +919,50 @@ saveTranslationBtn.addEventListener('click', () => {
 });
 
 // scroll
+const btn       = document.getElementById('scroll-btn');
+const consoleEl = document.getElementById('console-translate');
 
-        const btn = document.getElementById('scroll-btn');
-  const consoleDiv = document.getElementById('console-translate');
+let animId = null;         
 
-  btn.addEventListener('click', () => {
-    // Disable button during animation
-    btn.disabled = true;
-    btn.textContent = 'Scrolling...';
+btn.addEventListener('click', () => {
+  // If an animation is already running → cancel it
+  if (animId) {
+    cancelAnimationFrame(animId);
+    animId = null;
+    btn.disabled = false;
+    btn.textContent = 'Scroll to Bottom';
+    return;
+  }
 
-    const totalChars = consoleDiv.textContent.length;
-    const charsPerSecond = 4000;
-    const durationMs = (totalChars / charsPerSecond) * 1000;
+  // Disable button
+  btn.disabled = true;
+  btn.textContent = 'Scrolling...';
 
-    const start = performance.now();
-    const startScrollTop = consoleDiv.scrollTop;
-    const maxScrollTop = consoleDiv.scrollHeight - consoleDiv.clientHeight;
+  const totalChars     = consoleEl.textContent.length;
+  const charsPerSecond = 4000;
+  const durationMs     = (totalChars / charsPerSecond) * 1000;
 
-    function step(now) {
-      const elapsed = now - start;
-      const progress = Math.min(elapsed / durationMs, 1);
-      consoleDiv.scrollTop = startScrollTop + (maxScrollTop - startScrollTop) * progress;
+  const start         = performance.now();
+  const startScroll   = consoleEl.scrollTop;
+  const maxScrollTop  = consoleEl.scrollHeight - consoleEl.clientHeight;
 
-      if (progress < 1) {
-        requestAnimationFrame(step);
-      } else {
-        btn.disabled = false;
-        btn.textContent = 'Scroll to Bottom';
-      }
-    }
+  function step(now) {
+    const elapsed  = now - start;
+    const progress = Math.min(elapsed / durationMs, 1);
 
-    requestAnimationFrame(step);
-  }); 
+    consoleEl.scrollTop = startScroll + (maxScrollTop - startScroll) * progress;
+
+    if (progress < 1) {
+      animId = requestAnimationFrame(step);
+    } else {
+      animId = null;
+      btn.disabled = false;
+      btn.textContent = 'Scroll to Bottom';
+    }
+  }
+
+  animId = requestAnimationFrame(step);
+});
   </script>
 </body>
 
