@@ -917,7 +917,6 @@ function handleSaveTranslation() {
     log(`Error loading next batch: ${err.message}`, 'red');
   });
 
-  scrollToBottom(consoleTranslate);
 }
 
 // Add event listener
@@ -946,8 +945,7 @@ saveTranslationBtn.addEventListener('click', handleSaveTranslation);
             if (progress < 1) {
                 requestAnimationFrame(animateScroll);
             } else {
-                // --- animation finished ---
-                handleSaveTranslation();
+
             }
         }
 
