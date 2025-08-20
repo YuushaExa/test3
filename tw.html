@@ -691,7 +691,7 @@ const consoleTranslate   = document.getElementById('console-translate');
 const saveTranslationBtn = document.getElementById('saveTranslationBtn');
 
 // State for batched fetching/translation
-let translateBatchSize = 5;
+let translateBatchSize = 1;
 let translateCursor    = 0;      // next chapter index to fetch
 let totalChaptersCount = 0;      // filled after metadata is loaded
 
@@ -894,14 +894,14 @@ async function fetchNextTranslateBatch() {
 }
 
 // Wire the save button: read translations back, move to next batch
-function handleSaveTranslation() {
+saveTranslationBtn.addEventListener('click', () => {
   const total = totalChaptersCount || novelData.chapters.length;
   const start = translateCursor;
-  const end = Math.min(start + translateBatchSize, total);
+  const end   = Math.min(start + translateBatchSize, total);
 
   try {
     extractAndSaveTranslatedBatch(start, end);
-    log(`Saved translated chapters ${start + 1}–${end}.`, 'green');
+    log(`Saved translated chapters ${start+1}–${end}.`, 'green');
   } catch (e) {
     log(`Error saving translation: ${e.message}`, 'red');
     return;
@@ -916,52 +916,41 @@ function handleSaveTranslation() {
   fetchNextTranslateBatch().catch(err => {
     log(`Error loading next batch: ${err.message}`, 'red');
   });
-
-}
-
-// Add event listener
-saveTranslationBtn.addEventListener('click', handleSaveTranslation);
+});
 
 // scroll
 
-    function scrollToBottom(element) {
-        const targetScrollTop = element.scrollHeight - element.clientHeight;
-        const duration        = 5000;              // ms
-        const startScrollTop  = element.scrollTop;
-        const distance        = targetScrollTop - startScrollTop;
-        const startTime       = performance.now();
+        const btn = document.getElementById('scroll-btn');
+  const consoleDiv = document.getElementById('console-translate');
 
-        function animateScroll(currentTime) {
-            const elapsedTime = currentTime - startTime;
-            const progress    = Math.min(elapsedTime / duration, 1);
+  btn.addEventListener('click', () => {
+    // Disable button during animation
+    btn.disabled = true;
+    btn.textContent = 'Scrolling...';
 
-            // easing
-            const easeInOutQuad = t =>
-                t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+    const totalChars = consoleDiv.textContent.length;
+    const charsPerSecond = 1000;
+    const durationMs = (totalChars / charsPerSecond) * 1000;
 
-            element.scrollTop =
-                startScrollTop + (distance * easeInOutQuad(progress));
+    const start = performance.now();
+    const startScrollTop = consoleDiv.scrollTop;
+    const maxScrollTop = consoleDiv.scrollHeight - consoleDiv.clientHeight;
 
-            if (progress < 1) {
-                requestAnimationFrame(animateScroll);
-            } else {
-                handleSaveTranslation();
-                 setTimeout(() =>  scrollToBottom(consoleTranslate), 5000);
-            }
-        }
+    function step(now) {
+      const elapsed = now - start;
+      const progress = Math.min(elapsed / durationMs, 1);
+      consoleDiv.scrollTop = startScrollTop + (maxScrollTop - startScrollTop) * progress;
 
-        requestAnimationFrame(animateScroll);
-    }
+      if (progress < 1) {
+        requestAnimationFrame(step);
+      } else {
+        btn.disabled = false;
+        btn.textContent = 'Scroll to Bottom';
+      }
+    }
 
-document.addEventListener('DOMContentLoaded', function () {
-    const scrollButton = document.getElementById('scroll-btn');
-    const consoleDiv   = document.getElementById('console-translate');
-
-    scrollButton.addEventListener('click', function () {
-        scrollToBottom(consoleDiv);
-    });
-
-});
+    requestAnimationFrame(step);
+  }); 
   </script>
 </body>
 
