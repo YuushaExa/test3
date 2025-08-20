@@ -920,38 +920,38 @@ saveTranslationBtn.addEventListener('click', () => {
 
 // scroll
 
-          const btn = document.getElementById('scroll-btn');
-  const consoleDiv = document.getElementById('console-translate');
-
-  btn.addEventListener('click', () => {
-    // Disable button during animation
-    btn.disabled = true;
-    btn.textContent = 'Scrolling...';
-
-    const totalChars = consoleDiv.textContent.length;
-    const charsPerSecond = 1000;
-    const durationMs = (totalChars / charsPerSecond) * 1000;
-
-    const start = performance.now();
-    const startScrollTop = consoleDiv.scrollTop;
-    const maxScrollTop = consoleDiv.scrollHeight - consoleDiv.clientHeight;
-
-    function step(now) {
-      const elapsed = now - start;
-      const progress = Math.min(elapsed / durationMs, 1);
-      consoleDiv.scrollTop = startScrollTop + (maxScrollTop - startScrollTop) * progress;
-
-      if (progress < 1) {
-        requestAnimationFrame(step);
-      } else {
-        btn.disabled = false;
-        btn.textContent = 'Scroll to Bottom';
-      }
-    }
-
-    requestAnimationFrame(step);
-  }); 
+document.addEventListener('DOMContentLoaded', function() {
+    const scrollButton = document.getElementById('scroll-btn');
+    const consoleDiv = document.getElementById('console-translate');
     
+    scrollButton.addEventListener('click', function() {
+        scrollToBottom(consoleDiv);
+    });
+    
+    function scrollToBottom(element) {
+        const targetScrollTop = element.scrollHeight - element.clientHeight;
+        const duration = 800; // milliseconds - moderate speed
+        const startScrollTop = element.scrollTop;
+        const distance = targetScrollTop - startScrollTop;
+        const startTime = performance.now();
+        
+        function animateScroll(currentTime) {
+            const elapsedTime = currentTime - startTime;
+            const progress = Math.min(elapsedTime / duration, 1);
+            
+            // Easing function for smooth animation
+            const easeInOutQuad = t => t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+            
+            element.scrollTop = startScrollTop + (distance * easeInOutQuad(progress));
+            
+            if (progress < 1) {
+                requestAnimationFrame(animateScroll);
+            }
+        }
+        
+        requestAnimationFrame(animateScroll);
+    }
+});
   </script>
 </body>
 
