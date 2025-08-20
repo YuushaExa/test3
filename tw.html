@@ -945,7 +945,8 @@ saveTranslationBtn.addEventListener('click', handleSaveTranslation);
             if (progress < 1) {
                 requestAnimationFrame(animateScroll);
             } else {
-
+                handleSaveTranslation();
+                 setTimeout(() => consoleTranslate.scrollToBottom(), 3000);
             }
         }
 
