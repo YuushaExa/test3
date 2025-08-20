@@ -929,13 +929,11 @@ btn.addEventListener('click', () => {
   if (animId) {
     cancelAnimationFrame(animId);
     animId = null;
-    btn.disabled = false;
     btn.textContent = 'Scroll to Bottom';
     return;
   }
 
   // Disable button
-  btn.disabled = true;
   btn.textContent = 'Scrolling...';
 
   const totalChars     = consoleEl.textContent.length;
@@ -956,7 +954,6 @@ btn.addEventListener('click', () => {
       animId = requestAnimationFrame(step);
     } else {
       animId = null;
-      btn.disabled = false;
       btn.textContent = 'Scroll to Bottom';
     }
   }
