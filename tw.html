@@ -894,14 +894,14 @@ async function fetchNextTranslateBatch() {
 }
 
 // Wire the save button: read translations back, move to next batch
-saveTranslationBtn.addEventListener('click', () => {
+function handleSaveTranslation() {
   const total = totalChaptersCount || novelData.chapters.length;
   const start = translateCursor;
-  const end   = Math.min(start + translateBatchSize, total);
+  const end = Math.min(start + translateBatchSize, total);
 
   try {
     extractAndSaveTranslatedBatch(start, end);
-    log(`Saved translated chapters ${start+1}–${end}.`, 'green');
+    log(`Saved translated chapters ${start + 1}–${end}.`, 'green');
   } catch (e) {
     log(`Error saving translation: ${e.message}`, 'red');
     return;
@@ -916,7 +916,10 @@ saveTranslationBtn.addEventListener('click', () => {
   fetchNextTranslateBatch().catch(err => {
     log(`Error loading next batch: ${err.message}`, 'red');
   });
-});
+}
+
+// Add event listener
+saveTranslationBtn.addEventListener('click', handleSaveTranslation);
 
 // scroll
 
