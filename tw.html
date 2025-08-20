@@ -691,7 +691,7 @@ const consoleTranslate   = document.getElementById('console-translate');
 const saveTranslationBtn = document.getElementById('saveTranslationBtn');
 
 // State for batched fetching/translation
-let translateBatchSize = 1;
+let translateBatchSize = 100;
 let translateCursor    = 0;      // next chapter index to fetch
 let totalChaptersCount = 0;      // filled after metadata is loaded
 
@@ -929,7 +929,7 @@ saveTranslationBtn.addEventListener('click', () => {
     btn.textContent = 'Scrolling...';
 
     const totalChars = consoleDiv.textContent.length;
-    const charsPerSecond = 1000;
+    const charsPerSecond = 2000;
     const durationMs = (totalChars / charsPerSecond) * 1000;
 
     const start = performance.now();
