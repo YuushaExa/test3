@@ -147,15 +147,22 @@ const genres = genreText ? [genreText] : [];
 
 const userUrl = novelUrlInput.value.trim();
 const slug = userUrl.split('/').pop(); 
+
+const showAllBtn = doc.querySelector('#button_show_all_chatper');
+const totalMatch = showAllBtn?.textContent?.match(/(\d+)/);
+if (!totalMatch) throw new Error('Cannot determine chapter count');
+const lastNumber = parseInt(totalMatch[1], 10);
+
 const base = 'https://www.wa01.com/novel/pagea/';
 const chapters = [];
-
 for (let i = 1; i <= lastNumber; i++) {
   chapters.push({
     title: `Chapter ${i}`,
-    url  : `${base}${slug}_${i}.html`
+    url: `${base}${slug}_${i}.html`
   });
 }
+
+novelData.chapters = chapters;
 
     novelData.metadata = { 
       title, 
