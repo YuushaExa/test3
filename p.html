@@ -212,10 +212,10 @@ if (authorUrl) {
   const html = await fetchRawHTML(chapterUrl);
   const doc  = new DOMParser().parseFromString(html, 'text/html');
 
-  const title = doc.querySelector('.page-content h3')?.textContent?.trim() || 'Untitled Chapter';
+  const title = doc.querySelector('.title h1')?.textContent?.trim() || 'Untitled Chapter';
 
   // collect only <p> inside .page-content, skipping ads/abg/etc
-  const paragraphs = [...doc.querySelectorAll('.page-content p')]
+  const paragraphs = [...doc.querySelectorAll('.content p')]
     .filter(p => 
       !p.classList.contains('abg') &&
       !p.closest('.ad') &&
