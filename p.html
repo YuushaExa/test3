@@ -215,12 +215,12 @@ if (authorUrl) {
   const title = doc.querySelector('.title h1')?.textContent?.trim() || 'Untitled Chapter';
 
   // collect only <p> inside .page-content, skipping ads/abg/etc
-const paragraphs = [...doc.querySelectorAll('.content p')]
+const paragraphs = [...doc.querySelectorAll('.content > p')]
   .filter(p =>
     !p.closest('.full_chapters, .next_page_links, .more_recommend, .mobadsq, .ads_auto_place')
   )
-    .map(p => p.textContent.trim())
-    .filter(txt => txt.length > 0);
+  .map(p => p.textContent.trim())
+  .filter(txt => txt.length > 0);
 
   const content = paragraphs.map(txt => `<p>${txt}</p>`).join('\n');
 
