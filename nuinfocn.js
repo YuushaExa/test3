@@ -206,12 +206,5 @@ async function fetchAuthorWorks(authorUrl) {
 /* ---------- AutoFill button click event ---------- */
 
 /* ---------- enable/disable button ---------- */
-fetchMetadataBtn.addEventListener('click', () => {
-  const chk = setInterval(() => {
-    if (novelData.metadata?.title) {
-      nuBtn.disabled = false;
-      clearInterval(chk);
-    }
-  }, 500);
-});
+
 nuBtn.addEventListener('click', openNuSearch);
