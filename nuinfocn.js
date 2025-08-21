@@ -78,11 +78,34 @@ const associatedNames = detailedDoc.querySelector('#editassociated')?.innerHTML 
               <a class="genre type" href="#">${type}</a> <span style="color:#8D8D8D;">(CN)</span><br>
             </div>
             <h5 class="seriesother">Genre</h5>
-            <span class="genremsg"></span>
+                   <span class="genremsg"></span>
 <div id="seriesgenre">
   ${genres.split(', ').map(genre => `<a class="genre" href="#">${genre}</a>`).join(', ')}
 </div>
-    
+     <h5 class="seriesother">Author(s)</h5>
+      <div id="showauthors">
+        ${authors.split(', ').map((author, index) => `<a class="genre" href="${authorUrls.split(', ')[index]}">${author}</a>`).join(', ')}
+      </div>
+            <h5 class="seriesother">Year</h5>
+            <div id="edityear">${year}</div>
+            <h5 class="seriesother" title="Status in Country of Origin">Status in COO</h5>
+            <div id="editstatus">${statuscoo}</div>
+            <h5 class="seriesother">Original Publisher</h5>
+            <div id="showopublisher">
+              <a class="genre" href="#">${originalPublisher}</a>
+            </div>
+            <h5 class="seriesother">English Publisher</h5>
+            <div id="showepublisher">
+              ${englishPublisher}
+            </div>
+            <h5 class="seriesother">Language</h5>
+            <div id="showlang">
+              <a class="genre lang" href="#">${language}</a>
+            </div>
+            <h5 class="seriesother">Associated Names</h5>
+            <div id="editassociated">${formattedAssociatedNames}</div>
+            <h5 class="descripti">Description</h5>
+            <div id="editdescription">${description}</div>
           `;
 
  nuInfoResults.innerHTML = detailedContent;
