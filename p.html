@@ -590,45 +590,43 @@ document.getElementById('fetchWorksBtn').addEventListener('click', async () => {
 async function fetchAuthorWorks(authorUrl) {
   try {
     log(`Fetching author works from: ${authorUrl}`);
-    const authorHtml = await fetchRawHTML(authorUrl);
-    const authorDoc = new DOMParser().parseFromString(authorHtml, 'text/html');
-    
-    // Get all novel items from the list
-    const works = authorDoc.querySelectorAll('ul.u-list > li.burl');
+    const html = await fetchRawHTML(authorUrl);
+    const doc  = new DOMParser().parseFromString(html, 'text/html');
 
-    if (!works.length) {
+    const cells = doc.querySelectorAll('.novel_cell');
+    if (!cells.length) {
       log('No works found for this author.');
       return [];
     }
 
     const worksData = [];
+    cells.forEach(cell => {
+      // cover
+      const coverEl = cell.querySelector('amp-img img');
+      const cover   = coverEl ? coverEl.getAttribute('src').trim() : '';
 
-    works.forEach(work => {
-      // Extract cover image URL
-      const img = work.querySelector('.l-img img')?.src || '';
-      
-      // Extract title and URL
-      const titleEl = work.querySelector('.bname a');
-      const title = titleEl?.textContent?.trim() || 'No Title';
-      const titleHref = titleEl?.href || '#';
-      
-      // Extract author (though we already know it from the URL)
-      const author = work.querySelector('.bauthor a')?.textContent?.trim() || '';
-      
-      // Extract word count and status
-      const wordCount = work.querySelector('.size')?.textContent?.trim() || '';
-      const status = work.querySelector('.end, .lz')?.textContent?.trim() || '';
-      
-      // Extract description
-      const description = work.querySelector('.l-p2')?.textContent?.trim() || '';
-      
-      // Extract latest chapter info
-      const latestChapter = work.querySelector('.l-chapter')?.textContent?.trim() || '';
-      const updateTime = work.querySelector('.l-time')?.textContent?.trim() || '';
+      // title & link
+      const titleEl = cell.querySelector('h3');
+      const title   = titleEl?.textContent?.trim() || 'No Title';
+
+      // author
+      const authorLi = Array.from(cell.querySelectorAll('ul li'))
+                            .find(li => li.textContent.startsWith('作者：'));
+      const author = authorLi
+                   ? authorLi.textContent.replace(/^作者：/, '').trim()
+                   : '';
+
+      // description
+      const descLi = Array.from(cell.querySelectorAll('ul li'))
+                          .find(li => li.textContent.startsWith('簡介：'));
+      const description = descLi
+                        ? descLi.textContent.replace(/^簡介：/, '').trim()
+                        : '';
+
 
       worksData.push({
         title,
-        cover: img,
+        cover,
         author,
         wordCount,
         status,
@@ -639,8 +637,8 @@ async function fetchAuthorWorks(authorUrl) {
     });
 
     return worksData;
-  } catch (e) {
-    log(`Error fetching author works: ${e.message}`);
+  } catch (err) {
+    log(`Error fetching author works: ${err.message}`);
     return [];
   }
 }
