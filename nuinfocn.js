@@ -125,15 +125,9 @@ if (worksArray.length) {
 }
 
 
-
-
           autoFillBtn.disabled = false;
           showEditMetadataForm();
-          autoFillBtn.click();
-          const submitButton = document.querySelector('#metadataForm button[type="submit"]');
-          if (submitButton) {
-            submitButton.click();
-          }
+
         } catch (e) {
           log(`Error fetching detailed info: ${e.message}`);
         }
