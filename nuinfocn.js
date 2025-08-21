@@ -108,27 +108,7 @@ const associatedNames = detailedDoc.querySelector('#editassociated')?.innerHTML 
             <div id="editdescription">${description}</div>
           `;
 
-          // Get first author URL
-const firstAuthorUrl = detailedDoc.querySelector('#showauthors a')?.href;
-let worksArray = [];
 
-if (firstAuthorUrl) {
-  worksArray = await fetchAuthorWorks(firstAuthorUrl); // now returns array
-}
-
-// Show them in the NU info panel
-if (worksArray.length) {
-  nuInfoResults.innerHTML = detailedContent + worksArray.map(work => `
-    <div style="margin-bottom:20px;">
-      <img src="${work.cover}" alt="${work.title}" style="max-width:120px; display:block;">
-      <a href="${work.url}" target="_blank" style="font-weight:bold;">${work.title}</a>
-      <div>${work.genres.join(', ')}</div>
-      <div>${work.description}</div>
-    </div>
-  `).join('');
-} else {
-  nuInfoResults.innerHTML = detailedContent + '<p>No other works found for this author.</p>';
-}
 
 
         } catch (e) {
@@ -143,68 +123,7 @@ if (worksArray.length) {
   }
 }
 
-// ---------- Fetch Author Works as JSON ----------
-async function fetchAuthorWorks(authorUrl) {
-  try {
-    log(`Fetching author works from: ${authorUrl}`);
-    const authorHtml = await fetchRawHTML(authorUrl);
-    const authorDoc = new DOMParser().parseFromString(authorHtml, 'text/html');
-    const works = authorDoc.querySelectorAll('.search_main_box_nu');
-
-    if (!works.length) {
-      log('No works found for this author.');
-      return [];
-    }
-
-    const worksData = [];
-
-    works.forEach(work => {
-      const img = work.querySelector('img')?.src || '';
-      const titleEl = work.querySelector('.search_title a');
-      const title = titleEl?.textContent?.trim() || 'No Title';
-      const titleHref = titleEl?.href || '#';
-
-      // genres as array
-      const genres = Array.from(work.querySelectorAll('.search_genre a'))
-        .map(a => a.textContent.trim());
-
-      // Get all description parts
-      const descNode = work.querySelector('.search_body_nu');
-      let description = '';
-      
-      // Get all text nodes including those in testhide span
-      if (descNode) {
-        // Clone the node to avoid modifying the original
-        const clone = descNode.cloneNode(true);
-        
-        // Remove elements we don't want in the description
-        clone.querySelectorAll('.search_title, .search_stats, .search_genre, .morelink, .dots').forEach(el => el.remove());
-        
-        // Get the cleaned text content
-        description = clone.textContent
-          .replace(/\s+/g, ' ')
-          .trim();
-      }
-
-      worksData.push({
-        title,
-        url: titleHref,
-        cover: img,
-        genres,
-        description
-      });
-    });
-
-    return worksData;
-  } catch (e) {
-    log(`Error fetching author works: ${e.message}`);
-    return [];
-  }
-}
 
 
-/* ---------- AutoFill button click event ---------- */
-
-/* ---------- enable/disable button ---------- */
 
 nuBtn.addEventListener('click', openNuSearch);
