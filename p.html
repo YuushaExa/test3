@@ -618,8 +618,8 @@ async function fetchAuthorWorks(authorUrl) {
     const works = [];
     cells.forEach(cell => {
       // cover
-      const coverEl = cell.querySelector('amp-img img');
-      const cover   = coverEl ? coverEl.getAttribute('src').trim() : '';
+const ampEl  = cell.querySelector('amp-img');
+const cover  = ampEl ? ampEl.getAttribute('src') : '';
 
       // title
       const titleEl = cell.querySelector('h3');
@@ -955,7 +955,7 @@ btn.addEventListener('click', () => {
   btn.textContent = 'Scrolling...';
 
   const totalChars     = consoleEl.textContent.length;
-  const charsPerSecond = 8000;
+  const charsPerSecond = 12000;
   const durationMs     = (totalChars / charsPerSecond) * 1000;
 
   const start         = performance.now();
