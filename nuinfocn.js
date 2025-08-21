@@ -15,7 +15,7 @@ async function openNuSearch() {
              || prompt('Enter novel title for NovelUpdates search:')?.trim();
   if (!query) return;
 
-  const searchUrl = `https://www.novelupdates.com/series-finder/?sf=1&sh=  ${encodeURIComponent(query)}&sort=sdate&order=desc`;
+  const searchUrl = `https://www.novelupdates.com/series-finder/?sf=1&sh=${encodeURIComponent(query)}&sort=sdate&order=desc`;
 
   try {
     nuBtn.disabled = true;
@@ -37,18 +37,17 @@ async function openNuSearch() {
     });
 
     nuInfoResults.innerHTML = resultsHtml;
-nuInfoResults.innerHTML = resultsHtml;
-nuInfo.style.display = 'block';
+    nuInfo.style.display = 'block';
 
-// Use event delegation for dynamically created buttons
-nuInfoResults.addEventListener('click', async (event) => {
-  if (event.target.classList.contains('info-btn')) {
-    const url = event.target.getAttribute('data-url');
-    try {
-      const detailedHtml = await fetchRawHTML(url);
-      const detailedDoc = new DOMParser().parseFromString(detailedHtml, 'text/html');
-      
-      const title = detailedDoc.querySelector('.seriestitlenu')?.textContent || 'Title not found';
+    // Add click event to each Info button
+    document.querySelectorAll('.info-btn').forEach(button => {
+      button.addEventListener('click', async () => {
+        const url = button.getAttribute('data-url');
+        try {
+          const detailedHtml = await fetchRawHTML(url);
+          const detailedDoc = new DOMParser().parseFromString(detailedHtml, 'text/html');
+
+          const title = detailedDoc.querySelector('.seriestitlenu')?.textContent || 'Title not found';
           const imageUrl = detailedDoc.querySelector('.seriesimg img')?.src || 'Image not found';
           const type = detailedDoc.querySelector('#showtype a')?.textContent || 'Type not found';
           const genres = Array.from(detailedDoc.querySelectorAll('#seriesgenre a')).map(a => a.textContent).join(', ') || 'Genres not found';
@@ -111,30 +110,9 @@ const associatedNames = detailedDoc.querySelector('#editassociated')?.innerHTML 
 
 
 
-// Show them in the NU info panel
-if (worksArray.length) {
-  nuInfoResults.innerHTML = detailedContent + worksArray.map(work => `
-    <div style="margin-bottom:20px;">
-      <img src="${work.cover}" alt="${work.title}" style="max-width:120px; display:block;">
-      <a href="${work.url}" target="_blank" style="font-weight:bold;">${work.title}</a>
-      <div>${work.genres.join(', ')}</div>
-      <div>${work.description}</div>
-    </div>
-  `).join('');
-} else {
-  nuInfoResults.innerHTML = detailedContent + '<p>No other works found for this author.</p>';
-}
 
 
 
-
-          autoFillBtn.disabled = false;
-          showEditMetadataForm();
-          autoFillBtn.click();
-          const submitButton = document.querySelector('#metadataForm button[type="submit"]');
-          if (submitButton) {
-            submitButton.click();
-          }
         } catch (e) {
           log(`Error fetching detailed info: ${e.message}`);
         }
@@ -146,7 +124,6 @@ if (worksArray.length) {
     nuBtn.disabled = false;
   }
 }
-
 
 
 
