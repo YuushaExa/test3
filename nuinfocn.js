@@ -85,7 +85,7 @@ const associatedNames = detailedDoc.querySelector('#editassociated')?.innerHTML 
     
           `;
 
-
+ nuInfoResults.innerHTML = detailedContent;
 
 
 
