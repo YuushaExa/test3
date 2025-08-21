@@ -82,30 +82,7 @@ const associatedNames = detailedDoc.querySelector('#editassociated')?.innerHTML 
 <div id="seriesgenre">
   ${genres.split(', ').map(genre => `<a class="genre" href="#">${genre}</a>`).join(', ')}
 </div>
-     <h5 class="seriesother">Author(s)</h5>
-      <div id="showauthors">
-        ${authors.split(', ').map((author, index) => `<a class="genre" href="${authorUrls.split(', ')[index]}">${author}</a>`).join(', ')}
-      </div>
-            <h5 class="seriesother">Year</h5>
-            <div id="edityear">${year}</div>
-            <h5 class="seriesother" title="Status in Country of Origin">Status in COO</h5>
-            <div id="editstatus">${statuscoo}</div>
-            <h5 class="seriesother">Original Publisher</h5>
-            <div id="showopublisher">
-              <a class="genre" href="#">${originalPublisher}</a>
-            </div>
-            <h5 class="seriesother">English Publisher</h5>
-            <div id="showepublisher">
-              ${englishPublisher}
-            </div>
-            <h5 class="seriesother">Language</h5>
-            <div id="showlang">
-              <a class="genre lang" href="#">${language}</a>
-            </div>
-            <h5 class="seriesother">Associated Names</h5>
-            <div id="editassociated">${formattedAssociatedNames}</div>
-            <h5 class="descripti">Description</h5>
-            <div id="editdescription">${description}</div>
+    
           `;
 
 
@@ -127,29 +104,7 @@ const associatedNames = detailedDoc.querySelector('#editassociated')?.innerHTML 
 
 
 
-/* ---------- AutoFill button click event ---------- */
-autoFillBtn.addEventListener('click', () => {
-  const coverUrl = nuInfoResults.querySelector('.seriesimg img')?.src || '';
-  const altTitle = nuInfoResults.querySelector('#editassociated')?.textContent || '';
-  const date = nuInfoResults.querySelector('#edityear')?.textContent || '';
-  const statuscoo = nuInfoResults.querySelector('#editstatus')?.textContent || '';
-  const language = nuInfoResults.querySelector('#showlang a')?.textContent || '';
-  const originalPublisher = nuInfoResults.querySelector('#showopublisher a')?.textContent || '';
 
-  const editCover = document.getElementById('editCover');
-  const editAltTitle = document.getElementById('editaltitile');
-  const editDate = document.getElementById('editdate');
-  const editstatuscoo = document.getElementById('editstatuscoo');
-  const editlanguage = document.getElementById('editlanguage');
-  const editoriginalPublisher = document.getElementById('editoriginalPublisher');
-
-  if (editCover) editCover.value = coverUrl;
-  if (editAltTitle) editAltTitle.value = altTitle;
-  if (editDate) editDate.value = date;
-  if (editstatuscoo) editstatuscoo.value = statuscoo;
-  if (editlanguage) editlanguage.value = language;
-  if (editoriginalPublisher) editoriginalPublisher.value = originalPublisher;
-});
 /* ---------- enable/disable button ---------- */
 fetchMetadataBtn.addEventListener('click', () => {
   const chk = setInterval(() => {
