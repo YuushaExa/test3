@@ -110,7 +110,30 @@ const associatedNames = detailedDoc.querySelector('#editassociated')?.innerHTML 
 
 
 
+// Show them in the NU info panel
+if (worksArray.length) {
+  nuInfoResults.innerHTML = detailedContent + worksArray.map(work => `
+    <div style="margin-bottom:20px;">
+      <img src="${work.cover}" alt="${work.title}" style="max-width:120px; display:block;">
+      <a href="${work.url}" target="_blank" style="font-weight:bold;">${work.title}</a>
+      <div>${work.genres.join(', ')}</div>
+      <div>${work.description}</div>
+    </div>
+  `).join('');
+} else {
+  nuInfoResults.innerHTML = detailedContent + '<p>No other works found for this author.</p>';
+}
 
+
+
+
+          autoFillBtn.disabled = false;
+          showEditMetadataForm();
+          autoFillBtn.click();
+          const submitButton = document.querySelector('#metadataForm button[type="submit"]');
+          if (submitButton) {
+            submitButton.click();
+          }
         } catch (e) {
           log(`Error fetching detailed info: ${e.message}`);
         }
@@ -126,4 +149,36 @@ const associatedNames = detailedDoc.querySelector('#editassociated')?.innerHTML 
 
 
 
+/* ---------- AutoFill button click event ---------- */
+autoFillBtn.addEventListener('click', () => {
+  const coverUrl = nuInfoResults.querySelector('.seriesimg img')?.src || '';
+  const altTitle = nuInfoResults.querySelector('#editassociated')?.textContent || '';
+  const date = nuInfoResults.querySelector('#edityear')?.textContent || '';
+  const statuscoo = nuInfoResults.querySelector('#editstatus')?.textContent || '';
+  const language = nuInfoResults.querySelector('#showlang a')?.textContent || '';
+  const originalPublisher = nuInfoResults.querySelector('#showopublisher a')?.textContent || '';
+
+  const editCover = document.getElementById('editCover');
+  const editAltTitle = document.getElementById('editaltitile');
+  const editDate = document.getElementById('editdate');
+  const editstatuscoo = document.getElementById('editstatuscoo');
+  const editlanguage = document.getElementById('editlanguage');
+  const editoriginalPublisher = document.getElementById('editoriginalPublisher');
+
+  if (editCover) editCover.value = coverUrl;
+  if (editAltTitle) editAltTitle.value = altTitle;
+  if (editDate) editDate.value = date;
+  if (editstatuscoo) editstatuscoo.value = statuscoo;
+  if (editlanguage) editlanguage.value = language;
+  if (editoriginalPublisher) editoriginalPublisher.value = originalPublisher;
+});
+/* ---------- enable/disable button ---------- */
+fetchMetadataBtn.addEventListener('click', () => {
+  const chk = setInterval(() => {
+    if (novelData.metadata?.title) {
+      nuBtn.disabled = false;
+      clearInterval(chk);
+    }
+  }, 500);
+});
 nuBtn.addEventListener('click', openNuSearch);
