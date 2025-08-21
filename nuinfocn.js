@@ -42,7 +42,7 @@ async function openNuSearch() {
     // Add click event to each Info button
     document.querySelectorAll('.info-btn').forEach(button => {
       button.addEventListener('click', async () => {
-        const url = button.getAttribute('data-url');
+        const url = button.dataset.url;
         try {
           const detailedHtml = await fetchRawHTML(url);
           const detailedDoc = new DOMParser().parseFromString(detailedHtml, 'text/html');
