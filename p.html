@@ -54,7 +54,17 @@
             font-family:'Courier New',Courier,monospace;height:320px;
             overflow-y:auto;white-space:pre; margin-top:8px; border:1px solid #333">
 </div>
-
+        <div class="button-container">
+            <button id="nuInfoBtn" disabled>NUInfo</button>
+        </div>
+        
+        <div class="loading" id="loadingIndicator">
+            Loading search results...
+        </div>
+        
+        <div class="iframe-container" id="iframeContainer">
+            <iframe id="novelUpdatesFrame" title="NovelUpdates Search"></iframe>
+        </div>
 
   </div>
 
@@ -980,21 +990,57 @@ function step(now) {
 
   animId = requestAnimationFrame(step);
 });
+
+    // nu info button 
+
+      document.addEventListener('DOMContentLoaded', function() {
+            const button = document.getElementById('nuInfoBtn');
+            const iframeContainer = document.getElementById('iframeContainer');
+            const novelUpdatesFrame = document.getElementById('novelUpdatesFrame');
+            const loadingIndicator = document.getElementById('loadingIndicator');
+            
+            // Simulate loading/initialization process
+            setTimeout(() => {
+                button.disabled = false;
+                button.textContent = "Search on NovelUpdates";
+            }, 2000);
+            
+            // Mock novel data object (in a real scenario, this would come from your application)
+            const novelData = {
+                metadata: {
+                    title: "The Beginning After The End"
+                }
+            };
+            
+            button.addEventListener('click', function() {
+                // Get the query from novelData or prompt the user
+                const query = novelData.metadata?.title?.trim() || 
+                             prompt('Enter novel title for NovelUpdates search:')?.trim();
+                
+                if (!query) return;
+                
+                // Show loading indicator
+                loadingIndicator.style.display = 'block';
+                iframeContainer.style.display = 'none';
+                
+                // Construct the search URL
+                const searchUrl = `https://www.novelupdates.com/series-finder/?sf=1&sh=${encodeURIComponent(query)}&sort=sdate&order=desc`;
+                
+                // Set the iframe source after a short delay to show loading indicator
+                setTimeout(() => {
+                    novelUpdatesFrame.src = searchUrl;
+                    
+                    // When iframe loads, show it and hide loading indicator
+                    novelUpdatesFrame.onload = function() {
+                        loadingIndicator.style.display = 'none';
+                        iframeContainer.style.display = 'block';
+                        iframeContainer.classList.add('fade-in');
+                    };
+                }, 500);
+            });
+        });
   </script>
 </body>
-<button id="nuInfoBtn" disabled>NUInfo</button>
-<button id="autoFillBtn" disabled>AutoFill</button>
 
-<div id="nuInfo" style="display:none; margin-top:10px; border:1px solid #ccc; border-radius:4px; overflow:hidden; padding:10px;">
-  <div id="nuInfoHeader" style="background:#eee;padding:4px;font-size:12px">
-    <span style="float:right;cursor:pointer" onclick="closeNuInfo()">✖</span>
-    <b>NovelUpdates search</b>
-  </div>
-  <div id="nuInfoResults" style="margin-top:10px;"></div>
-</div>
-
-
-<!-- ===== /NUInfo patch ===== -->
-    <script src="nuinfocn.js"></script>
 <script src="ep-singleauthor.js"></script>
 </html>
