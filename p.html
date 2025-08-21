@@ -587,6 +587,11 @@ document.getElementById('fetchWorksBtn').addEventListener('click', async () => {
 }
 
 // Updated fetchAuthorWorks function with current selectors
+/**
+ * Fetches the search / author page that uses the new AMP markup
+ * (.novel_cell grid).
+ * Returns the same object shape as the old function.
+ */
 async function fetchAuthorWorks(authorUrl) {
   try {
     log(`Fetching author works from: ${authorUrl}`);
@@ -599,44 +604,40 @@ async function fetchAuthorWorks(authorUrl) {
       return [];
     }
 
-    const worksData = [];
+    const works = [];
     cells.forEach(cell => {
       // cover
       const coverEl = cell.querySelector('amp-img img');
       const cover   = coverEl ? coverEl.getAttribute('src').trim() : '';
 
-      // title & link
+      // title
       const titleEl = cell.querySelector('h3');
       const title   = titleEl?.textContent?.trim() || 'No Title';
 
       // author
-      const authorLi = Array.from(cell.querySelectorAll('ul li'))
-                            .find(li => li.textContent.startsWith('作者：'));
+      const authorLi = [...cell.querySelectorAll('ul li')]
+        .find(li => li.textContent.startsWith('作者：'));
       const author = authorLi
-                   ? authorLi.textContent.replace(/^作者：/, '').trim()
-                   : '';
+        ? authorLi.textContent.replace(/^作者：/, '').trim()
+        : '';
 
       // description
-      const descLi = Array.from(cell.querySelectorAll('ul li'))
-                          .find(li => li.textContent.startsWith('簡介：'));
+      const descLi = [...cell.querySelectorAll('ul li')]
+        .find(li => li.textContent.startsWith('簡介：'));
       const description = descLi
-                        ? descLi.textContent.replace(/^簡介：/, '').trim()
-                        : '';
+        ? descLi.textContent.replace(/^簡介：/, '').trim()
+        : '';
 
-
-      worksData.push({
+      works.push({
         title,
         cover,
         author,
-        wordCount,
-        status,
         description,
-        latestChapter,
-        updateTime
       });
     });
 
-    return worksData;
+    log(`Found ${works.length} other works by this author`);
+    return works;
   } catch (err) {
     log(`Error fetching author works: ${err.message}`);
     return [];
