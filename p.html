@@ -17,9 +17,6 @@
     .progress-container{margin-top:15px;display:none}
     progress{width:100%}
     .status{text-align:center;margin:10px 0;font-weight:bold}
-    #autoFetchBtn.running {
-  background: #ff5722;
-}
   </style>
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
      
@@ -51,7 +48,8 @@
 </div>
 <button id="scroll-btn">Scroll to Bottom</button>
 <button id="retryBtn" style="display:none;">Retry from failed</button>
-<button id="autoFetchBtn" disabled>Auto Fetch</button>
+<button id="autoFetchBtn" style="display:none;">Auto Fetch (OFF)</button>
+
 <div id="console-translate" translate="yes"
      class="console-like"
      style="background:#121212;color:#e6e6e6;padding:15px;border-radius:4px;
@@ -993,55 +991,71 @@ function step(now) {
   animId = requestAnimationFrame(step);
 });
 
-/* ---------- AUTO-FETCH 50 @ 100 s ---------- */
-let autoFetchTimer   = null;
-let autoFetchRunning = false;
-
+// ------------------------------------------------------------------
+// AUTO-FETCH 50 chapters / 100 s  (toggle button)
+// ------------------------------------------------------------------
 const autoFetchBtn = document.getElementById('autoFetchBtn');
+let autoFetchTimer = null;
+let isAutoFetchOn  = false;
 
-// When chapters are ready → enable the button
-fetchChaptersBtn.addEventListener('click', () => {
-  const chk = setInterval(() => {
-    if (novelData.chapters.length) {
-      autoFetchBtn.disabled = false;
-      clearInterval(chk);
-    }
-  }, 200);
-});
-
-// Toggle Auto-Fetch
-autoFetchBtn.addEventListener('click', () => {
-  if (autoFetchRunning) {
-    // already running → stop
-    clearInterval(autoFetchTimer);
+function toggleAutoFetch() {
+  if (isAutoFetchOn) {
+    // stop
+    clearTimeout(autoFetchTimer);
     autoFetchTimer = null;
-    autoFetchRunning = false;
-    autoFetchBtn.textContent = 'Auto Fetch';
-    log('Auto-fetch stopped by user.', 'orange');
+    isAutoFetchOn  = false;
+    autoFetchBtn.textContent = 'Auto Fetch (OFF)';
+    log('Auto-fetch stopped', 'orange');
   } else {
     // start
-    autoFetchRunning = true;
-    autoFetchBtn.textContent = 'Stop Auto Fetch';
-    log('Auto-fetch started (50 chapters every 100 s after Save).', 'green');
-    scheduleNext();   // kick off first batch
-  }
-});
-
-// Schedule next batch 100 s after the previous one is *saved*
-function scheduleNext() {
-  if (!autoFetchRunning) return;
-
-  autoFetchTimer = setTimeout(() => {
     if (translateCursor >= totalChaptersCount) {
-      log('Auto-fetch finished: no more chapters.', 'green');
-      autoFetchBtn.click(); // toggle off
+      log('All chapters already fetched', 'yellow');
       return;
     }
-    // trigger the normal fetch-next-batch flow
-    fetchNextTranslateBatch().finally(scheduleNext);
-  }, 100_000); // 100 000 ms = 100 s
+    isAutoFetchOn = true;
+    autoFetchBtn.textContent = 'Auto Fetch (ON)';
+    log('Auto-fetch started (50 chapters every 100 s)', 'green');
+    runAutoFetchLoop();
+  }
 }
-    autoFetchBtn.classList.toggle('running', autoFetchRunning);
+
+async function runAutoFetchLoop() {
+  if (!isAutoFetchOn) return; // safety
+
+  try {
+    await fetchNextTranslateBatch();   // existing function
+  } catch (e) {
+    log(`Auto-fetch error: ${e.message}`, 'red');
+    toggleAutoFetch();               // auto-stop on failure
+    return;
+  }
+
+  if (translateCursor >= totalChaptersCount) {
+    log('Auto-fetch finished – all chapters grabbed', 'green');
+    toggleAutoFetch();
+    return;
+  }
+
+  autoFetchTimer = setTimeout(runAutoFetchLoop, 100_000); // 100 s
+}
+
+autoFetchBtn.addEventListener('click', toggleAutoFetch);
+
+// show/hide the button together with Save Translation
+saveTranslationBtn.addEventListener('click', () => {
+  // after saving a batch, if loop is ON, the timer will fire again
+});
+
+// ------------------------------------------------------------------
+// make the button appear **after** the metadata is loaded
+fetchMetadataBtn.addEventListener('click', () => {
+  const showBtn = setInterval(() => {
+    if (novelData.metadata?.title) {
+      autoFetchBtn.style.display = 'inline-block';
+      clearInterval(showBtn);
+    }
+  }, 500);
+});
   </script>
 </body>
 <!-- ===== NUInfo button + results container ===== -->
