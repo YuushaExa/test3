@@ -47,6 +47,7 @@
   <button id="saveTranslationBtn" disabled>Save Translation</button>
 </div>
 <button id="scroll-btn">Scroll to Bottom</button>
+<button id="retryBtn" style="display:none;">Retry from failed</button>
 
 <div id="console-translate" translate="yes"
      class="console-like"
@@ -712,6 +713,7 @@ const saveTranslationBtn = document.getElementById('saveTranslationBtn');
 let translateBatchSize = 50;
 let translateCursor    = 0;      // next chapter index to fetch
 let totalChaptersCount = 0;      // filled after metadata is loaded
+let failedStart = -1;   // -1 means “no failure yet”
 
 // ---------------------
 // Replace previous renderTranslationBatchToConsole + extractAndSaveTranslatedBatch
@@ -870,13 +872,13 @@ function extractAndSaveTranslatedBatch(start, end) {
 async function fetchNextTranslateBatch() {
   const total = totalChaptersCount || novelData.chapters.length;
   if (translateCursor >= total) {
-    // Done
     log('All chapters processed through translate-save flow!', 'green');
     progressContainer.style.display = 'none';
-    downloadBtn.disabled     = false;
-    saveToJsonBtn.disabled   = false;
-    createEpubBtn.disabled   = false; // in case it was waiting
+    downloadBtn.disabled   = false;
+    saveToJsonBtn.disabled = false;
+    createEpubBtn.disabled = false;
     saveTranslationBtn.disabled = true;
+    retryBtn.style.display = 'none';
     return;
   }
 
@@ -884,32 +886,39 @@ async function fetchNextTranslateBatch() {
   const start = translateCursor;
   const end   = Math.min(start + translateBatchSize, total);
 
-  // Fetch this batch (Chinese source)
-  const promises = [];
-  for (let i = start; i < end; i++) {
-    // only fetch if not fetched yet
-    if (!novelData.chapters[i].content) {
-      promises.push((async (idx) => {
-        log(`Fetching ${idx+1}/${total} - ${novelData.chapters[idx].title}`);
-        const data = await fetchChapterContent(novelData.chapters[idx].url);
-        novelData.chapters[idx] = { ...novelData.chapters[idx], ...data };
-      })(i));
+  try {
+    const promises = [];
+    for (let i = start; i < end; i++) {
+      if (!novelData.chapters[i].content) {
+        promises.push((async idx => {
+          log(`Fetching ${idx+1}/${total} - ${novelData.chapters[idx].title}`);
+          const data = await fetchChapterContent(novelData.chapters[idx].url);
+          novelData.chapters[idx] = { ...novelData.chapters[idx], ...data };
+        })(i));
+      }
     }
+    await Promise.all(promises);
+
+    updateProgress(end, total);
+    statusText.textContent = `Ready to translate ${start+1}–${end} / ${total}`;
+    const batchObjs = buildBatchObjects(start, end);
+    renderTranslationBatchToConsole(batchObjs, start);
+    retryBtn.style.display = 'none';        // success ‑ hide button
+    failedStart = -1;
+  } catch (err) {
+    log(`Error during batch ${start+1}–${end}: ${err.message}`, 'red');
+    failedStart = start;                    // remember where it failed
+    retryBtn.style.display = 'inline-block';// show the retry button
   }
-
-  await Promise.all(promises);
-
-  // Update progress UI to "fetched this batch"
-  updateProgress(end, total);
-  statusText.textContent = `Ready to translate ${start+1}–${end} / ${total}`;
-
-  // Build + render batch into the translation console
-  const batchObjs = buildBatchObjects(start, end);
-  renderTranslationBatchToConsole(batchObjs, start);
-
-  // Now we wait for the user to Google-Translate the page
-  // and click "Save Translation".
 }
+
+// --- button click handler ---
+const retryBtn = document.getElementById('retryBtn');
+retryBtn.addEventListener('click', () => {
+  if (failedStart === -1) return;           // nothing to retry
+  retryBtn.style.display = 'none';
+  fetchNextTranslateBatch();                // continue exactly from failedStart
+});
 
 // Wire the save button: read translations back, move to next batch
 saveTranslationBtn.addEventListener('click', () => {
