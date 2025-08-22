@@ -1020,13 +1020,16 @@ function toggleAutoFetch() {
 }
 
 async function runAutoFetchLoop() {
-  if (!isAutoFetchOn) return; // safety
+  if (!isAutoFetchOn) return;
+
+  // --- advance cursor BEFORE fetching the next 50 ---
+  translateCursor = Math.min(translateCursor + translateBatchSize, totalChaptersCount);
 
   try {
-    await fetchNextTranslateBatch();   // existing function
+    await fetchNextTranslateBatch();   // fetches 51-100, 101-150, …
   } catch (e) {
     log(`Auto-fetch error: ${e.message}`, 'red');
-    toggleAutoFetch();               // auto-stop on failure
+    toggleAutoFetch();
     return;
   }
 
@@ -1036,7 +1039,7 @@ async function runAutoFetchLoop() {
     return;
   }
 
-  autoFetchTimer = setTimeout(runAutoFetchLoop, 100_000); // 100 s
+  autoFetchTimer = setTimeout(runAutoFetchLoop, 100_000);
 }
 
 autoFetchBtn.addEventListener('click', toggleAutoFetch);
