@@ -97,7 +97,7 @@
 
     // ---- data store ----
     let novelData = { metadata: null, chapters: [] };
-
+const MAX_AUTO_FETCH = 8;
     // ---- fetch raw html via worker ----
     async function fetchRawHTML(targetUrl) {
       const res = await fetch(`${WORKER_URL}/api/raw?url=${encodeURIComponent(targetUrl)}`);
@@ -974,18 +974,19 @@ function toggleAutoFetch() {
     isAutoFetchOn = true;
     autoFetchBtn.textContent = 'Auto Fetch (ON)';
     log('Auto-fetch started (50 chapters every 100 s)', 'green');
+        runAutoFetchLoop(MAX_AUTO_FETCH);
     runAutoFetchLoop();
   }
 }
 
-async function runAutoFetchLoop() {
-  if (!isAutoFetchOn) return;
+async function runAutoFetchLoop(runsLeft) {
+  if (!isAutoFetchOn || runsLeft <= 0) return;
 
-  // --- advance cursor BEFORE fetching the next 50 ---
   translateCursor = Math.min(translateCursor + translateBatchSize, totalChaptersCount);
 
   try {
-    await fetchNextTranslateBatch();   // fetches 51-100, 101-150, …
+    await fetchNextTranslateBatch();
+    log(`Auto-fetch batch ${MAX_AUTO_FETCH - runsLeft + 1}/${MAX_AUTO_FETCH}`, 'green');
   } catch (e) {
     log(`Auto-fetch error: ${e.message}`, 'red');
     toggleAutoFetch();
@@ -998,7 +999,7 @@ async function runAutoFetchLoop() {
     return;
   }
 
-  autoFetchTimer = setTimeout(runAutoFetchLoop, 100_000);
+  autoFetchTimer = setTimeout(() => runAutoFetchLoop(runsLeft - 1), 100_000);
 }
 
 autoFetchBtn.addEventListener('click', toggleAutoFetch);
