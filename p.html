@@ -894,27 +894,15 @@ retryBtn.addEventListener('click', () => {
 
 // Wire the save button: read translations back, move to next batch
 saveTranslationBtn.addEventListener('click', () => {
-  const total = totalChaptersCount || novelData.chapters.length;
-  const start = translateCursor;
-  const end   = Math.min(start + translateBatchSize, total);
-
   try {
-    extractAndSaveTranslatedBatch(start, end);
-    log(`Saved translated chapters ${start+1}–${end}.`, 'green');
+    extractAndSaveTranslatedBatch();   // saves everything
+    log('All chapters translated & stored!', 'green');
+    // optionally clear console now:
+    consoleTranslate.innerHTML = '';
+    saveTranslationBtn.disabled = true;
   } catch (e) {
-    log(`Error saving translation: ${e.message}`, 'red');
-    return;
+    log(`Error while saving translations: ${e.message}`, 'red');
   }
-
-  // Advance cursor & fetch next batch
-  translateCursor = end;
-  consoleTranslate.innerHTML = '';
-  saveTranslationBtn.disabled = true;
-
-  // Auto-continue
-  fetchNextTranslateBatch().catch(err => {
-    log(`Error loading next batch: ${err.message}`, 'red');
-  });
 });
 
 // scroll
