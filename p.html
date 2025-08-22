@@ -29,7 +29,10 @@
       <label for="novelUrl">Novel URL:</label>
       <input type="text" id="novelUrl" placeholder="link">
     </div>
-
+<div class="form-group">
+  <label for="fetchAmount">Amount of chapters to fetch:</label>
+  <input type="number" id="fetchAmount" min="1" max="10000" value="200" />
+</div>
     <button id="fetchMetadataBtn">Fetch Metadata</button>
     <button id="fetchChaptersBtn" disabled>Fetch Chapters</button>
     <button id="downloadBtn" disabled>Download as JSON</button>
@@ -70,10 +73,17 @@
     const progressContainer = document.getElementById('progressContainer');
     const progressBar     = document.getElementById('progressBar');
     const statusText      = document.getElementById('statusText');
-
+const fetchAmountInput = document.getElementById('fetchAmount');
+fetchAmountInput.addEventListener('change', () => {
+  requestedFetchAmount = Math.max(1, Math.min(10000, parseInt(fetchAmountInput.value, 10) || 200));
+  log(`Set fetch amount → ${requestedFetchAmount} chapters`, 'green');
+});
     // ---- config ----
     const WORKER_URL = 'https://curly-pond-9050.yuush.workers.dev';
-
+    
+let requestedFetchAmount = 200;  // default
+const CHUNK_SIZE = 50;           // fixed burst size
+const BURST_DELAY = 61_000;      // 61 s
     // ---- helpers ----
    function log(msg, color = '') {
   const messageElement = document.createElement('div');
@@ -237,30 +247,55 @@ const paragraphs = [...doc.querySelectorAll('.content p')]
 
 
     // ---- fetch all chapters ----
-  // ---- fetch all chapters, BUT in translation-first batches (NEW) ----
 async function fetchChapters() {
   if (!novelData.chapters.length) return alert('No chapters found');
-  try {
-    fetchChaptersBtn.disabled = true;
-    progressContainer.style.display = 'block';
 
-    // initialize batch state
-    totalChaptersCount = novelData.chapters.length;
-    translateCursor    = 0;
+  const totalAvailable = novelData.chapters.length;
+  const toFetch          = Math.min(requestedFetchAmount, totalAvailable);
+  const chunks           = Math.ceil(toFetch / CHUNK_SIZE);
 
-    // Kick off the first 100; the rest continues via Save Translation
-    await fetchNextTranslateBatch();
+  log(`Starting chunked fetch: ${toFetch} chapters (${chunks} bursts of ${CHUNK_SIZE})`, 'green');
 
-    // Enable EPUB button only after at least first batch is translated back in
-    // (we also enable it at the end of all batches)
-    createEpubBtn.disabled = true;
-  } catch (err) {
-    log(`Error: ${err.message}`, 'red');
-    fetchChaptersBtn.disabled = false;
-    progressContainer.style.display = 'none';
+  fetchChaptersBtn.disabled = true;
+  progressContainer.style.display = 'block';
+
+  translateCursor    = 0;            // reset
+  totalChaptersCount = toFetch;      // override to requested limit
+
+  for (let burst = 0; burst < chunks; burst++) {
+    const start = burst * CHUNK_SIZE;
+    const end   = Math.min(start + CHUNK_SIZE, toFetch);
+
+    log(`Burst ${burst + 1}/${chunks}: fetching chapters ${start + 1}–${end}`);
+
+    // fetch this burst
+    await fetchBurst(start, end);
+
+    // wait 61 s between bursts unless we’re done
+    if (burst < chunks - 1) {
+      log(`Waiting ${BURST_DELAY / 1000} s…`);
+      await new Promise(r => setTimeout(r, BURST_DELAY));
+    }
   }
+
+  log(`All requested chapters fetched (${toFetch}). Ready for translation.`, 'green');
+  progressContainer.style.display = 'none';
+  createEpubBtn.disabled = false;
 }
 
+async function fetchBurst(start, end) {
+  const promises = [];
+  for (let i = start; i < end; i++) {
+    if (!novelData.chapters[i].content) {
+      promises.push((async idx => {
+        log(`Fetching ${idx + 1}/${totalChaptersCount} - ${novelData.chapters[idx].title}`);
+        const data = await fetchChapterContent(novelData.chapters[idx].url);
+        novelData.chapters[idx] = { ...novelData.chapters[idx], ...data };
+      })(i));
+    }
+  }
+  await Promise.all(promises);
+}
 
 // ---- Save Metadata ----
 async function saveMetadata() {
