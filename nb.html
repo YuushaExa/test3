@@ -210,8 +210,8 @@ async function fetchChapters() {
     progressContainer.style.display = 'block';
 
     const total = novelData.chapters.length;
-    const batchSize = 3;               
-    const delayPerBatch = 1000;        
+    const batchSize = 40;               
+    const delayPerBatch = 20000;        
     let done = 0;
 
     for (let i = 0; i < total; i += batchSize) {
