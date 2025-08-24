@@ -153,6 +153,7 @@ async function fetchMetadata() {
     log(`Author: ${authors.join(', ')}`);
     log(`Status: ${status}`);
     log(`Genres: ${genreNames.join(', ')}`);
+     log(`Description: ${description}`);
     log(`Total chapters found: ${novelData.chapters.length}`);
 
     fetchChaptersBtn.disabled = false;
@@ -169,11 +170,11 @@ async function fetchMetadata() {
       const html = await fetchRawHTML(chapterUrl);
       const doc  = new DOMParser().parseFromString(html, 'text/html');
 
-      const novelTitle = doc.querySelector('.col-xs-12 a.truyen-title')?.textContent?.trim() || '';
-      const chTitle    = doc.querySelector('.col-xs-12 h2')?.textContent?.trim() || '';
+      const novelTitle = doc.querySelector('.col-xs-12 a.novel-title')?.textContent?.trim() || '';
+      const chTitle    = doc.querySelector('.col-xs-12 .chr-text')?.textContent?.trim() || '';
       const title      = `${novelTitle} - ${chTitle}`;
 
-      let content = doc.querySelector('#chapter-content')?.innerHTML || 'Chapter not found';
+      let content = doc.querySelector('#chr-content')?.innerHTML || 'Chapter not found';
 
       // cleanup
       content = content
