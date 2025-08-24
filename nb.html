@@ -211,7 +211,7 @@ async function fetchChapters() {
 
     const total = novelData.chapters.length;
     const batchSize = 40;               
-    const delayPerBatch = 20000;        
+    const delayPerBatch = 40000;        
     let done = 0;
 
     for (let i = 0; i < total; i += batchSize) {
