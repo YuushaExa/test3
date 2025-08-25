@@ -37,7 +37,7 @@
   <button id="editMetadataBtn" disabled>Edit Metadata</button>
     <button id="saveMetadataBtn">Save Metadata</button>
 
-    <button id="retryBtn" style="display:none;background:#e53935;">Retry Failed</button>
+<button id="retryBtn" style="display:none;margin-top:10px;background:#e53935;color:#fff;border:none;padding:8px 14px;border-radius:4px;cursor:pointer;">Retry Failed</button>
 
     <div class="progress-container" id="progressContainer">
       <div class="status" id="statusText">Processing...</div>
@@ -655,8 +655,9 @@ const match = data.some(item =>
   }
 }
 
+    // retry
 
-    const retryBtn = document.getElementById('retryBtn');
+const retryBtn = document.getElementById('retryBtn');
 
 function showRetry() {
   const failed = novelData.chapters.filter(c => !c.content);
