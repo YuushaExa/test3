@@ -36,6 +36,9 @@
     <button id="saveToJsonBtn" disabled>Save JSON</button> 
   <button id="editMetadataBtn" disabled>Edit Metadata</button>
     <button id="saveMetadataBtn">Save Metadata</button>
+
+    <button id="retryBtn" style="display:none;background:#e53935;">Retry Failed</button>
+
     <div class="progress-container" id="progressContainer">
       <div class="status" id="statusText">Processing...</div>
       <progress id="progressBar" value="0" max="100"></progress>
@@ -652,6 +655,70 @@ const match = data.some(item =>
   }
 }
 
+
+    const retryBtn = document.getElementById('retryBtn');
+
+function showRetry() {
+  const failed = novelData.chapters.filter(c => !c.content);
+  if (failed.length) {
+    retryBtn.style.display = 'inline-block';
+    retryBtn.textContent = `Retry ${failed.length} failed`;
+  } else {
+    retryBtn.style.display = 'none';
+  }
+}
+
+async function retryFailed() {
+  const failed = novelData.chapters.filter(c => !c.content);
+  if (!failed.length) return;
+
+  retryBtn.disabled = true;
+  progressContainer.style.display = 'block';
+  const total = failed.length;
+  let done = 0;
+
+  // Same batching logic as original fetchChapters
+  const batchSize = 35;
+  const delayPerBatch = 101000;
+
+  for (let i = 0; i < failed.length; i += batchSize) {
+    const slice = failed.slice(i, i + batchSize);
+
+    const promises = slice.map(async (ch) => {
+      log(`Retrying ${ch.title}`);
+      const data = await fetchChapterContent(ch.url);
+      // merge back into the original slot
+      Object.assign(ch, data);
+    });
+
+    await Promise.all(promises);
+    done += slice.length;
+    updateProgress(done, total);
+
+    if (i + batchSize < failed.length) {
+      await new Promise(r => setTimeout(r, delayPerBatch));
+    }
+  }
+
+  progressContainer.style.display = 'none';
+  retryBtn.disabled = false;
+  log('All failed chapters retried.');
+  showRetry();           // hide button if none left
+}
+
+/* ---------- wiring ---------- */
+// wire click
+retryBtn.addEventListener('click', retryFailed);
+
+// show button after normal fetchChapters finishes
+const oldFetchChapters = fetchChapters;
+fetchChapters = async function() {
+  await oldFetchChapters();
+  showRetry();
+};
+
+// drop the button into the same container as the others
+document.querySelector('.container').appendChild(retryBtn);
   </script>
 </body>
 <!-- ===== NUInfo button + results container ===== -->
