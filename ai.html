@@ -17,8 +17,8 @@
   <label>
     Model:
     <select id="model">
-      <option value="gemini-1.5-flash">gemini-1.5-flash</option>
-      <option value="gemini-1.5-pro">gemini-1.5-pro</option>
+      <option value="gemini-2.5-flash">gemini-2.5-flash</option>
+      <option value="gemini-2.5-pro">gemini-2.5-pro</option>
     </select>
   </label>
 
@@ -60,7 +60,7 @@
       outputEl.textContent = 'Thinking…';
 
       try {
-        const res = await fetch('https://chatai-flame-eta.vercel.app/', {
+        const res = await fetch('https://chatai-flame-eta.vercel.app/api/gemini', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
