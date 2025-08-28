@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Gemini Chat (Frontend Demo)</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 2rem; }
+    label, select, textarea, button { display: block; width: 100%; margin-bottom: 1rem; }
+    textarea { height: 4rem; }
+    #output { white-space: pre-wrap; background: #f7f7f7; padding: 1rem; border-radius: 4px; }
+  </style>
+</head>
+<body>
+
+  <h1>Gemini Chat</h1>
+
+  <label>
+    Model:
+    <select id="model">
+      <option value="gemini-1.5-flash">gemini-1.5-flash</option>
+      <option value="gemini-1.5-pro">gemini-1.5-pro</option>
+    </select>
+  </label>
+
+  <label>
+    System Instruction (optional):
+    <textarea id="systemInstruction" placeholder="e.g. You are a helpful assistant."></textarea>
+  </label>
+
+  <label>
+    Your message:
+    <textarea id="message" placeholder="Explain quantum computing in 50 words"></textarea>
+  </label>
+
+  <button id="sendBtn">Send</button>
+
+  <h2>Response:</h2>
+  <div id="output">—</div>
+
+  <script>
+    const sendBtn = document.getElementById('sendBtn');
+    const modelEl = document.getElementById('model');
+    const systemEl = document.getElementById('systemInstruction');
+    const messageEl = document.getElementById('message');
+    const outputEl = document.getElementById('output');
+
+    sendBtn.addEventListener('click', async () => {
+      const payload = {
+        model: modelEl.value,
+        systemInstruction: systemEl.value.trim(),
+        message: messageEl.value.trim()
+      };
+
+      if (!payload.message) {
+        alert('Please enter a message.');
+        return;
+      }
+
+      sendBtn.disabled = true;
+      outputEl.textContent = 'Thinking…';
+
+      try {
+        const res = await fetch('https://chatai-flame-eta.vercel.app/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) throw new Error('Request failed: ' + res.status);
+        const data = await res.json();
+        outputEl.textContent = data.text;
+      } catch (err) {
+        outputEl.textContent = 'Error: ' + err.message;
+      } finally {
+        sendBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
