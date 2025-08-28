@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Gemini Chat | Modern Interface</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
   <style>
     :root {
       --primary: #4285f4;
@@ -402,12 +404,15 @@
               sendBtn.disabled = false;
               return;
             }
-            try {
-              const { text } = JSON.parse(payload);
-              outputEl.textContent += text; // stream word-by-word
-            } catch {
-              /* ignore malformed chunk */
-            }
+  try {
+  const { text } = JSON.parse(payload);
+  // convert Markdown → HTML
+  const html = marked.parseInline(text || '');
+  // insert as HTML so headings, bold, lists, etc. render
+  outputEl.insertAdjacentHTML('beforeend', html);
+} catch {
+  /* malformed chunk */
+}
           }
         }
       }
