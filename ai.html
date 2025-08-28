@@ -326,75 +326,106 @@
     <p>Gemini Chat Interface &copy; 2023 | Powered by Google Gemini AI</p>
   </footer>
 
-  <script>
-    const sendBtn = document.getElementById('sendBtn');
-    const modelEl = document.getElementById('model');
-    const systemEl = document.getElementById('systemInstruction');
-    const messageEl = document.getElementById('message');
-    const outputEl = document.getElementById('output');
-    const toggleSystemBtn = document.getElementById('toggleSystem');
-    const systemContainer = document.getElementById('systemContainer');
+<script>
+  const sendBtn = document.getElementById('sendBtn');
+  const modelEl = document.getElementById('model');
+  const systemEl = document.getElementById('systemInstruction');
+  const messageEl = document.getElementById('message');
+  const outputEl = document.getElementById('output');
+  const toggleSystemBtn = document.getElementById('toggleSystem');
+  const systemContainer = document.getElementById('systemContainer');
 
-    // Toggle system instruction visibility
-    toggleSystemBtn.addEventListener('click', () => {
-      toggleSystemBtn.classList.toggle('expanded');
-      systemContainer.classList.toggle('expanded');
-    });
+  // Toggle system instruction visibility
+  toggleSystemBtn.addEventListener('click', () => {
+    toggleSystemBtn.classList.toggle('expanded');
+    systemContainer.classList.toggle('expanded');
+  });
 
-    // Add animation to output
-    function showThinkingAnimation() {
-      outputEl.innerHTML = `
-        <div class="typing-indicator">
-          <span>Generating response</span>
-          <div class="typing-dots">
-            <div class="typing-dot"></div>
-            <div class="typing-dot"></div>
-            <div class="typing-dot"></div>
-          </div>
+  // Simple “thinking” placeholder
+  function showThinkingAnimation() {
+    outputEl.innerHTML = `
+      <div class="typing-indicator">
+        <span>Generating response</span>
+        <div class="typing-dots">
+          <div class="typing-dot"></div>
+          <div class="typing-dot"></div>
+          <div class="typing-dot"></div>
         </div>
-      `;
+      </div>
+    `;
+  }
+
+  sendBtn.addEventListener('click', async () => {
+    const payload = {
+      model: modelEl.value,
+      systemInstruction: systemEl.value.trim(),
+      message: messageEl.value.trim()
+    };
+
+    if (!payload.message) {
+      alert('Please enter a message.');
+      return;
     }
 
-    sendBtn.addEventListener('click', async () => {
-      const payload = {
-        model: modelEl.value,
-        systemInstruction: systemEl.value.trim(),
-        message: messageEl.value.trim()
-      };
+    sendBtn.disabled = true;
+    showThinkingAnimation();
 
-      if (!payload.message) {
-        alert('Please enter a message.');
-        return;
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
+
+    try {
+      const response = await fetch('https://chatai-flame-eta.vercel.app/api/gemini', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) throw new Error('Request failed: ' + response.status);
+
+      const reader = response.body.getReader();
+      let buffer = '';
+      outputEl.textContent = ''; // clear previous text
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n\n');
+        buffer = lines.pop() || ''; // keep incomplete chunk
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const payload = line.slice(6);
+            if (payload === '[DONE]') {
+              reader.cancel();
+              sendBtn.disabled = false;
+              return;
+            }
+            try {
+              const { text } = JSON.parse(payload);
+              outputEl.textContent += text; // stream word-by-word
+            } catch {
+              /* ignore malformed chunk */
+            }
+          }
+        }
       }
+    } catch (err) {
+      outputEl.textContent = 'Error: ' + err.message;
+      outputEl.style.color = '#d93025';
+    } finally {
+      sendBtn.disabled = false;
+    }
+  });
 
-      sendBtn.disabled = true;
-      showThinkingAnimation();
-
-      try {
-        const res = await fetch('https://chatai-flame-eta.vercel.app/api/gemini', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-
-        if (!res.ok) throw new Error('Request failed: ' + res.status);
-        const data = await res.json();
-        outputEl.textContent = data.text;
-      } catch (err) {
-        outputEl.textContent = 'Error: ' + err.message;
-        outputEl.style.color = '#d93025';
-      } finally {
-        sendBtn.disabled = false;
-      }
-    });
-
-    // Allow pressing Enter to send message
-    messageEl.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        sendBtn.click();
-      }
-    });
-  </script>
+  // Allow Enter to send (Shift+Enter for new line)
+  messageEl.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendBtn.click();
+    }
+  });
+</script>
 </body>
 </html>
