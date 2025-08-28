@@ -407,8 +407,8 @@
   try {
   const { text } = JSON.parse(payload);
   // convert Markdown → HTML
-const html = marked.parse(text || '');
-outputEl.insertAdjacentHTML('beforeend', html);
+  const html = marked.parseInline(text || '');
+  outputEl.insertAdjacentHTML('beforeend', html);
 } catch {
   /* malformed chunk */
 }
