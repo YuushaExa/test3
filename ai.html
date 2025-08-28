@@ -1,130 +1,400 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <title>Gemini Chat – Pocket Pal Style</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gemini Chat | Modern Interface</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
-    :root{
-      --bg:#ffffff;
-      --surface:#fafafa;
-      --divider:#e0e0e0;
-      --accent:#FFD600;          /* Pocket Pal yellow */
-      --text:#111111;
-      --muted:#666666;
-      --radius:16px;
-      --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    :root {
+      --primary: #4285f4;
+      --primary-light: #e8f0fe;
+      --secondary: #f1f3f4;
+      --text: #202124;
+      --text-light: #5f6368;
+      --border: #dadce0;
+      --card-shadow: 0 1px 3px 0 rgba(60, 64, 67, 0.3), 0 4px 8px 3px rgba(60, 64, 67, 0.15);
+      --success: #34a853;
     }
-
-    *{box-sizing:border-box;font-family:var(--font)}
-    body{margin:0;padding:0;background:var(--bg);color:var(--text);display:flex;flex-direction:column;height:100vh}
-
-    header{background:var(--surface);padding:1rem 1.25rem;font-weight:600;font-size:1.1rem;border-bottom:1px solid var(--divider)}
-    .chat-area{flex:1;display:flex;flex-direction:column;overflow:hidden}
-    .bubble{margin:.5rem 1rem;padding:.75rem 1rem;border-radius:18px;max-width:75%;line-height:1.4;font-size:.95rem}
-    .user{align-self:flex-end;background:var(--accent);color:#000}
-    .bot{align-self:flex-start;background:var(--surface);border:1px solid var(--divider)}
-    .input-bar{display:flex;align-items:center;padding:.5rem 1rem;border-top:1px solid var(--divider);background:var(--bg)}
-    textarea{flex:1;resize:none;border:1px solid var(--divider);border-radius:20px;padding:.6rem 1rem;font-size:.95rem;background:#fff}
-    button{background:var(--accent);border:none;border-radius:50%;width:40px;height:40px;margin-left:.5rem;color:#000;font-size:1.2rem;cursor:pointer}
-    button:disabled{opacity:.4;cursor:not-allowed}
-
-    /* bottom-sheet (like Pocket Pal) */
-    #sheet{position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;justify-content:center;align-items:flex-end;z-index:10}
-    #sheetContent{width:100%;max-width:600px;background:var(--bg);border-top-left-radius:var(--radius);border-top-right-radius:var(--radius);padding:1rem;animation:slideUp .25s ease-out}
-    @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
-    #sheetContent label{font-size:.9rem;font-weight:600;margin-bottom:.25rem;display:block}
-    #sheetContent textarea{width:100%;min-height:120px;border:1px solid var(--divider);border-radius:var(--radius);padding:.5rem;font-size:.9rem;resize:vertical}
-    #sheetContent .actions{display:flex;justify-content:flex-end;gap:.5rem;margin-top:.75rem}
-    #sheetContent .actions button{width:auto;border-radius:var(--radius);padding:.4rem 1rem;font-size:.85rem}
+    
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+      color: var(--text);
+      line-height: 1.6;
+      min-height: 100vh;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .container {
+      max-width: 900px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 20px;
+      flex: 1;
+    }
+    
+    header {
+      text-align: center;
+      margin-bottom: 2rem;
+      padding-top: 1rem;
+    }
+    
+    .logo {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+    
+    .logo-icon {
+      background: linear-gradient(135deg, #4285f4 0%, #34a853 100%);
+      color: white;
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+    }
+    
+    h1 {
+      font-weight: 700;
+      font-size: 2.5rem;
+      background: linear-gradient(135deg, #4285f4 0%, #34a853 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 0.5rem;
+    }
+    
+    .subtitle {
+      color: var(--text-light);
+      font-size: 1.1rem;
+      margin-bottom: 2rem;
+    }
+    
+    .card {
+      background: white;
+      border-radius: 16px;
+      box-shadow: var(--card-shadow);
+      padding: 24px;
+      margin-bottom: 24px;
+      transition: all 0.3s ease;
+    }
+    
+    .card:hover {
+      box-shadow: 0 1px 3px 0 rgba(60, 64, 67, 0.4), 0 8px 12px 6px rgba(60, 64, 67, 0.2);
+    }
+    
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 500;
+      color: var(--text);
+    }
+    
+    select, textarea {
+      width: 100%;
+      padding: 14px 16px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 16px;
+      margin-bottom: 20px;
+      transition: all 0.2s;
+      background: white;
+    }
+    
+    select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px var(--primary-light);
+    }
+    
+    select {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%235f6368' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 16px center;
+      background-size: 16px;
+      appearance: none;
+      padding-right: 50px;
+    }
+    
+    textarea {
+      min-height: 120px;
+      resize: vertical;
+    }
+    
+    .toggle-container {
+      margin-bottom: 20px;
+    }
+    
+    .toggle-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: none;
+      border: none;
+      color: var(--primary);
+      font-size: 15px;
+      cursor: pointer;
+      padding: 8px 0;
+      font-weight: 500;
+    }
+    
+    .toggle-btn:hover {
+      color: #3367d6;
+    }
+    
+    .toggle-btn i {
+      transition: transform 0.3s ease;
+    }
+    
+    .toggle-btn.expanded i {
+      transform: rotate(180deg);
+    }
+    
+    .system-instruction-container {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease;
+    }
+    
+    .system-instruction-container.expanded {
+      max-height: 200px;
+    }
+    
+    button {
+      background: linear-gradient(135deg, #4285f4 0%, #3367d6 100%);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 16px 24px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      width: 100%;
+    }
+    
+    button:hover {
+      background: linear-gradient(135deg, #3367d6 0%, #2851a3 100%);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 8px rgba(66, 133, 244, 0.3);
+    }
+    
+    button:active {
+      transform: translateY(0);
+    }
+    
+    button:disabled {
+      background: var(--secondary);
+      color: var(--text-light);
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+    
+    .output-container {
+      position: relative;
+      min-height: 200px;
+    }
+    
+    #output {
+      white-space: pre-wrap;
+      padding: 20px;
+      background: var(--primary-light);
+      border-radius: 12px;
+      min-height: 200px;
+      color: var(--text);
+    }
+    
+    .typing-indicator {
+      display: flex;
+      padding: 20px;
+      align-items: center;
+      gap: 10px;
+      color: var(--text-light);
+    }
+    
+    .typing-dots {
+      display: flex;
+      gap: 4px;
+    }
+    
+    .typing-dot {
+      width: 8px;
+      height: 8px;
+      background: var(--text-light);
+      border-radius: 50%;
+      opacity: 0.6;
+      animation: typingAnimation 1.4s infinite ease-in-out;
+    }
+    
+    .typing-dot:nth-child(1) { animation-delay: 0s; }
+    .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+    .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+    
+    @keyframes typingAnimation {
+      0%, 60%, 100% { transform: translateY(0); opacity: 0.6; }
+      30% { transform: translateY(-10px); opacity: 1; }
+    }
+    
+    footer {
+      text-align: center;
+      padding: 20px;
+      color: var(--text-light);
+      font-size: 14px;
+      margin-top: auto;
+    }
+    
+    @media (max-width: 768px) {
+      .container {
+        padding: 16px;
+      }
+      
+      h1 {
+        font-size: 2rem;
+      }
+      
+      .card {
+        padding: 20px;
+      }
+    }
   </style>
 </head>
-
 <body>
-  <header>Gemini Chat</header>
-
-  <div class="chat-area">
-    <div id="messages" style="flex:1;padding:.5rem 0"></div>
-
-    <form class="input-bar" id="chatForm">
-      <textarea id="msgInput" placeholder="Ask me anything…" rows="1"></textarea>
-      <button id="sendBtn" type="submit" title="Send">➤</button>
-      <button id="settingsBtn" type="button" title="System">⚙️</button>
-    </form>
-  </div>
-
-  <!-- Pocket-Pal-style bottom sheet -->
-  <div id="sheet">
-    <div id="sheetContent">
-      <label>System Instruction</label>
-      <textarea id="systemInstruction" placeholder="You are a helpful assistant…"></textarea>
-
-      <label style="margin-top:.75rem">Model</label>
-      <select id="modelSelect" style="width:100%;padding:.5rem;border:1px solid var(--divider);border-radius:var(--radius);font-size:.9rem">
-        <option value="gemini-2.5-flash">gemini-2.5-flash</option>
-        <option value="gemini-2.5-pro">gemini-2.5-pro</option>
-      </select>
-
-      <div class="actions">
-        <button id="closeSheetBtn" style="background:#e0e0e0;color:#000">Close</button>
+  <div class="container">
+    <header>
+      <div class="logo">
+        <div class="logo-icon">
+          <i class="fas fa-gem"></i>
+        </div>
       </div>
+      <h1>Gemini Chat</h1>
+      <p class="subtitle">Experience the power of Google's Gemini AI models</p>
+    </header>
+    
+    <div class="card">
+      <label for="model">Select Model</label>
+      <select id="model">
+        <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+        <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+        <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash Lite</option>
+        <option value="gemma-3-27b-it">Gemma 3 27B</option>
+      </select>
+      
+      <div class="toggle-container">
+        <button class="toggle-btn" id="toggleSystem">
+          <span>System Instructions</span>
+          <i class="fas fa-chevron-down"></i>
+        </button>
+        <div class="system-instruction-container" id="systemContainer">
+          <textarea id="systemInstruction" placeholder="Optional: Provide custom instructions for the AI (e.g., 'You are a helpful assistant specialized in explaining complex concepts')"></textarea>
+        </div>
+      </div>
+      
+      <label for="message">Your Message</label>
+      <textarea id="message" placeholder="Explain quantum computing in 50 words..."></textarea>
+      
+      <button id="sendBtn">
+        <i class="fas fa-paper-plane"></i>
+        Send Message
+      </button>
+    </div>
+    
+    <div class="card output-container">
+      <label>Response</label>
+      <div id="output">—</div>
     </div>
   </div>
+  
+  <footer>
+    <p>Gemini Chat Interface &copy; 2023 | Powered by Google Gemini AI</p>
+  </footer>
 
-<script>
-/* --- helpers --- */
-const $ = q => document.querySelector(q);
-const messagesEl = $('#messages');
-const form = $('#chatForm');
-const msgInput = $('#msgInput');
-const sendBtn = $('#sendBtn');
-const settingsBtn = $('#settingsBtn');
-const sheet = $('#sheet');
-const closeSheetBtn = $('#closeSheetBtn');
+  <script>
+    const sendBtn = document.getElementById('sendBtn');
+    const modelEl = document.getElementById('model');
+    const systemEl = document.getElementById('systemInstruction');
+    const messageEl = document.getElementById('message');
+    const outputEl = document.getElementById('output');
+    const toggleSystemBtn = document.getElementById('toggleSystem');
+    const systemContainer = document.getElementById('systemContainer');
 
-/* open / close bottom sheet */
-[settingsBtn,closeSheetBtn].forEach(el=>el.onclick=()=>sheet.style.display=sheet.style.display==='flex'?'none':'flex');
-/* close on backdrop tap */
-sheet.onclick=e=>{if(e.target===sheet)sheet.style.display='none'};
-
-/* chat with Gemini */
-form.onsubmit = async e=>{
-  e.preventDefault();
-  const message = msgInput.value.trim();
-  if(!message) return;
-  appendBubble(message,'user');
-  msgInput.value='';
-  sendBtn.disabled=true;
-
-  const payload={
-    model:$('#modelSelect').value,
-    systemInstruction:$('#systemInstruction').value.trim(),
-    message
-  };
-
-  try{
-    const res = await fetch('https://chatai-flame-eta.vercel.app/api/gemini',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify(payload)
+    // Toggle system instruction visibility
+    toggleSystemBtn.addEventListener('click', () => {
+      toggleSystemBtn.classList.toggle('expanded');
+      systemContainer.classList.toggle('expanded');
     });
-    if(!res.ok) throw new Error(res.statusText);
-    const data=await res.json();
-    appendBubble(data.text,'bot');
-  }catch(err){
-    appendBubble('Error: '+err.message,'bot');
-  }finally{
-    sendBtn.disabled=false;
-  }
-};
 
-function appendBubble(text,who){
-  const div=document.createElement('div');
-  div.className='bubble '+who;
-  div.textContent=text;
-  messagesEl.appendChild(div);
-  div.scrollIntoView({behavior:'smooth'});
-}
-</script>
+    // Add animation to output
+    function showThinkingAnimation() {
+      outputEl.innerHTML = `
+        <div class="typing-indicator">
+          <span>Generating response</span>
+          <div class="typing-dots">
+            <div class="typing-dot"></div>
+            <div class="typing-dot"></div>
+            <div class="typing-dot"></div>
+          </div>
+        </div>
+      `;
+    }
+
+    sendBtn.addEventListener('click', async () => {
+      const payload = {
+        model: modelEl.value,
+        systemInstruction: systemEl.value.trim(),
+        message: messageEl.value.trim()
+      };
+
+      if (!payload.message) {
+        alert('Please enter a message.');
+        return;
+      }
+
+      sendBtn.disabled = true;
+      showThinkingAnimation();
+
+      try {
+        const res = await fetch('https://chatai-flame-eta.vercel.app/api/gemini', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) throw new Error('Request failed: ' + res.status);
+        const data = await res.json();
+        outputEl.textContent = data.text;
+      } catch (err) {
+        outputEl.textContent = 'Error: ' + err.message;
+        outputEl.style.color = '#d93025';
+      } finally {
+        sendBtn.disabled = false;
+      }
+    });
+
+    // Allow pressing Enter to send message
+    messageEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendBtn.click();
+      }
+    });
+  </script>
 </body>
 </html>
