@@ -330,106 +330,225 @@
 
 <script>
   const sendBtn = document.getElementById('sendBtn');
-  const modelEl = document.getElementById('model');
+  const modelEl =
+
+ document.getElementById('model');
   const systemEl = document.getElementById('systemInstruction');
-  const messageEl = document.getElementById('message');
+  const messageEl
+
+
+ = document.getElementById('message');
   const outputEl = document.getElementById('output');
-  const toggleSystemBtn = document.getElementById('toggleSystem');
+  const toggleSystem
+
+
+Btn = document.getElementById('toggleSystem');
   const systemContainer = document.getElementById('systemContainer');
 
-  // Toggle system instruction visibility
+
+// Toggle system instruction visibility
   toggleSystemBtn.addEventListener('click', () => {
-    toggleSystemBtn.classList.toggle('expanded');
+    toggleSystemBtn.
+
+
+classList.toggle('expanded');
     systemContainer.classList.toggle('expanded');
   });
 
-  // Simple “thinking” placeholder
+
+  // Simple
+
+
+ “thinking” placeholder
   function showThinkingAnimation() {
     outputEl.innerHTML = `
-      <div class="typing-indicator">
-        <span>Generating response</span>
-        <div class="typing-dots">
-          <div class="typing-dot"></div>
-          <div class="typing-dot"></div>
-          <div class="typing-dot"></div>
-        </div>
-      </div>
+      <div class
+
+
+="typing-indicator">
+        Generating response...
+        
+
+
+          <div class
+="typing-dot">
+          
+
+
+          <div class="typing
+
+-dot">
+        
+      
     `;
   }
 
-  sendBtn.addEventListener('click', async () => {
+
+  sendBtn.addEventListener('click', async ()
+
+
+ => {
     const payload = {
       model: modelEl.value,
-      systemInstruction: systemEl.value.trim(),
+      systemInstruction: systemEl
+
+
+.value.trim(),
       message: messageEl.value.trim()
     };
 
-    if (!payload.message) {
+
+if (!payload
+
+.message) {
       alert('Please enter a message.');
       return;
     }
 
-    sendBtn.disabled = true;
+
+sendBtn
+
+.disabled = true;
+    sendBtn.innerHTML = '
+
+
+ Processing...';
     showThinkingAnimation();
 
-    const encoder = new TextEncoder();
-    const decoder = new TextDecoder();
 
-    try {
-      const response = await fetch('https://chatai-flame-eta.vercel.app/api/gemini', {
+const decoder = new TextDecoder();
+
+try {
+  const
+
+ response = await fetch('https://chatai-flame-eta.vercel.app/api/gemini',
+
+
+ {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
 
-      if (!response.ok) throw new Error('Request failed: ' + response.status);
 
-      const reader = response.body.getReader();
-      let buffer = '';
-      outputEl.textContent = ''; // clear previous text
+    body: JSON.stringify(payload)
+  });
 
-      while (true) {
-        const { done, value } = await reader.read();
+  if (!response.ok) {
+    
+
+const errorText = await response.text();
+        throw new Error(`Request failed: ${response.status} ${
+
+
+response.statusText} - ${errorText}`);
+      }
+
+
+  if (!response.body) {
+      
+
+throw new Error("Response body is null.");
+      }
+
+
+  const reader = response.body.getReader();
+
+  let buffer = '';
+  
+  // <<< FIX: ACCUMULATE THE FULL RESPONSE FOR PROPER MARK
+
+DOWN PARSING >>>
+      let fullResponseText = '';
+      outputEl.innerHTML = ''; // Clear the "
+
+
+thinking" animation once the first chunk arrives
+
+
+  while (true) {
+    const { done, value } =
+
+ await reader.read();
         if (done) break;
 
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n\n');
-        buffer = lines.pop() || ''; // keep incomplete chunk
 
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const payload = line.slice(6);
-            if (payload === '[DONE]') {
-              reader.cancel();
-              sendBtn.disabled = false;
-              return;
+    buffer += decoder.decode(value, {
+
+ stream: true });
+        const lines = buffer.split('\n\n');
+        buffer = lines.pop() ||
+
+
+ ''; // Keep incomplete chunk
+
+
+    for (const line of lines) {
+      if (line.startsWith('data: ')) {
+
+        const payloadStr = line.slice(6);
+        if (payloadStr === '[DONE]') {
+          
+
+return; // Stream finished, exit the loop.
             }
-  try {
-  const { text } = JSON.parse(payload);
-  // convert Markdown → HTML
-const html = marked.parse(text || '');
-outputEl.insertAdjacentHTML('beforeend', html);
-} catch {
-  /* malformed chunk */
-}
+            try {
+              const { text } = JSON
+
+
+.parse(payloadStr);
+              // <<< FIX: Append new text and re-render the whole thing >>>
+              
+
+
+if (text) {
+                fullResponseText += text;
+                outputEl.innerHTML = marked.parse(
+
+
+fullResponseText);
+              }
+            } catch (e) {
+                console.error("Malformed JSON chunk:",
+
+
+ payloadStr, e);
+            }
           }
         }
       }
     } catch (err) {
-      outputEl.textContent = 'Error: ' + err.message;
-      outputEl.style.color = '#d93025';
+      
+
+
+outputEl.innerHTML = `<p style="color: #d93025; font-weight: 
+
+
+500;">Error: ${err.message}
+
+`;
     } finally {
       sendBtn.disabled = false;
-    }
+
+  sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Send Message';
+
+}
   });
 
+
   // Allow Enter to send (Shift+Enter for new line)
-  messageEl.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+  messageEl.
+
+
+addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.
+
+
+shiftKey) {
       e.preventDefault();
       sendBtn.click();
     }
   });
+
+
 </script>
 </body>
 </html>
