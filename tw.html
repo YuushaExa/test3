@@ -47,6 +47,7 @@
   <button id="saveTranslationBtn" disabled>Save Translation</button>
 </div>
 <button id="scroll-btn">Scroll to Bottom</button>
+<button id="auto-scroll-save-btn">Start Auto-Scroll & Save</button>
 
 <div id="console-translate" translate="yes"
      class="console-like"
@@ -959,6 +960,62 @@ btn.addEventListener('click', () => {
   }
 
   animId = requestAnimationFrame(step);
+});
+
+    const autoScrollSaveBtn = document.getElementById('auto-scroll-save-btn');
+let isAutoScrolling = false;
+
+// This is the main automation function
+async function autoScrollAndSave() {
+  // This loop will continue as long as isAutoScrolling is true
+  while (isAutoScrolling) {
+    // 1. Programmatically click the 'Scroll to Bottom' button
+    btn.click();
+    
+    // 2. Wait for the scrolling animation to finish completely
+    await new Promise(resolve => {
+      const checkInterval = setInterval(() => {
+        // The 'animId' is null when the scrolling stops
+        if (!animId) {
+          clearInterval(checkInterval);
+          resolve();
+        }
+      }, 5000); // Check every 100 milliseconds
+    });
+
+    // Add a small delay to ensure the browser has caught up
+    await new Promise(resolve => setTimeout(resolve, 200));
+
+    // 3. Programmatically click the 'Save Translation' button
+    saveTranslationBtn.click();
+    
+    // 4. Wait for the next batch of text to load in the console
+    await new Promise(resolve => {
+      const checkInterval = setInterval(() => {
+        // When the console has content again, we can continue
+        if (consoleTranslate.innerHTML.trim() !== '') {
+          clearInterval(checkInterval);
+          resolve();
+        }
+      }, 3000); // Check every 100 milliseconds
+    });
+  }
+}
+
+// This listens for clicks on the new button to start or stop the process
+autoScrollSaveBtn.addEventListener('click', () => {
+  // Flips the value (true to false, false to true)
+  isAutoScrolling = !isAutoScrolling;
+  
+  if (isAutoScrolling) {
+    // If we just turned it ON
+    autoScrollSaveBtn.textContent = 'Stop Auto-Scroll & Save';
+    autoScrollAndSave(); // Start the automation loop
+  } else {
+    // If we just turned it OFF
+    autoScrollSaveBtn.textContent = 'Start Auto-Scroll & Save';
+    // The loop in autoScrollAndSave() will stop automatically
+  }
 });
   </script>
 </body>
