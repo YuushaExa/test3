@@ -706,20 +706,66 @@ async function collectStoryPages(url) {
 
 /* extract cleaned content for one story page */
 function extractStory(doc, url) {
+  /* --- title --- */
   const title = doc.querySelector('h1.j_bm')?.textContent.trim() || 'Untitled';
-  const tags = [...doc.querySelectorAll('.bn_Q a.av_as')].map(a =>
-    `<a href="${a.href}">${a.textContent.trim()}</a>`).join(', ');
 
+  /* --- author panel --- */
+  let authorHTML = '';
+  const authorBlock = doc.querySelector('.y_eS');
+  if (authorBlock) {
+    const authorLink = authorBlock.querySelector('a.y_eU');
+    const storyCount = authorBlock.querySelector('.y_H[title="Stories"] span')?.textContent.trim() || '0 Stories';
+    if (authorLink) {
+      authorHTML = `
+        <p><strong>Author:</strong>
+          <a href="${authorLink.href}">${authorLink.textContent.trim()}</a>
+          <em>(${storyCount})</em>
+        </p>`;
+    }
+  }
+
+  /* --- tags --- */
+  const tags = [...doc.querySelectorAll('.bn_Q a.av_as')]
+               .map(a => `<a href="${a.href}">${a.textContent.trim()}</a>`)
+               .join(', ');
+  const tagsHTML = tags ? `<p><strong>Tags:</strong> ${tags}</p>` : '';
+
+  /* --- info blurb --- */
   const info = doc.querySelector('#tabpanel-info .bn_B')?.textContent.trim() || '';
-  const ps = [...doc.querySelectorAll('.panel.article p')].map(p => p.outerHTML).join('\n');
+  const infoHTML = info ? `<p><em>${info}</em></p>` : '';
 
-  const body = [
-    tags   ? `<p><strong>Tags:</strong> ${tags}</p>` : '',
-    info   ? `<p><em>${info}</em></p>` : '',
-    ps
+  /* --- main story body --- */
+  const storyBody = [...doc.querySelectorAll('.panel.article p')]
+                    .map(p => p.outerHTML).join('\n');
+
+  /* --- similar stories --- */
+  let similarHTML = '';
+  const simPanel = doc.querySelector('.panel.z_r.z_R');
+  if (simPanel) {
+    const items = [...simPanel.querySelectorAll('.z_S')].map(item => {
+      const a   = item.querySelector('a.z_t');
+      const blurb = item.querySelector('.z_pe')?.textContent.trim() || '';
+      const cat   = item.querySelector('.z_fi')?.textContent.trim() || '';
+      return `<li><a href="${a.href}">${a.textContent.trim()}</a>
+              <br><em>${blurb}</em> <small>(${cat})</small></li>`;
+    }).join('');
+    similarHTML = `
+      <hr>
+      <h3>Similar Stories</h3>
+      <ul>${items}</ul>`;
+  }
+
+  /* assemble final content */
+  const content = [
+    `<h1>${title}</h1>`,
+    authorHTML,
+    tagsHTML,
+    infoHTML,
+    storyBody,
+    similarHTML
   ].join('\n');
 
-  return { title, content: body, url };
+  return { title, content };
 }
 
 /* main crawler ------------------------------------------------ */
