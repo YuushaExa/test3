@@ -17,6 +17,23 @@
     .progress-container{margin-top:15px;display:none}
     progress{width:100%}
     .status{text-align:center;margin:10px 0;font-weight:bold}
+
+    #rangeDialog {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.5);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 9999;
+}
+#rangeDialog > div {
+  background: #fff; padding: 25px;
+  border-radius: 8px; width: 300px;
+  font-family: inherit;
+}
+#rangeDialog label { display: block; margin-bottom: 5px; font-weight: bold; }
+#rangeDialog input[type=text] {
+  width: 100%; padding: 6px; margin-bottom: 15px;
+}
+#rangeDialog button { margin-right: 8px; }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js "></script>
     
@@ -706,27 +723,8 @@ function extractStory(doc, url) {
 }
 
 /* main crawler ------------------------------------------------ */
-<!-- ===== RANGE-SELECTOR DIALOG ===== -->
-<style>
-#rangeDialog {
-  position: fixed; inset: 0;
-  background: rgba(0,0,0,.5);
-  display: flex; align-items: center; justify-content: center;
-  z-index: 9999;
-}
-#rangeDialog > div {
-  background: #fff; padding: 25px;
-  border-radius: 8px; width: 300px;
-  font-family: inherit;
-}
-#rangeDialog label { display: block; margin-bottom: 5px; font-weight: bold; }
-#rangeDialog input[type=text] {
-  width: 100%; padding: 6px; margin-bottom: 15px;
-}
-#rangeDialog button { margin-right: 8px; }
-</style>
 
-<script>
+
 /* ----------------------------------------------------------
    1.  Ask user for a range (inclusive, 1-based)
 ---------------------------------------------------------- */
