@@ -706,66 +706,34 @@ async function collectStoryPages(url) {
 
 /* extract cleaned content for one story page */
 function extractStory(doc, url) {
-  /* --- title --- */
+  /* ---- title ---- */
   const title = doc.querySelector('h1.j_bm')?.textContent.trim() || 'Untitled';
 
-  /* --- author panel --- */
-  let authorHTML = '';
-  const authorBlock = doc.querySelector('.y_eS');
-  if (authorBlock) {
-    const authorLink = authorBlock.querySelector('a.y_eU');
-    const storyCount = authorBlock.querySelector('.y_H[title="Stories"] span')?.textContent.trim() || '0 Stories';
-    if (authorLink) {
-      authorHTML = `
-        <p><strong>Author:</strong>
-          <a href="${authorLink.href}">${authorLink.textContent.trim()}</a>
-          <em>(${storyCount})</em>
-        </p>`;
-    }
-  }
+  /* ---- author block ---- */
+  const authorA = doc.querySelector('.clearfix.panel.y_eP a.y_eU');
+  const authorHtml = authorA
+    ? `<p><strong>Author:</strong> <a href="${authorA.href}">${authorA.textContent.trim()}</a></p>`
+    : '';
 
-  /* --- tags --- */
-  const tags = [...doc.querySelectorAll('.bn_Q a.av_as')]
-               .map(a => `<a href="${a.href}">${a.textContent.trim()}</a>`)
-               .join(', ');
-  const tagsHTML = tags ? `<p><strong>Tags:</strong> ${tags}</p>` : '';
+  /* ---- tags ---- */
+  const tags = [...doc.querySelectorAll('.bn_Q a.av_as')].map(a =>
+    `<a href="${a.href}">${a.textContent.trim()}</a>`).join(', ');
 
-  /* --- info blurb --- */
+  /* ---- info blurb ---- */
   const info = doc.querySelector('#tabpanel-info .bn_B')?.textContent.trim() || '';
-  const infoHTML = info ? `<p><em>${info}</em></p>` : '';
 
-  /* --- main story body --- */
-  const storyBody = [...doc.querySelectorAll('.panel.article p')]
-                    .map(p => p.outerHTML).join('\n');
+  /* ---- story paragraphs ---- */
+  const ps = [...doc.querySelectorAll('.panel.article p')].map(p => p.outerHTML).join('\n');
 
-  /* --- similar stories --- */
-  let similarHTML = '';
-  const simPanel = doc.querySelector('.panel.z_r.z_R');
-  if (simPanel) {
-    const items = [...simPanel.querySelectorAll('.z_S')].map(item => {
-      const a   = item.querySelector('a.z_t');
-      const blurb = item.querySelector('.z_pe')?.textContent.trim() || '';
-      const cat   = item.querySelector('.z_fi')?.textContent.trim() || '';
-      return `<li><a href="${a.href}">${a.textContent.trim()}</a>
-              <br><em>${blurb}</em> <small>(${cat})</small></li>`;
-    }).join('');
-    similarHTML = `
-      <hr>
-      <h3>Similar Stories</h3>
-      <ul>${items}</ul>`;
-  }
-
-  /* assemble final content */
+  /* ---- build final content ---- */
   const content = [
-    `<h1>${title}</h1>`,
-    authorHTML,
-    tagsHTML,
-    infoHTML,
-    storyBody,
-    similarHTML
-  ].join('\n');
+    authorHtml,
+    tags ? `<p><strong>Tags:</strong> ${tags}</p>` : '',
+    info ? `<p><em>${info}</em></p>` : '',
+    ps
+  ].filter(Boolean).join('\n');
 
-  return { title, content };
+  return { title, content, url };
 }
 
 /* main crawler ------------------------------------------------ */
@@ -903,21 +871,5 @@ fetchLitBtn.addEventListener('click', fetchLitCategory);
     
   </script>
 </body>
-<!-- ===== NUInfo button + results container ===== -->
-<button id="nuInfoBtn" disabled>NUInfo</button>
-<button id="autoFillBtn" disabled>AutoFill</button>
-
-<div id="nuInfo" style="display:none; margin-top:10px; border:1px solid #ccc; border-radius:4px; overflow:hidden; padding:10px;">
-  <div id="nuInfoHeader" style="background:#eee;padding:4px;font-size:12px">
-    <span style="float:right;cursor:pointer" onclick="closeNuInfo()">✖</span>
-    <b>NovelUpdates search</b>
-  </div>
-  <div id="nuInfoResults" style="margin-top:10px;"></div>
-</div>
-
-
-<!-- ===== /NUInfo patch ===== -->
-    <script src="nuinfo.js"></script>
 <script src="ep.js"></script>
 </html>
-
