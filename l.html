@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Novel Crawler - Literotica Support</title>
+  <style>
+    body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;max-width:800px;margin:0 auto;padding:20px;background:#f5f5f5}
+    h1{color:#333;text-align:center}
+    .container{background:#fff;padding:20px;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,.1)}
+    .form-group{margin-bottom:15px}
+    label{display:block;margin-bottom:5px;font-weight:bold}
+    input[type=text]{width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;box-sizing:border-box}
+    button{background:#4CAF50;color:#fff;border:none;padding:10px 15px;border-radius:4px;cursor:pointer;font-size:16px;margin-right:10px}
+    button:disabled{background:#ccc}
+    #console{background:#1e1e1e;color:#d4d4d4;padding:15px;border-radius:4px;font-family:'Courier New',Courier,monospace;height:300px;overflow-y:auto;white-space:pre-wrap;margin-top:20px}
+    .progress-container{margin-top:15px;display:none}
+    progress{width:100%}
+    .status{text-align:center;margin:10px 0;font-weight:bold}
+    .site-selector{margin-bottom:15px}
+    .site-selector select{width:100%;padding:8px;border:1px solid #ddd;border-radius:4px}
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+</head>
+<body>
+  <div class="container">
+    <h1>Novel Crawler</h1>
+
+    <div class="site-selector">
+      <label for="siteType">Site Type:</label>
+      <select id="siteType">
+        <option value="novel">Novel Sites (NovelLove, etc.)</option>
+        <option value="literotica">Literotica</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label for="novelUrl">URL:</label>
+      <input type="text" id="novelUrl" placeholder="Enter Literotica category URL (e.g., https://www.literotica.com/c/science-fiction-fantasy/1-page)">
+    </div>
+
+    <button id="fetchMetadataBtn">Fetch Metadata</button>
+    <button id="fetchChaptersBtn" disabled>Fetch Chapters</button>
+    <button id="downloadBtn" disabled>Download as JSON</button>
+    <button id="saveToJsonBtn" disabled>Save JSON</button> 
+    <button id="editMetadataBtn" disabled>Edit Metadata</button>
+    <button id="saveMetadataBtn">Save Metadata</button>
+    
+    <div class="progress-container" id="progressContainer">
+      <div class="status" id="statusText">Processing...</div>
+      <progress id="progressBar" value="0" max="100"></progress>
+    </div>
+
+    <div id="console"></div>
+  </div>
+
+  <script>
+    // ---- DOM refs ----
+    const consoleOutput   = document.getElementById('console');
+    const novelUrlInput   = document.getElementById('novelUrl');
+    const siteTypeSelect  = document.getElementById('siteType');
+    const fetchMetadataBtn= document.getElementById('fetchMetadataBtn');
+    const fetchChaptersBtn= document.getElementById('fetchChaptersBtn');
+    const downloadBtn     = document.getElementById('downloadBtn');
+    const saveToJsonBtn   = document.getElementById('saveToJsonBtn'); 
+    const progressContainer = document.getElementById('progressContainer');
+    const progressBar     = document.getElementById('progressBar');
+    const statusText      = document.getElementById('statusText');
+
+    // ---- config ----
+    const WORKER_URL = 'https://curly-pond-9050.workit1990k.workers.dev';
+
+    // ---- helpers ----
+    function log(msg, color = '') {
+      const messageElement = document.createElement('div');
+      messageElement.textContent = msg;
+      
+      if (color) {
+        messageElement.style.color = color;
+        messageElement.style.fontWeight = 'bold';
+      }
+      
+      consoleOutput.appendChild(messageElement);
+      consoleOutput.scrollTop = consoleOutput.scrollHeight;
+    }
+
+    function updateProgress(current, total) {
+      const pct = Math.round((current / total) * 100);
+      progressBar.value = pct;
+      statusText.textContent = `Processing ${current}/${total} (${pct}%)`;
+    }
+
+    // ---- data store ----
+    let novelData = { metadata: null, chapters: [] };
+
+    // ---- fetch raw html via worker ----
+    async function fetchRawHTML(targetUrl) {
+      const res = await fetch(`${WORKER_URL}/api/raw?url=${encodeURIComponent(targetUrl)}`);
+      if (!res.ok) throw new Error(`raw fetch ${res.status}`);
+      return res.text();
+    }
+
+    // ---- Literotica specific functions ----
+    async function fetchLiteroticaCategory() {
+      const url = novelUrlInput.value.trim();
+      if (!url) return alert('Please enter a Literotica category URL');
+      
+      try {
+        log('Fetching Literotica category page...');
+        fetchMetadataBtn.disabled = true;
+        
+        // Get the first page to determine total pages
+        const html = await fetchRawHTML(url);
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        
+        // Extract total pages
+        const pageSelect = doc.querySelector('select[name="page"]');
+        let totalPages = 1;
+        
+        if (pageSelect) {
+          const options = pageSelect.querySelectorAll('option');
+          totalPages = parseInt(options[options.length - 1].value);
+          log(`Found ${totalPages} pages in this category`);
+        }
+        
+        // Collect all story links from all pages
+        const allStoryLinks = [];
+        
+        for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
+          const pageUrl = url.replace(/\/\d+-page$/, `/${pageNum}-page`);
+          log(`Fetching page ${pageNum}/${totalPages}`);
+          
+          const pageHtml = await fetchRawHTML(pageUrl);
+          const pageDoc = new DOMParser().parseFromString(pageHtml, 'text/html');
+          
+          // Extract story links
+          const storyElements = pageDoc.querySelectorAll('.b-sl-item-r h3 a');
+          storyElements.forEach(a => {
+            if (a.href.includes('/s/')) {
+              allStoryLinks.push({
+                title: a.textContent.trim(),
+                url: a.href
+              });
+            }
+          });
+          
+          updateProgress(pageNum, totalPages);
+          await new Promise(r => setTimeout(r, 500)); // Polite delay
+        }
+        
+        log(`Found ${allStoryLinks.length} stories total`);
+        
+        // Set up metadata for this category
+        const categoryName = doc.querySelector('h1.category-name')?.textContent?.trim() || 
+                             url.split('/c/')[1]?.split('/')[0]?.replace(/-/g, ' ') || 
+                             'Literotica Stories';
+        
+        novelData.metadata = {
+          title: categoryName,
+          cover: '',
+          author: ['Various Authors'],
+          genres: [categoryName],
+          status: 'Completed',
+          source: url,
+          description: `Collection of stories from Literotica's ${categoryName} category`
+        };
+        
+        novelData.chapters = allStoryLinks;
+        
+        log(`\n=== Metadata ===`);
+        log(`Title: ${novelData.metadata.title}`);
+        log(`Author: ${novelData.metadata.author.join(', ')}`);
+        log(`Genres: ${novelData.metadata.genres.join(', ')}`);
+        log(`Source: ${novelData.metadata.source}`);
+        log(`\nTotal stories found: ${allStoryLinks.length}`);
+        
+        fetchChaptersBtn.disabled = false;
+        progressContainer.style.display = 'none';
+        
+      } catch (err) {
+        log(`Error: ${err.message}`, 'red');
+        fetchMetadataBtn.disabled = false;
+        progressContainer.style.display = 'none';
+      }
+    }
+
+    async function fetchLiteroticaStoryContent(storyUrl) {
+      try {
+        const html = await fetchRawHTML(storyUrl);
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        
+        // Extract story title
+        const title = doc.querySelector('h1.j_bm')?.textContent?.trim() || 'Untitled';
+        
+        // Check if story has multiple pages
+        const pagination = doc.querySelector('.l_bQ');
+        let allContent = '';
+        let pageCount = 1;
+        
+        if (pagination) {
+          // Get all page links
+          const pageLinks = doc.querySelectorAll('.l_bQ a');
+          const pageUrls = [storyUrl];
+          
+          pageLinks.forEach(a => {
+            if (a.href && !pageUrls.includes(a.href)) {
+              pageUrls.push(a.href);
+            }
+          });
+          
+          pageCount = pageUrls.length;
+          
+          // Fetch content from all pages
+          for (let i = 0; i < pageUrls.length; i++) {
+            log(`Fetching page ${i+1}/${pageCount} of story: ${title}`);
+            
+            const pageHtml = await fetchRawHTML(pageUrls[i]);
+            const pageDoc = new DOMParser().parseFromString(pageHtml, 'text/html');
+            
+            // Extract content from this page
+            const contentDiv = pageDoc.querySelector('.aa_ht');
+            if (contentDiv) {
+              allContent += contentDiv.innerHTML + '\n\n';
+            }
+            
+            await new Promise(r => setTimeout(r, 300)); // Polite delay
+          }
+        } else {
+          // Single page story
+          const contentDiv = doc.querySelector('.aa_ht');
+          if (contentDiv) {
+            allContent = contentDiv.innerHTML;
+          }
+        }
+        
+        // Extract tags
+        const tagElements = doc.querySelectorAll('.bn_Q a');
+        const tags = Array.from(tagElements).map(tag => tag.textContent.trim());
+        
+        // Extract info text
+        const infoText = doc.querySelector('.bn_B')?.textContent?.trim() || '';
+        
+        // Clean up content
+        let cleanContent = allContent
+          .replace(/<script\b[^>]*>.*?<\/script>/gis, '')
+          .replace(/<iframe[^>]*>.*?<\/iframe>/gis, '')
+          .replace(/<div class="ad[^>]*>.*?<\/div>/gis, '')
+          .replace(/<div class="bn_[^>]*>.*?<\/div>/gis, '')
+          .replace(/<form[^>]*>.*?<\/form>/gis, '')
+          .replace(/<!--.*?-->/gs, '')
+          .trim();
+        
+        // Add tags and info to content
+        if (tags.length > 0) {
+          cleanContent = `<div class="tags"><strong>Tags:</strong> ${tags.join(', ')}</div>` + cleanContent;
+        }
+        
+        if (infoText) {
+          cleanContent = `<div class="info"><strong>Info:</strong> ${infoText}</div>` + cleanContent;
+        }
+        
+        return {
+          title: title,
+          content: cleanContent,
+          tags: tags,
+          info: infoText
+        };
+        
+      } catch (err) {
+        log(`Error fetching story: ${err.message}`, 'red');
+        return {
+          title: 'Error',
+          content: `Failed to fetch content: ${err.message}`,
+          tags: [],
+          info: ''
+        };
+      }
+    }
+
+    async function fetchLiteroticaChapters() {
+      if (!novelData.chapters.length) return alert('No stories found');
+      
+      try {
+        fetchChaptersBtn.disabled = true;
+        progressContainer.style.display = 'block';
+        
+        const total = novelData.chapters.length;
+        
+        for (let i = 0; i < total; i++) {
+          const story = novelData.chapters[i];
+          log(`Fetching story ${i+1}/${total}: ${story.title}`);
+          
+          const storyData = await fetchLiteroticaStoryContent(story.url);
+          
+          // Update the chapter with content
+          novelData.chapters[i] = {
+            ...story,
+            ...storyData
+          };
+          
+          updateProgress(i + 1, total);
+          await new Promise(r => setTimeout(r, 500)); // Polite delay between requests
+        }
+        
+        log('\nAll stories fetched!');
+        downloadBtn.disabled = false;
+        saveToJsonBtn.disabled = false; 
+        progressContainer.style.display = 'none';
+        
+      } catch (err) {
+        log(`Error: ${err.message}`, 'red');
+        fetchChaptersBtn.disabled = false;
+        progressContainer.style.display = 'none';
+      }
+    }
+
+    // ---- Unified fetch functions ----
+    async function fetchMetadata() {
+      const siteType = siteTypeSelect.value;
+      
+      if (siteType === 'literotica') {
+        await fetchLiteroticaCategory();
+      } else {
+        // Your original novel site code would go here
+        alert('Novel site functionality not implemented in this example');
+      }
+    }
+
+    async function fetchChapters() {
+      const siteType = siteTypeSelect.value;
+      
+      if (siteType === 'literotica') {
+        await fetchLiteroticaChapters();
+      } else {
+        // Your original novel site code would go here
+        alert('Novel site functionality not implemented in this example');
+      }
+    }
+
+    // ---- Event listeners ----
+    fetchMetadataBtn.addEventListener('click', fetchMetadata);
+    fetchChaptersBtn.addEventListener('click', fetchChapters);
+
+    // Update placeholder based on site type
+    siteTypeSelect.addEventListener('change', function() {
+      if (this.value === 'literotica') {
+        novelUrlInput.placeholder = 'Enter Literotica category URL (e.g., https://www.literotica.com/c/science-fiction-fantasy/1-page)';
+      } else {
+        novelUrlInput.placeholder = 'Enter novel URL';
+      }
+    });
+
+    // ---- The rest of your existing functions (downloadJson, etc.) would go here ----
+    function downloadJson() {
+      if (!novelData.metadata?.title) return alert('No data to save');
+      
+      const cleanData = {
+        ...novelData,
+        chapters: novelData.chapters.map(({ url, ...rest }) => rest)
+      };
+      
+      const blob = new Blob([JSON.stringify(cleanData, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `${novelData.metadata.title.replace(/[^a-z0-9]/gi, '_')}.json`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    downloadBtn.addEventListener('click', downloadJson);
+
+    // Placeholder for other functions that would need to be implemented
+    saveToJsonBtn.addEventListener('click', () => alert('Save to JSON functionality would be implemented here'));
+    document.getElementById('editMetadataBtn').addEventListener('click', () => alert('Edit metadata functionality would be implemented here'));
+    document.getElementById('saveMetadataBtn').addEventListener('click', () => alert('Save metadata functionality would be implemented here'));
+  </script>
+</body>
+</html>
