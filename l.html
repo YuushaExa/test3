@@ -688,48 +688,107 @@ function storyLinks(doc) {
 }
 
 /* for a story page, return array of all page URLs (including page 1) */
-/* for a story page, fetch every page and return ONE chapter object
-   whose content is the concatenation of all pages */
+/* for a story page, fetch and combine all pages into a single document */
 async function collectStoryPages(url) {
-  const doc = (await getDoc(url));
-  let content = '';
-
-  /* helper to extract cleaned content for one page */
-  function extractPage(d) {
-    return [...d.querySelectorAll('.panel.article p')]
-           .map(p => p.outerHTML).join('\n');
+  const doc = await getDoc(url);
+  const pagerLinks = [...doc.querySelectorAll('.page__main--float a[href*="?page="]')];
+  
+  // If no pagination links found, return the single page
+  if (pagerLinks.length === 0) {
+    return {doc, url};
   }
 
-  /* first page */
-  const title =
-    doc.querySelector('h1.j_bm')?.textContent.trim() || 'Untitled';
-  content += extractPage(doc);
+  // Find the maximum page number
+  const last = pagerLinks
+    .map(a => parseInt(new URL(a.href).searchParams.get('page'), 10))
+    .reduce((max, n) => Math.max(max, n), 1);
 
-  /* discover other pages */
-  const pageLinks = [...doc.querySelectorAll('.page__main--float a[href*="?page="]')];
-  if (!pageLinks.length) {
-    // single-page story
-    return [{ title, content, url }];
+  // If there's only one page, return it
+  if (last === 1) {
+    return {doc, url};
   }
 
-  const lastPage = Math.max(
-    ...pageLinks.map(a => Number(new URL(a.href).searchParams.get('page')))
-  );
+  // Create a clone of the original document to combine content into
+  const combinedDoc = doc.cloneNode(true);
+  const contentContainer = combinedDoc.querySelector('.panel.article');
+  
+  // Clear the content container to start fresh
+  if (contentContainer) {
+    contentContainer.innerHTML = '';
+  }
 
-  /* fetch remaining pages in parallel (reasonable concurrency) */
-  const pageUrls = [];
-  for (let p = 2; p <= lastPage; p++) pageUrls.push(`${url}?page=${p}`);
+  // Array to store all page fetching promises
+  const pagePromises = [];
 
-  const MAX_PAGE_CONCURRENCY = 20;
-  const extraPages = await runConcurrent(
-    pageUrls,
-    MAX_PAGE_CONCURRENCY,
-    async pageUrl => extractPage(await getDoc(pageUrl))
-  );
+  // Function to fetch and extract content from a page
+  const fetchPageContent = async (pageUrl) => {
+    try {
+      const pageDoc = await getDoc(pageUrl);
+      const pageContent = pageDoc.querySelector('.panel.article');
+      return pageContent ? pageContent.innerHTML : '';
+    } catch (error) {
+      console.error(`Error fetching page ${pageUrl}:`, error);
+      return '';
+    }
+  };
 
-  content += '\n' + extraPages.filter(Boolean).join('\n');
+  // Add the first page's content
+  const firstPageContent = doc.querySelector('.panel.article');
+  if (firstPageContent && contentContainer) {
+    contentContainer.innerHTML += firstPageContent.innerHTML;
+  }
 
-  return [{ title, content, url }];
+  // Fetch all additional pages
+  for (let p = 2; p <= last; p++) {
+    const pageUrl = `${url}?page=${p}`;
+    pagePromises.push(fetchPageContent(pageUrl));
+  }
+
+  // Wait for all pages to be fetched
+  const pageContents = await Promise.all(pagePromises);
+  
+  // Append all fetched content to the combined document
+  pageContents.forEach(content => {
+    if (content && contentContainer) {
+      contentContainer.innerHTML += content;
+    }
+  });
+
+  return {doc: combinedDoc, url};
+}
+
+/* extract cleaned content for one story - updated to use the combined doc */
+function extractStory(data, url) {
+  const {doc} = data;
+  
+  /* ---- title ---- */
+  const title = doc.querySelector('h1.j_bm')?.textContent.trim() || 'Untitled';
+
+  /* ---- author block ---- */
+  const authorA = doc.querySelector('.clearfix.panel.y_eP a.y_eU');
+  const authorHtml = authorA
+    ? `<p><strong>Author:</strong> <a href="${authorA.href}">${authorA.textContent.trim()}</a></p>`
+    : '';
+
+  /* ---- tags ---- */
+  const tags = [...doc.querySelectorAll('.bn_Q a.av_as')].map(a =>
+    `<a href="${a.href}">${a.textContent.trim()}</a>`).join(', ');
+
+  /* ---- info blurb ---- */
+  const info = doc.querySelector('#tabpanel-info .bn_B')?.textContent.trim() || '';
+
+  /* ---- story paragraphs ---- */
+  const ps = [...doc.querySelectorAll('.panel.article p')].map(p => p.outerHTML).join('\n');
+
+  /* ---- build final content ---- */
+  const content = [
+    authorHtml,
+    tags ? `<p><strong>Tags:</strong> ${tags}</p>` : '',
+    info ? `<p><em>${info}</em></p>` : '',
+    ps
+  ].filter(Boolean).join('\n');
+
+  return { title, content, url };
 }
 
 /* extract cleaned content for one story page */
@@ -853,12 +912,12 @@ async function fetchLitCategory() {
     /* 2. collect every story URL – in parallel */
     const MAX_CAT_CONCURRENCY = 10;
     const storySet = new Set();
-    
-await runConcurrent(catPages, MAX_CAT_CONCURRENCY, async (_, i) => {
-  const doc = await getDoc(catPages[i]);
-  storyLinks(doc).forEach(u => storySet.add(u));
-  updateProgress(i + 1, catPages.length);
-});
+
+    await runConcurrent(catPages, MAX_CAT_CONCURRENCY, async (url, i) => {
+      const doc = await getDoc(url);
+      storyLinks(doc).forEach(u => storySet.add(u));
+      updateProgress(i + 1, catPages.length);
+    });
 
     const stories = [...storySet];
     log(`Found ${stories.length} unique stories/pages`);
@@ -874,14 +933,17 @@ await runConcurrent(catPages, MAX_CAT_CONCURRENCY, async (_, i) => {
     novelData.chapters = [];
     let done = 0;
 
+    await runConcurrent(indices, 100, async (idx) => {
+      const storyURL = stories[idx];
+      const pages = await collectStoryPages(storyURL);
 
-await runConcurrent(indices, 20, async (idx) => {
-  const storyURL = stories[idx];
-  const [chapter] = await collectStoryPages(storyURL); // one object
-  novelData.chapters.push(chapter);
-  done++;
-  updateProgress(done, indices.length);
-});
+const combinedData = await collectStoryPages(storyURL);
+const data = extractStory(combinedData, storyURL);
+novelData.chapters.push(data);
+
+      done++;
+      updateProgress(done, indices.length);
+    });
 
     /* 5. metadata & EPUB */
     novelData.metadata = {
