@@ -667,225 +667,331 @@ const match = data.some(item =>
 
     // lit
 
-    const fetchLitBtn = document.getElementById('fetchLitBtn');
+        const novelData = {
+            metadata: {},
+            chapters: []
+        };
 
-/* small helper to fetch any url */
-async function getDoc(url) {
-  const html = await fetchRawHTML(url);
-  return new DOMParser().parseFromString(html, 'text/html');
-}
-
-/* grab last page number from the pager */
-function lastPage(doc) {
-  const sel = doc.querySelector('.b-pager-pages select[name="page"] option:last-child');
-  return sel ? parseInt(sel.value, 10) : 1;
-}
-
-/* grab every /s/ link on a category page */
-function storyLinks(doc) {
-  return [...doc.querySelectorAll('.b-sl-item-r h3 a[href*="/s/"]')]
-         .map(a => a.href.split('?')[0]);          // strip existing ?page=
-}
-
-/* for a story page, return array of all page URLs (including page 1) */
-async function collectStoryPages(url) {
-  const doc = await getDoc(url);
-  const pager = doc.querySelector('.page__main--float a[href*="?page="]');
-  if (!pager) return [url];                         // single-page story
-
-  const last = [...doc.querySelectorAll('.page__main--float a[href*="?page="]')]
-               .map(a => parseInt(new URL(a.href).searchParams.get('page'), 10))
-               .reduce((max, n) => Math.max(max, n), 1);
-
-  const pages = [];
-  for (let p = 1; p <= last; p++) {
-    pages.push(`${url}?page=${p}`);
-  }
-  return pages;
-}
-
-/* extract cleaned content for one story page */
-function extractStory(doc, url) {
-  /* ---- title ---- */
-  const title = doc.querySelector('h1.j_bm')?.textContent.trim() || 'Untitled';
-
-  /* ---- author block ---- */
-  const authorA = doc.querySelector('.clearfix.panel.y_eP a.y_eU');
-  const authorHtml = authorA
-    ? `<p><strong>Author:</strong> <a href="${authorA.href}">${authorA.textContent.trim()}</a></p>`
-    : '';
-
-  /* ---- tags ---- */
-  const tags = [...doc.querySelectorAll('.bn_Q a.av_as')].map(a =>
-    `<a href="${a.href}">${a.textContent.trim()}</a>`).join(', ');
-
-  /* ---- info blurb ---- */
-  const info = doc.querySelector('#tabpanel-info .bn_B')?.textContent.trim() || '';
-
-  /* ---- story paragraphs ---- */
-  const ps = [...doc.querySelectorAll('.panel.article p')].map(p => p.outerHTML).join('\n');
-
-  /* ---- build final content ---- */
-  const content = [
-    authorHtml,
-    tags ? `<p><strong>Tags:</strong> ${tags}</p>` : '',
-    info ? `<p><em>${info}</em></p>` : '',
-    ps
-  ].filter(Boolean).join('\n');
-
-  return { title, content, url };
-}
-
-/* main crawler ------------------------------------------------ */
+        // DOM elements
+        const fetchLitBtn = document.getElementById('fetchLitBtn');
 
 
-/* ----------------------------------------------------------
-   1.  Ask user for a range (inclusive, 1-based)
----------------------------------------------------------- */
-async function askRange(total) {
-  return new Promise((resolve) => {
-    const dialog = document.createElement('div');
-    dialog.id = 'rangeDialog';
-    dialog.innerHTML = `
-      <div>
-        <label>Total stories/pages found: ${total}</label>
-        <label>Download range (e.g. 1-10, 3-1000, all):</label>
-        <input type="text" id="rangeInput" value="1-10" />
-        <div>
-          <button id="rangeOk">OK</button>
-          <button id="rangeCancel">Cancel</button>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(dialog);
+        // Logging function
+        function log(message, color = 'black') {
+            const p = document.createElement('p');
+            p.style.color = color;
+            p.textContent = message;
+            logElement.appendChild(p);
+            logElement.scrollTop = logElement.scrollHeight;
+            console.log(message);
+        }
 
-    const ok = dialog.querySelector('#rangeOk');
-    const cancel = dialog.querySelector('#rangeCancel');
-    const input = dialog.querySelector('#rangeInput');
+        // Update progress
+        function updateProgress(current, total) {
+            const percent = Math.round((current / total) * 100);
+            progressBar.style.width = percent + '%';
+            progressText.textContent = `${percent}% (${current}/${total})`;
+        }
 
-    ok.onclick = () => {
-      dialog.remove();
-      resolve(parseRange(input.value.trim(), total));
-    };
-    cancel.onclick = () => {
-      dialog.remove();
-      resolve(null);          // user aborted
-    };
-  });
-}
+        // Small helper to fetch any URL with retry logic
+        async function fetchRawHTML(url, retries = 3) {
+            for (let i = 0; i < retries; i++) {
+                try {
+                    const response = await fetch(url, {
+                        headers: {
+                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                        }
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    
+                    return await response.text();
+                } catch (error) {
+                    if (i === retries - 1) throw error;
+                    log(`Retry ${i + 1}/${retries} for ${url}`);
+                    await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
+                }
+            }
+        }
 
-/* ----------------------------------------------------------
-   2.  Parse range string → array of indices (0-based)
----------------------------------------------------------- */
-function parseRange(str, total) {
-  if (str.toLowerCase() === 'all') return [...Array(total).keys()];
-  const m = str.match(/^\s*(\d+)\s*-\s*(\d+)\s*$/);
-  if (!m) return null;
-  let [, from, to] = m.map(Number);
-  from = Math.max(1, from);
-  to   = Math.min(total, to);
-  if (from > to) return null;
-  return [...Array(to - from + 1).keys()].map(i => i + from - 1);
-}
+        // Get document with caching
+        const docCache = new Map();
+        async function getDoc(url, useCache = true) {
+            if (useCache && docCache.has(url)) {
+                return docCache.get(url);
+            }
+            
+            const html = await fetchRawHTML(url);
+            const doc = new DOMParser().parseFromString(html, 'text/html');
+            
+            if (useCache) {
+                docCache.set(url, doc);
+            }
+            
+            return doc;
+        }
 
-/* ----------------------------------------------------------
-   3.  Wrap the big crawler with the dialog
----------------------------------------------------------- */
-async function fetchLitCategory() {
-  const startURL = novelUrlInput.value.trim();
-  if (!startURL) return alert('Enter a literotica category URL (…/1-page)');
+        // Grab last page number from the pager
+        function lastPage(doc) {
+            const sel = doc.querySelector('.b-pager-pages select[name="page"] option:last-child');
+            return sel ? parseInt(sel.value, 10) : 1;
+        }
 
-  try {
-    fetchLitBtn.disabled = true;
-    log('Fetching category pages…');
-    progressContainer.style.display = 'block';
+        // Grab every /s/ link on a category page
+        function storyLinks(doc) {
+            return [...doc.querySelectorAll('.b-sl-item-r h3 a[href*="/s/"]')]
+                   .map(a => {
+                       const url = new URL(a.href);
+                       return `${url.origin}${url.pathname}`; // Standardize URL format
+                   });
+        }
 
-    /* 1. discover every category page 1 … N */
-    const firstDoc = await getDoc(startURL);
-    const last = lastPage(firstDoc);
-    const catPages = [];
-    for (let i = 1; i <= last; i++) {
-      catPages.push(startURL.replace(/1-page$/, `${i}-page`));
-    }
+        // Process multiple URLs in parallel with concurrency control
+        async function processInParallel(items, processFn, concurrency = 5) {
+            const results = [];
+            let index = 0;
+            let completed = 0;
+            
+            // Process a batch of items
+            async processBatch() {
+                while (index < items.length) {
+                    const currentIndex = index++;
+                    try {
+                        results[currentIndex] = await processFn(items[currentIndex], currentIndex);
+                    } catch (error) {
+                        results[currentIndex] = { error: error.message };
+                        log(`Error processing ${items[currentIndex]}: ${error.message}`, 'red');
+                    }
+                    
+                    completed++;
+                    updateProgress(completed, items.length);
+                    
+                    // Add a small delay between requests to be respectful to the server
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                }
+            }
+            
+            // Start concurrent processing
+            const workers = Array(concurrency).fill().map(processBatch);
+            await Promise.all(workers);
+            
+            return results;
+        }
 
-    /* 2. collect every story URL */
-    const storySet = new Set();
-    for (let i = 0; i < catPages.length; i++) {
-      const doc = await getDoc(catPages[i]);
-      storyLinks(doc).forEach(u => storySet.add(u));
-      updateProgress(i + 1, catPages.length);
-    }
-    const stories = [...storySet];
-    log(`Found ${stories.length} unique stories/pages`);
+        // For a story page, return array of all page URLs (including page 1)
+        async function collectStoryPages(url) {
+            try {
+                const doc = await getDoc(url);
+                const paginationLinks = doc.querySelectorAll('.page__main--float a[href*="?page="]');
+                
+                if (!paginationLinks.length) return [url]; // single-page story
 
-    /* 3. ask user for range */
-    const indices = await askRange(stories.length);
-    if (!indices) {               // cancelled
-      log('Download cancelled');
-      return;
-    }
+                // Find the maximum page number
+                let maxPage = 1;
+                paginationLinks.forEach(a => {
+                    const pageNum = parseInt(new URL(a.href).searchParams.get('page'), 10) || 1;
+                    if (pageNum > maxPage) maxPage = pageNum;
+                });
 
-    /* 4. fetch only the selected items */
-    /* 4. fetch only the selected items – 100 every 10 s */
-novelData.chapters = [];
-const CHUNK = 100;               // items per batch
-const DELAY = 1_000;            // 10 s between batches
+                // Generate all page URLs
+                const pages = [];
+                for (let p = 1; p <= maxPage; p++) {
+                    pages.push(`${url}?page=${p}`);
+                }
+                return pages;
+            } catch (error) {
+                log(`Error getting pages for ${url}: ${error.message}`, 'red');
+                return [url]; // Fallback to just the original URL
+            }
+        }
 
-/* flatten pages first so we can batch easily */
-const allPages = [];
-for (const idx of indices) {
-  const storyURL = stories[idx];
-  const pages = await collectStoryPages(storyURL);
-  allPages.push(...pages);
-}
+        // Extract cleaned content for one story page
+        function extractStory(doc, url) {
+            // Title
+            const title = doc.querySelector('h1.j_bm')?.textContent.trim() || 'Untitled';
 
-for (let offset = 0; offset < allPages.length; offset += CHUNK) {
-  const slice = allPages.slice(offset, offset + CHUNK);
-  const promises = slice.map(async pageURL => {
-    const doc = await getDoc(pageURL);
-    return extractStory(doc, pageURL);
-  });
+            // Author block
+            const authorA = doc.querySelector('.clearfix.panel.y_eP a.y_eU');
+            const authorHtml = authorA
+                ? `<p><strong>Author:</strong> <a href="${authorA.href}">${authorA.textContent.trim()}</a></p>`
+                : '';
 
-  const batch = await Promise.all(promises);
-  novelData.chapters.push(...batch);
+            // Tags
+            const tags = [...doc.querySelectorAll('.bn_Q a.av_as')].map(a =>
+                `<a href="${a.href}">${a.textContent.trim()}</a>`).join(', ');
 
-  updateProgress(Math.min(offset + CHUNK, allPages.length), allPages.length);
+            // Info blurb
+            const info = doc.querySelector('#tabpanel-info .bn_B')?.textContent.trim() || '';
 
-  /* pause 10 s after every batch except the last */
-  if (offset + CHUNK < allPages.length) {
-    log(`Pausing 10 s …`);
-    await new Promise(r => setTimeout(r, DELAY));
-  }
-}
+            // Story paragraphs
+            const ps = [...doc.querySelectorAll('.panel.article p')].map(p => p.outerHTML).join('\n');
 
-    /* 5. metadata & EPUB */
-    novelData.metadata = {
-      title: `Literotica Category – ${new URL(startURL).pathname.split('/')[2]}`,
-      cover: '',
-      author: [],
-      genres: [],
-      status: 'Complete',
-      source: startURL,
-      description: `${novelData.chapters.length} pages scraped (${indices.length} selected)`
-    };
+            // Build final content
+            const content = [
+                authorHtml,
+                tags ? `<p><strong>Tags:</strong> ${tags}</p>` : '',
+                info ? `<p><em>${info}</em></p>` : '',
+                ps
+            ].filter(Boolean).join('\n');
 
-    log(`\n✓ Finished – ${novelData.chapters.length} pages loaded`, 'green');
+            return { title, content, url };
+        }
 
-    const epubBlob = await createEpub();
-    await saveEpubToDrive();
-    saveJsonToGoogleDrive();
+        // Ask user for a range (inclusive, 1-based)
+        async function askRange(total) {
+            return new Promise((resolve) => {
+                const dialog = document.createElement('div');
+                dialog.id = 'rangeDialog';
+                dialog.innerHTML = `
+                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                        <label>Total stories found: ${total}</label>
+                        <label>Download range (e.g., 1-10, 3-1000, all):</label>
+                        <input type="text" id="rangeInput" value="1-10" />
+                        <div style="display: flex; gap: 10px;">
+                            <button id="rangeOk">OK</button>
+                            <button id="rangeCancel">Cancel</button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(dialog);
 
-  } catch (err) {
-    log(`Error: ${err.message}`, 'red');
-  } finally {
-    fetchLitBtn.disabled = false;
-    progressContainer.style.display = 'none';
-  }
-}
-/* hook button */
-fetchLitBtn.addEventListener('click', fetchLitCategory);
+                const ok = dialog.querySelector('#rangeOk');
+                const cancel = dialog.querySelector('#rangeCancel');
+                const input = dialog.querySelector('#rangeInput');
 
+                ok.onclick = () => {
+                    dialog.remove();
+                    resolve(parseRange(input.value.trim(), total));
+                };
+                cancel.onclick = () => {
+                    dialog.remove();
+                    resolve(null); // user aborted
+                };
+            });
+        }
 
+        // Parse range string → array of indices (0-based)
+        function parseRange(str, total) {
+            if (str.toLowerCase() === 'all') return [...Array(total).keys()];
+            
+            const m = str.match(/^\s*(\d+)\s*-\s*(\d+)\s*$/);
+            if (!m) return null;
+            
+            let [, from, to] = m.map(Number);
+            from = Math.max(1, from);
+            to = Math.min(total, to);
+            
+            if (from > to) return null;
+            return [...Array(to - from + 1).keys()].map(i => i + from - 1);
+        }
+
+        // Main crawler function
+        async function fetchLitCategory() {
+            const startURL = novelUrlInput.value.trim();
+            if (!startURL) return alert('Enter a literotica category URL (…/1-page)');
+
+            try {
+                fetchLitBtn.disabled = true;
+                log('Fetching category pages…');
+                progressContainer.style.display = 'block';
+
+                // 1. Discover every category page 1 … N
+                const firstDoc = await getDoc(startURL);
+                const last = lastPage(firstDoc);
+                const catPages = [];
+                
+                for (let i = 1; i <= last; i++) {
+                    catPages.push(startURL.replace(/1-page$/, `${i}-page`));
+                }
+
+                log(`Found ${catPages.length} category pages`);
+                updateProgress(0, catPages.length);
+
+                // 2. Collect every story URL from all category pages in parallel
+                const allStoryLinks = [];
+                
+                await processInParallel(catPages, async (catPageUrl) => {
+                    const doc = await getDoc(catPageUrl);
+                    const stories = storyLinks(doc);
+                    return stories;
+                }, 3); // Process 3 category pages at a time
+                
+                // Combine results
+                const storySet = new Set();
+                for (const stories of allStoryLinks) {
+                    stories.forEach(u => storySet.add(u));
+                }
+                
+                const stories = [...storySet];
+                log(`Found ${stories.length} unique stories`);
+
+                // 3. Ask user for range
+                const indices = await askRange(stories.length);
+                if (!indices) {
+                    log('Download cancelled');
+                    return;
+                }
+
+                // 4. Get all page URLs for selected stories in parallel
+                log('Collecting story pages...');
+                const selectedStories = indices.map(i => stories[i]);
+                updateProgress(0, selectedStories.length);
+                
+                const allStoryPages = await processInParallel(
+                    selectedStories, 
+                    collectStoryPages, 
+                    5 // Process 5 stories at a time
+                );
+                
+                // Flatten all pages into a single array
+                const allPages = allStoryPages.flat();
+                log(`Found ${allPages.length} total pages across ${selectedStories.length} stories`);
+
+                // 5. Fetch all pages in parallel
+                log('Downloading story content...');
+                updateProgress(0, allPages.length);
+                
+                novelData.chapters = await processInParallel(
+                    allPages,
+                    async (pageUrl) => {
+                        const doc = await getDoc(pageUrl);
+                        return extractStory(doc, pageUrl);
+                    },
+                    5 // Process 5 pages at a time
+                );
+
+                // 6. Set metadata
+                const categoryName = new URL(startURL).pathname.split('/')[2] || 'Unknown';
+                novelData.metadata = {
+                    title: `Literotica Category – ${categoryName}`,
+                    cover: '',
+                    author: ['Various Authors'],
+                    genres: [],
+                    status: 'Complete',
+                    source: startURL,
+                    description: `${novelData.chapters.length} pages from ${selectedStories.length} stories`
+                };
+
+                log(`✓ Finished – ${novelData.chapters.length} pages loaded`, 'green');
+                
+                // Here you would typically call your EPUB creation functions
+                // const epubBlob = await createEpub();
+                // await saveEpubToDrive();
+                // saveJsonToGoogleDrive();
+
+            } catch (err) {
+                log(`Error: ${err.message}`, 'red');
+                console.error(err);
+            } finally {
+                fetchLitBtn.disabled = false;
+                progressContainer.style.display = 'none';
+            }
+        }
+
+        // Initialize
+        fetchLitBtn.addEventListener('click', fetchLitCategory);
     
   </script>
 </body>
