@@ -846,11 +846,11 @@ async function fetchLitCategory() {
     novelData.chapters = [];
     let done = 0;
 
-    await runConcurrent(indices, 10, async (idx) => {
+    await runConcurrent(indices, 100, async (idx) => {
       const storyURL = stories[idx];
       const pages = await collectStoryPages(storyURL);
 
-      await runConcurrent(pages, 10, async (pageURL) => {
+      await runConcurrent(pages, 100, async (pageURL) => {
         const doc = await getDoc(pageURL);
         const data = extractStory(doc, pageURL);
         novelData.chapters.push(data);
