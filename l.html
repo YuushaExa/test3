@@ -873,9 +873,6 @@ async function fetchLitCategory() {
 
     log(`\n✓ Finished – ${novelData.chapters.length} pages loaded`, 'green');
 
-    const epubBlob = await createEpub();
-    await saveEpubToDrive();
-    saveJsonToGoogleDrive();
 
   } catch (err) {
     log(`Error: ${err.message}`, 'red');
