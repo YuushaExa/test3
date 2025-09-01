@@ -826,19 +826,37 @@ async function fetchLitCategory() {
     }
 
     /* 4. fetch only the selected items */
-    novelData.chapters = [];
-    let done = 0;
-    for (const idx of indices) {
-      const storyURL = stories[idx];
-      const pages = await collectStoryPages(storyURL);
-      for (const pageURL of pages) {
-        const doc = await getDoc(pageURL);
-        const data = extractStory(doc, pageURL);
-        novelData.chapters.push(data);
-      }
-      done++;
-      updateProgress(done, indices.length);
-    }
+    /* 4. fetch only the selected items – 100 every 10 s */
+novelData.chapters = [];
+const CHUNK = 100;               // items per batch
+const DELAY = 10_000;            // 10 s between batches
+
+/* flatten pages first so we can batch easily */
+const allPages = [];
+for (const idx of indices) {
+  const storyURL = stories[idx];
+  const pages = await collectStoryPages(storyURL);
+  allPages.push(...pages);
+}
+
+for (let offset = 0; offset < allPages.length; offset += CHUNK) {
+  const slice = allPages.slice(offset, offset + CHUNK);
+  const promises = slice.map(async pageURL => {
+    const doc = await getDoc(pageURL);
+    return extractStory(doc, pageURL);
+  });
+
+  const batch = await Promise.all(promises);
+  novelData.chapters.push(...batch);
+
+  updateProgress(Math.min(offset + CHUNK, allPages.length), allPages.length);
+
+  /* pause 10 s after every batch except the last */
+  if (offset + CHUNK < allPages.length) {
+    log(`Pausing 10 s …`);
+    await new Promise(r => setTimeout(r, DELAY));
+  }
+}
 
     /* 5. metadata & EPUB */
     novelData.metadata = {
