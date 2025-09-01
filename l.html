@@ -823,7 +823,7 @@ async function fetchLitCategory() {
     }
 
     /* 2. collect every story URL – in parallel */
-    const MAX_CAT_CONCURRENCY = 6;
+    const MAX_CAT_CONCURRENCY = 10;
     const storySet = new Set();
 
     await runConcurrent(catPages, MAX_CAT_CONCURRENCY, async (url, i) => {
@@ -846,11 +846,11 @@ async function fetchLitCategory() {
     novelData.chapters = [];
     let done = 0;
 
-    await runConcurrent(indices, 6, async (idx) => {
+    await runConcurrent(indices, 10, async (idx) => {
       const storyURL = stories[idx];
       const pages = await collectStoryPages(storyURL);
 
-      await runConcurrent(pages, 4, async (pageURL) => {
+      await runConcurrent(pages, 10, async (pageURL) => {
         const doc = await getDoc(pageURL);
         const data = extractStory(doc, pageURL);
         novelData.chapters.push(data);
