@@ -35,7 +35,7 @@
 }
 #rangeDialog button { margin-right: 8px; }
   </style>
-  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js "></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js  "></script>
     
 </head>
 <body>
@@ -43,15 +43,13 @@
     <h1>Novel Crawler</h1>
 
     <div class="form-group">
-      <label for="novelUrl">Novel URL:</label>
-      <input type="text" id="novelUrl" placeholder="link">
+      <label for="novelUrl">Category URL:</label>
+      <input type="text" id="novelUrl" placeholder="Enter Literotica category URL">
     </div>
 
-    <button id="fetchMetadataBtn">Fetch Metadata</button>
-    <button id="fetchChaptersBtn" disabled>Fetch Chapters</button>
     <button id="downloadBtn" disabled>Download as JSON</button>
     <button id="saveToJsonBtn" disabled>Save JSON</button> 
-  <button id="editMetadataBtn" disabled>Edit Metadata</button>
+    <button id="editMetadataBtn" disabled>Edit Metadata</button>
     <button id="saveMetadataBtn">Save Metadata</button>
     <button id="fetchLitBtn" style="background:#ff6600;color:#fff">Fetch Lit Category</button>
     <div class="progress-container" id="progressContainer">
@@ -66,16 +64,14 @@
     // ---- DOM refs ----
     const consoleOutput   = document.getElementById('console');
     const novelUrlInput   = document.getElementById('novelUrl');
-    const fetchMetadataBtn= document.getElementById('fetchMetadataBtn');
-    const fetchChaptersBtn= document.getElementById('fetchChaptersBtn');
     const downloadBtn     = document.getElementById('downloadBtn');
-        const saveToJsonBtn   = document.getElementById('saveToJsonBtn'); 
+    const saveToJsonBtn   = document.getElementById('saveToJsonBtn'); 
     const progressContainer = document.getElementById('progressContainer');
     const progressBar     = document.getElementById('progressBar');
     const statusText      = document.getElementById('statusText');
 
     // ---- config ----
-    const WORKER_URL = 'https://curly-pond-9050.yuush.workers.dev';
+    const WORKER_URL = 'https://curly-pond-9050.yuush.workers.dev ';
 
     // ---- helpers ----
    function log(msg, color = '') {
@@ -105,163 +101,6 @@
       const res = await fetch(`${WORKER_URL}/api/raw?url=${encodeURIComponent(targetUrl)}`);
       if (!res.ok) throw new Error(`raw fetch ${res.status}`);
       return res.text();
-    }
-
-    // ---- fetch metadata (browser-side) ----
-    async function fetchMetadata() {
-  const url = novelUrlInput.value.trim();
-  if (!url) return alert('Please enter a novel URL');
-
-  try {
-    log('Fetching novel page…');
-    fetchMetadataBtn.disabled = true;
-
-    const chapters = [];               // local collector
-
-    // helper: scrape one page
-    async function scrapeOne(pageUrl) {
-      const html = await fetchRawHTML(pageUrl);
-      const doc  = new DOMParser().parseFromString(html, 'text/html');
-      const $$   = sel => [...doc.querySelectorAll(sel)];
-
-      // chapters on this page
-      $$('.list-chapter li a').forEach(a =>
-        chapters.push({
-          title: a.getAttribute('title') || a.textContent.trim(),
-          url:   new URL(a.getAttribute('href'), url).href
-        })
-      );
-
-      // next link
-      const next = $$('.pagination li.next a')[0]?.getAttribute('href');
-      return next ? new URL(next, url).href : null;
-    }
-
-    // crawl all pages
-    let nextPage = url;
-    while (nextPage) {
-      log(`Scraping chapter list page → ${nextPage}`);
-      nextPage = await scrapeOne(nextPage);
-    }
-
-    // metadata from first page
-    const html = await fetchRawHTML(url);   // already cached by browser
-    const doc  = new DOMParser().parseFromString(html, 'text/html');
-    const $    = sel => doc.querySelector(sel);
-    const $$   = sel => [...doc.querySelectorAll(sel)];
-
-    const title       = $('.col-xs-12.col-sm-8.col-md-8.desc h3.title')?.textContent?.trim();
-    const coverPath   = $('.col-xs-12.col-sm-4.col-md-4.info-holder .book img')?.getAttribute('src');
-    const cover       = coverPath ? new URL(coverPath, url).href : '';
-
-    const authorNodes = $$('.info div').find(d => d.querySelector('h3')?.textContent?.trim() === 'Author:')
-                         ?.querySelectorAll('a');
-    const authors     = authorNodes ? [...authorNodes].map(a => a.textContent.trim()) : [];
-
-    const genres      = $$('.info div').find(d => d.querySelector('h3')?.textContent?.trim() === 'Genre:')
-                         ?.querySelectorAll('a');
-    const genreNames  = genres ? [...genres].map(a => a.textContent.trim()) : [];
-
-    const status      = $$('.info div').find(d => d.querySelector('h3')?.textContent?.trim() === 'Status:')
-                         ?.querySelector('a')?.textContent?.trim();
-
-    const source      = $$('.info div').find(d => d.querySelector('h3')?.textContent?.trim() === 'Source:')
-                         ?.textContent?.replace('Source:', '').trim();
-
-    const description = $('.col-xs-12.col-sm-8.col-md-8.desc .desc-text')?.textContent?.trim();
-
-    novelData.metadata = { title, cover, author: authors, genres: genreNames, status, source, description };
-    novelData.chapters = chapters;
-
-    log(`\n=== Metadata ===`);
-    log(`Title: ${title}`);
-    log(`Cover: ${cover}`);
-    log(`Author: ${authors.join(', ')}`);
-    log(`Status: ${status}`);
-    log(`Genres: ${genreNames.join(', ')}`);
-    log(`Description: ${description}`);
-    log(`\nTotal chapters found: ${chapters.length}`);
-
-    fetchChaptersBtn.disabled = false;
-    checkTitle();
-    openNuSearch();
-  } catch (err) {
-    log(`Error: ${err.message}`);
-    fetchMetadataBtn.disabled = false;
-  }
-    }
-    // ---- fetch chapter content (browser-side) ----
-    async function fetchChapterContent(chapterUrl) {
-      const html = await fetchRawHTML(chapterUrl);
-      const doc  = new DOMParser().parseFromString(html, 'text/html');
-
-      const novelTitle = doc.querySelector('.col-xs-12 a.truyen-title')?.textContent?.trim() || '';
-      const chTitle    = doc.querySelector('.col-xs-12 h2')?.textContent?.trim() || '';
-      const title      = `${novelTitle} - ${chTitle}`;
-
-      let content = doc.querySelector('#chapter-content')?.innerHTML || 'Chapter not found';
-
-      // cleanup
-      content = content
-        .replace(/<iframe[^>]*>.*?<\/iframe>/gis, '')
-        .replace(/<!--.*?-->/gs, '')
-        .replace(/<p>\s*<\/p>/g, '')
-        .replace(/<img[^>]*>/g, '')
-        .replace(/<js[^>]*>/g, '')
-        .replace(/<div\b[^>]*>\s*<\/div>/gis, '')
-        .replace(/<script\b[^>]*>.*?<\/script>/gis, '')
-        .replace(/<noscript\b[^>]*>.*?<\/noscript>/gis, '')
-        .replace(/<div[^>]*class\s*=\s*["']ads[^>]*>.*?<\/div>/gis, '')
-        .replace(/<div[^>]*>\s*<\/div>/gis, '')
-        .replace(/<p>Source: .*?novlove\.com<\/p>/gi, '')
-        .replace(/<div[^>]*class\s*=\s*["'][^"']*\bads-holder\b[^"']*\bads-middle\b[^"']*["'][^>]*>\s*<input[^>]*name\s*=\s*["']IL_IN_ARTICLE["'][^>]*>\s*<\/div>/gis, '')
-  .replace(/<input[^>]*name\s*=\s*["']IL_IN_ARTICLE["'][^>]*>/gis, '')
-  .trim();
-        
-
-      return { title, content };
-    }
-
-    // ---- fetch all chapters ----
-    async function fetchChapters() {
-      if (!novelData.chapters.length) return alert('No chapters found');
-      try {
-        fetchChaptersBtn.disabled = true;
-        progressContainer.style.display = 'block';
-
-        const batchSize = 100;
-        const total = novelData.chapters.length;
-        let done = 0;
-
-        for (let i = 0; i < total; i += batchSize) {
-          const slice = novelData.chapters.slice(i, i + batchSize);
-          const promises = slice.map(async (ch, idx) => {
-            log(`Fetching ${i + idx + 1}/${total} - ${ch.title}`);
-            const data = await fetchChapterContent(ch.url);
-            return { ...ch, ...data };
-          });
-
-          const results = await Promise.all(promises);
-          results.forEach((r, idx) => (novelData.chapters[i + idx] = r));
-
-          done += results.length;
-          updateProgress(done, total);
-          await new Promise(r => setTimeout(r, 300)); // polite delay
-        }
-
-        log('\nAll chapters fetched!');
-        downloadBtn.disabled = false;
-        saveToJsonBtn.disabled = false; 
-        progressContainer.style.display = 'none';
-        saveJsonToGoogleDrive();
-        saveMetadata();
-        const epubBlob = await createEpub();
-        await saveEpubToDrive();
-      } catch (err) {
-        log(`Error: ${err.message}`);
-        fetchChaptersBtn.disabled = false;
-        progressContainer.style.display = 'none';
-      }
     }
 
 // ---- Save Metadata ----
@@ -363,10 +202,8 @@ async function saveJsonToGoogleDrive() {
 
     
     // ---- events ----
-    fetchMetadataBtn.addEventListener('click', fetchMetadata);
-    fetchChaptersBtn.addEventListener('click', fetchChapters);
     downloadBtn.addEventListener('click', downloadJson);
-     saveToJsonBtn.addEventListener('click', saveJsonToGoogleDrive); 
+    saveToJsonBtn.addEventListener('click', saveJsonToGoogleDrive); 
     saveMetadataBtn.addEventListener('click', async () => {
   await saveMetadata();
 });
@@ -496,17 +333,6 @@ saveEpubBtn.addEventListener('click', async () => {
   }
 });
 
-// Enable Create EPUB button after chapters are loaded
-fetchChaptersBtn.addEventListener('click', () => {
-  const check = setInterval(() => {
-    if (novelData.chapters.length && novelData.chapters[0]?.content) {
-      createEpubBtn.disabled = false;
-      clearInterval(check);
-    }
-  }, 500);
-});
-
-
 
 // ---- Edit metadata ----
 const editMetadataBtn = document.getElementById('editMetadataBtn');
@@ -527,14 +353,6 @@ function showEditMetadataForm() {
         <input type="text" id="editCover" name="cover" value="${metadata.cover}">
       </div>
       <div class="form-group">
-        <label for="editAuthors">Authors (comma-separated):</label>
-        <input type="text" id="editAuthors" name="authors" value="${metadata.author.join(', ')}">
-      </div>
-      <div class="form-group">
-        <label for="editGenres">Genres (comma-separated):</label>
-        <input type="text" id="editGenres" name="genres" value="${metadata.genres.join(', ')}">
-      </div>
-      <div class="form-group">
         <label for="editStatus">Status:</label>
         <input type="text" id="editStatus" name="status" value="${metadata.status}">
       </div>
@@ -545,26 +363,6 @@ function showEditMetadataForm() {
       <div class="form-group">
         <label for="editDescription">Description:</label>
         <textarea id="editDescription" name="description" rows="5">${metadata.description}</textarea>
-      </div>
-      <div class="form-group">
-        <label for="editaltitile">Alt Title:</label>
-        <input type="text" id="editaltitile" name="altitile" value="${metadata.altitile || ''}">
-      </div>
-      <div class="form-group">
-        <label for="editdate">Date:</label>
-        <input type="text" id="editdate" name="date" value="${metadata.date || ''}">
-      </div>
-        <div class="form-group">
-        <label for="editlanguage">Language:</label>
-        <input type="text" id="editlanguage" name="language" value="${metadata.language || ''}">
-      </div>
-        <div class="form-group">
-        <label for="editoriginalPublisher">Alt Title:</label>
-        <input type="text" id="editoriginalPublisher" name="originalPublisher" value="${metadata.originalPublisher || ''}">
-      </div>
-          <div class="form-group">
-        <label for="editstatuscoo">Alt Title:</label>
-        <input type="text" id="editstatuscoo" name="statuscoo" value="${metadata.statuscoo || ''}">
       </div>
       <button type="submit">Save Changes</button>
       <button type="button" onclick="document.getElementById('metadataForm').remove()">Cancel</button>
@@ -580,32 +378,12 @@ document.getElementById('metadataForm').addEventListener('submit', async functio
 
   const formData = new FormData(event.target);
 
-  // Get the first author URL if available
-  const firstAuthorUrl = document.querySelector('#showauthors a')?.href || '';
-
-  let otherWorksData = [];
-  if (firstAuthorUrl) {
-    try {
-      otherWorksData = await fetchAuthorWorks(firstAuthorUrl); // now returns array
-    } catch (err) {
-      console.error('Failed to fetch author works:', err);
-    }
-  }
-
   const newMetadata = {
     title: formData.get('title'),
     cover: formData.get('cover'),
-    author: formData.get('authors').split(',').map(author => author.trim()),
-    genres: formData.get('genres').split(',').map(genre => genre.trim()),
     status: formData.get('status'),
     source: formData.get('source'),
     description: formData.get('description'),
-    altitile: formData.get('altitile') || '',
-    language: formData.get('language') || '',
-    originalPublisher: formData.get('originalPublisher') || '',
-    statuscoo: formData.get('statuscoo') || '',
-    date: formData.get('date') || '',
-    otherworks: otherWorksData // <-- now JSON array
   };
 
   novelData.metadata = newMetadata;
@@ -617,52 +395,6 @@ document.getElementById('metadataForm').addEventListener('submit', async functio
 
 // ---- events ----
 editMetadataBtn.addEventListener('click', showEditMetadataForm);
-
-// Enable the edit metadata button after fetching metadata
-fetchMetadataBtn.addEventListener('click', () => {
-  const check = setInterval(() => {
-    if (novelData.metadata) {
-      editMetadataBtn.disabled = false;
-      clearInterval(check);
-    }
-  }, 500);
-});
-
-// Function to check title similarity
-async function checkTitle() {
-  if (!novelData.metadata?.title) {
-    return alert('No metadata title available.');
-  }
-
-  try {
-    log(`Checking title against database...`);
-    
-    const res = await fetch('https://curly-pond-9050.yuush.workers.dev/titles.json ');
-    if (!res.ok) throw new Error(`Failed to fetch titles.json (${res.status})`);
-    
-    const data = await res.json();
-    const targetTitle = novelData.metadata.title.trim().toLowerCase();
-
-    // Exact match check (you can replace with fuzzy match if needed)
-const match = data.some(item => 
-  item.title.trim().toLowerCase() === targetTitle
-);
-
-    // Output result in color
-    const message = match 
-      ? `%cDuplicate` 
-      : `%cOriginal`;
-    const style = match 
-      ? 'color: red; font-weight: bold;' 
-      : 'color: green; font-weight: bold;';
-
-    consoleOutput.innerHTML += `<div style="${style.replace(/%c/g, '')}">${match ? 'Duplicate' : 'Original'}</div>`;
-    consoleOutput.scrollTop = consoleOutput.scrollHeight;
-
-  } catch (err) {
-    log(`Error checking title: ${err.message}`);
-  }
-}
 
 
     // lit
@@ -688,107 +420,20 @@ function storyLinks(doc) {
 }
 
 /* for a story page, return array of all page URLs (including page 1) */
-/* for a story page, fetch and combine all pages into a single document */
 async function collectStoryPages(url) {
   const doc = await getDoc(url);
-  const pagerLinks = [...doc.querySelectorAll('.page__main--float a[href*="?page="]')];
-  
-  // If no pagination links found, return the single page
-  if (pagerLinks.length === 0) {
-    return {doc, url};
+  const pager = doc.querySelector('.page__main--float a[href*="?page="]');
+  if (!pager) return [url];                         // single-page story
+
+  const last = [...doc.querySelectorAll('.page__main--float a[href*="?page="]')]
+               .map(a => parseInt(new URL(a.href).searchParams.get('page'), 10))
+               .reduce((max, n) => Math.max(max, n), 1);
+
+  const pages = [];
+  for (let p = 1; p <= last; p++) {
+    pages.push(`${url}?page=${p}`);
   }
-
-  // Find the maximum page number
-  const last = pagerLinks
-    .map(a => parseInt(new URL(a.href).searchParams.get('page'), 10))
-    .reduce((max, n) => Math.max(max, n), 1);
-
-  // If there's only one page, return it
-  if (last === 1) {
-    return {doc, url};
-  }
-
-  // Create a clone of the original document to combine content into
-  const combinedDoc = doc.cloneNode(true);
-  const contentContainer = combinedDoc.querySelector('.panel.article');
-  
-  // Clear the content container to start fresh
-  if (contentContainer) {
-    contentContainer.innerHTML = '';
-  }
-
-  // Array to store all page fetching promises
-  const pagePromises = [];
-
-  // Function to fetch and extract content from a page
-  const fetchPageContent = async (pageUrl) => {
-    try {
-      const pageDoc = await getDoc(pageUrl);
-      const pageContent = pageDoc.querySelector('.panel.article');
-      return pageContent ? pageContent.innerHTML : '';
-    } catch (error) {
-      console.error(`Error fetching page ${pageUrl}:`, error);
-      return '';
-    }
-  };
-
-  // Add the first page's content
-  const firstPageContent = doc.querySelector('.panel.article');
-  if (firstPageContent && contentContainer) {
-    contentContainer.innerHTML += firstPageContent.innerHTML;
-  }
-
-  // Fetch all additional pages
-  for (let p = 2; p <= last; p++) {
-    const pageUrl = `${url}?page=${p}`;
-    pagePromises.push(fetchPageContent(pageUrl));
-  }
-
-  // Wait for all pages to be fetched
-  const pageContents = await Promise.all(pagePromises);
-  
-  // Append all fetched content to the combined document
-  pageContents.forEach(content => {
-    if (content && contentContainer) {
-      contentContainer.innerHTML += content;
-    }
-  });
-
-  return {doc: combinedDoc, url};
-}
-
-/* extract cleaned content for one story - updated to use the combined doc */
-function extractStory(data, url) {
-  const {doc} = data;
-  
-  /* ---- title ---- */
-  const title = doc.querySelector('h1.j_bm')?.textContent.trim() || 'Untitled';
-
-  /* ---- author block ---- */
-  const authorA = doc.querySelector('.clearfix.panel.y_eP a.y_eU');
-  const authorHtml = authorA
-    ? `<p><strong>Author:</strong> <a href="${authorA.href}">${authorA.textContent.trim()}</a></p>`
-    : '';
-
-  /* ---- tags ---- */
-  const tags = [...doc.querySelectorAll('.bn_Q a.av_as')].map(a =>
-    `<a href="${a.href}">${a.textContent.trim()}</a>`).join(', ');
-
-  /* ---- info blurb ---- */
-  const info = doc.querySelector('#tabpanel-info .bn_B')?.textContent.trim() || '';
-
-  /* ---- story paragraphs ---- */
-  const ps = [...doc.querySelectorAll('.panel.article p')].map(p => p.outerHTML).join('\n');
-
-  /* ---- build final content ---- */
-  const content = [
-    authorHtml,
-    tags ? `<p><strong>Tags:</strong> ${tags}</p>` : '',
-    info ? `<p><em>${info}</em></p>` : '',
-    ps
-  ].filter(Boolean).join('\n');
-
-  return { title, content, url };
+  return pages;
 }
 
 /* extract cleaned content for one story page */
@@ -937,9 +582,11 @@ async function fetchLitCategory() {
       const storyURL = stories[idx];
       const pages = await collectStoryPages(storyURL);
 
-const combinedData = await collectStoryPages(storyURL);
-const data = extractStory(combinedData, storyURL);
-novelData.chapters.push(data);
+      await runConcurrent(pages, 100, async (pageURL) => {
+        const doc = await getDoc(pageURL);
+        const data = extractStory(doc, pageURL);
+        novelData.chapters.push(data);
+      });
 
       done++;
       updateProgress(done, indices.length);
@@ -948,9 +595,6 @@ novelData.chapters.push(data);
     /* 5. metadata & EPUB */
     novelData.metadata = {
       title: `Literotica Category – ${new URL(startURL).pathname.split('/')[2]}`,
-      cover: '',
-      author: [],
-      genres: [],
       status: 'Complete',
       source: startURL,
       description: `${novelData.chapters.length} pages scraped (${indices.length} selected)`
