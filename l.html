@@ -853,12 +853,12 @@ async function fetchLitCategory() {
     /* 2. collect every story URL – in parallel */
     const MAX_CAT_CONCURRENCY = 10;
     const storySet = new Set();
-
-    await runConcurrent(catPages, MAX_CAT_CONCURRENCY, async (url, i) => {
-      const doc = await getDoc(url);
-      storyLinks(doc).forEach(u => storySet.add(u));
-      updateProgress(i + 1, catPages.length);
-    });
+    
+await runConcurrent(catPages, MAX_CAT_CONCURRENCY, async (_, i) => {
+  const doc = await getDoc(catPages[i]);
+  storyLinks(doc).forEach(u => storySet.add(u));
+  updateProgress(i + 1, catPages.length);
+});
 
     const stories = [...storySet];
     log(`Found ${stories.length} unique stories/pages`);
@@ -874,19 +874,14 @@ async function fetchLitCategory() {
     novelData.chapters = [];
     let done = 0;
 
-    await runConcurrent(indices, 100, async (idx) => {
-      const storyURL = stories[idx];
-      const pages = await collectStoryPages(storyURL);
 
-      await runConcurrent(pages, 100, async (pageURL) => {
-        const doc = await getDoc(pageURL);
-        const data = extractStory(doc, pageURL);
-        novelData.chapters.push(data);
-      });
-
-      done++;
-      updateProgress(done, indices.length);
-    });
+await runConcurrent(indices, 20, async (idx) => {
+  const storyURL = stories[idx];
+  const [chapter] = await collectStoryPages(storyURL); // one object
+  novelData.chapters.push(chapter);
+  done++;
+  updateProgress(done, indices.length);
+});
 
     /* 5. metadata & EPUB */
     novelData.metadata = {
