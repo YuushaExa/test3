@@ -829,7 +829,7 @@ async function fetchLitCategory() {
     /* 4. fetch only the selected items – 100 every 10 s */
 novelData.chapters = [];
 const CHUNK = 100;               // items per batch
-const DELAY = 10_000;            // 10 s between batches
+const DELAY = 1_000;            // 10 s between batches
 
 /* flatten pages first so we can batch easily */
 const allPages = [];
