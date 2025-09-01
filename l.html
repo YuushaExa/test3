@@ -75,7 +75,7 @@
     const statusText      = document.getElementById('statusText');
 
     // ---- config ----
-    const WORKER_URL = 'https://curly-pond-9050.workit1990k.workers.dev';
+    const WORKER_URL = 'https://curly-pond-9050.yuush.workers.dev';
 
     // ---- helpers ----
    function log(msg, color = '') {
@@ -637,7 +637,7 @@ async function checkTitle() {
   try {
     log(`Checking title against database...`);
     
-    const res = await fetch('https://curly-pond-9050.workit1990k.workers.dev/titles.json ');
+    const res = await fetch('https://curly-pond-9050.yuush.workers.dev/titles.json ');
     if (!res.ok) throw new Error(`Failed to fetch titles.json (${res.status})`);
     
     const data = await res.json();
