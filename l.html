@@ -872,8 +872,13 @@ async function fetchLitCategory() {
     };
 
     log(`\n✓ Finished – ${novelData.chapters.length} pages loaded`, 'green');
-
-
+      downloadBtn.disabled = false;
+      saveToJsonBtn.disabled = false; 
+          editMetadataBtn.disabled = false;
+        createEpubBtn.disabled = false;
+downloadEpubBtn.disabled = false;
+saveEpubBtn.disabled = false;
+    
   } catch (err) {
     log(`Error: ${err.message}`, 'red');
   } finally {
