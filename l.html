@@ -574,7 +574,7 @@
     }
 
     /* 2. collect every story URL – in parallel */
-    const MAX_CAT_CONCURRENCY = 10;
+    const MAX_CAT_CONCURRENCY = 100;
     const storySet = new Set();
 
     await runConcurrent(catPages, MAX_CAT_CONCURRENCY, async (url, i) => {
