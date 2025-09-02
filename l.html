@@ -86,11 +86,20 @@
       consoleOutput.scrollTop = consoleOutput.scrollHeight;
     }
 
-    function updateProgress(current, total) {
-      const pct = Math.round((current / total) * 100);
-      progressBar.value = pct;
-      statusText.textContent = `Processing ${current}/${total} (${pct}%)`;
-    }
+ function updateProgress(current, total) {
+  // Add validation to ensure values are finite numbers
+  if (!Number.isFinite(current) || !Number.isFinite(total) || total <= 0) {
+    console.warn('Invalid progress values:', current, total);
+    progressBar.value = 0;
+    statusText.textContent = 'Processing...';
+    return;
+  }
+  
+  const pct = Math.round((current / total) * 100);
+  progressBar.value = pct;
+  statusText.textContent = `Processing ${current}/${total} (${pct}%)`;
+}
+
 
     // ---- data store ----
     let novelData = { metadata: null, chapters: [] };
@@ -594,22 +603,32 @@
     }
 
     /* 4. fetch selected stories - in parallel, but with lower concurrency for ordering */
-    novelData.chapters = [];
-    
-    // Track progress correctly
-    let completed = 0;
-    const totalStories = indices.length;
-    
-    // Process stories with lower concurrency to ensure proper ordering
-    await runConcurrent(indices, 5, async (idx) => {
+  novelData.chapters = [];
+  
+  // Track progress correctly - ensure we start with valid values
+  let completed = 0;
+  const totalStories = indices.length;
+  
+  // Initialize progress with valid values
+  updateProgress(0, Math.max(1, totalStories));
+  
+  // Process stories with lower concurrency to ensure proper ordering
+  await runConcurrent(indices, 5, async (idx) => {
+    try {
       const storyURL = stories[idx];
       const storyData = await processCompleteStory(storyURL);
       novelData.chapters.push(storyData);
       
-      // Update progress safely
+      // Update progress safely - increment completed count
       completed++;
       updateProgress(completed, totalStories);
-    });
+    } catch (error) {
+      console.error('Error processing story:', error);
+      // Still increment completed to maintain accurate progress
+      completed++;
+      updateProgress(completed, totalStories);
+    }
+  });
 
     /* 5. metadata & EPUB */
     novelData.metadata = {
