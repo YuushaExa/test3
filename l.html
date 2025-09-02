@@ -574,7 +574,7 @@
     }
 
     /* 2. collect every story URL – in parallel */
-    const MAX_CAT_CONCURRENCY = 10;
+    const MAX_CAT_CONCURRENCY = 100;
     const storySet = new Set();
 
     await runConcurrent(catPages, MAX_CAT_CONCURRENCY, async (url, i) => {
@@ -601,7 +601,7 @@
     const totalStories = indices.length;
     
     // Process stories with lower concurrency to ensure proper ordering
-    await runConcurrent(indices, 5, async (idx) => {
+    await runConcurrent(indices, 100, async (idx) => {
       const storyURL = stories[idx];
       const storyData = await processCompleteStory(storyURL);
       novelData.chapters.push(storyData);
