@@ -156,7 +156,7 @@
     }
 
     // ---- save JSON to Google Drive ----
-    async function saveJsonToGoogleDrive() {
+  async function saveJsonToGoogleDrive() {
       if (!novelData.metadata?.title) return alert('No data to save');
       
       try {
@@ -169,16 +169,30 @@
           chapters: novelData.chapters.map(({ url, ...rest }) => rest)
         };
         const jsonContent = JSON.stringify(cleanData, null, 2);
+        
+        // Create ZIP file containing the JSON
+        log('Creating ZIP archive...');
+        const zip = new JSZip();
+        const filename = `${novelData.metadata.title.replace(/[^a-z0-9]/gi, '_')}.json`;
+        zip.file(filename, jsonContent);
+        
+        // Generate ZIP file
+        const zipBlob = await zip.generateAsync({
+          type: 'blob',
+          compression: 'DEFLATE',
+          compressionOptions: { level: 9 }
+        });
+        
+        log('Uploading ZIP file to Google Drive...');
+        
+        // Create FormData and append the ZIP file
+        const formData = new FormData();
+        formData.append('file', zipBlob, `${filename}.zip`);
+        formData.append('folder', '16D-B7--4_NOjICRqDnHg0Z0SRH-SiWrH'); // Your folder ID
 
-        log('Starting upload...');
         const response = await fetch(`${WORKER_URL}/api/saveToGoogleDrive`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            title: `${novelData.metadata.title}`,
-            content: jsonContent,
-            folder: '16D-B7--4_NOjICRqDnHg0Z0SRH-SiWrH' // Your folder ID
-          })
+          body: formData
         });
 
         const result = await response.json();
@@ -187,7 +201,7 @@
           throw new Error(result.error || 'Upload failed with unknown error');
         }
 
-        log(`✓ Successfully saved to Google Drive`, 'green');
+        log(`✓ Successfully saved ZIP file to Google Drive`, 'green');
         log(`File: ${result.webViewLink}`);
         log(`File ID: ${result.fileId}`);
         
@@ -198,6 +212,7 @@
         saveToJsonBtn.disabled = false;
       }
     }
+
 
     // ---- events ----
     downloadBtn.addEventListener('click', downloadJson);
