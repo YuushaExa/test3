@@ -556,81 +556,85 @@
     /* ----------------------------------------------------------
        3.  Wrap the big crawler with the dialog
     ---------------------------------------------------------- */
-    async function fetchLitCategory() {
-      const startURL = novelUrlInput.value.trim();
-      if (!startURL) return alert('Enter a literotica category URL (…/1-page)');
+ async function fetchLitCategory() {
+  const startURL = novelUrlInput.value.trim();
+  if (!startURL) return alert('Enter a literotica category URL (…/1-page)');
 
-      try {
-        fetchLitBtn.disabled = true;
-        log('Fetching category pages…');
-        progressContainer.style.display = 'block';
+  try {
+    fetchLitBtn.disabled = true;
+    log('Fetching category pages…');
+    progressContainer.style.display = 'block';
 
-        /* 1. discover every category page 1 … N */
-        const firstDoc = await getDoc(startURL);
-        const last = lastPage(firstDoc);
-        const catPages = [];
-        for (let i = 1; i <= last; i++) {
-          catPages.push(startURL.replace(/1-page$/, `${i}-page`));
-        }
-
-        /* 2. collect every story URL – in parallel */
-        const MAX_CAT_CONCURRENCY = 10;
-        const storySet = new Set();
-
-        await runConcurrent(catPages, MAX_CAT_CONCURRENCY, async (url, i) => {
-          const doc = await getDoc(url);
-          storyLinks(doc).forEach(u => storySet.add(u));
-          updateProgress(i + 1, catPages.length);
-        });
-
-        const stories = [...storySet];
-        log(`Found ${stories.length} unique stories`);
-
-        /* 3. ask user for range */
-        const indices = await askRange(stories.length);
-        if (!indices) {
-          log('Download cancelled');
-          return;
-        }
-
-        /* 4. fetch selected stories - in parallel, but with lower concurrency for ordering */
-        novelData.chapters = [];
-        let done = 0;
-
-        // Process stories with lower concurrency to ensure proper ordering
-        await runConcurrent(indices, 5, async (idx) => {
-          const storyURL = stories[idx];
-          const storyData = await processCompleteStory(storyURL);
-          novelData.chapters.push(storyData);
-          
-          done++;
-          updateProgress(done, indices.length);
-        });
-
-        /* 5. metadata & EPUB */
-        novelData.metadata = {
-          title: `Literotica Category – ${new URL(startURL).pathname.split('/')[2]}`,
-          status: 'Complete',
-          source: startURL,
-          description: `${novelData.chapters.length} stories scraped (${indices.length} selected)`
-        };
-
-        log(`\n✓ Finished – ${novelData.chapters.length} stories loaded`, 'green');
-        downloadBtn.disabled = false;
-        saveToJsonBtn.disabled = false; 
-        editMetadataBtn.disabled = false;
-        createEpubBtn.disabled = false;
-        downloadEpubBtn.disabled = false;
-        saveEpubBtn.disabled = false;
-        
-      } catch (err) {
-        log(`Error: ${err.message}`, 'red');
-        console.error(err);
-      } finally {
-        fetchLitBtn.disabled = false;
-        progressContainer.style.display = 'none';
-      }
+    /* 1. discover every category page 1 … N */
+    const firstDoc = await getDoc(startURL);
+    const last = lastPage(firstDoc);
+    const catPages = [];
+    for (let i = 1; i <= last; i++) {
+      catPages.push(startURL.replace(/1-page$/, `${i}-page`));
     }
+
+    /* 2. collect every story URL – in parallel */
+    const MAX_CAT_CONCURRENCY = 10;
+    const storySet = new Set();
+
+    await runConcurrent(catPages, MAX_CAT_CONCURRENCY, async (url, i) => {
+      const doc = await getDoc(url);
+      storyLinks(doc).forEach(u => storySet.add(u));
+      updateProgress(i + 1, catPages.length);
+    });
+
+    const stories = [...storySet];
+    log(`Found ${stories.length} unique stories`);
+
+    /* 3. ask user for range */
+    const indices = await askRange(stories.length);
+    if (!indices) {
+      log('Download cancelled');
+      return;
+    }
+
+    /* 4. fetch selected stories - in parallel, but with lower concurrency for ordering */
+    novelData.chapters = [];
+    
+    // Track progress correctly
+    let completed = 0;
+    const totalStories = indices.length;
+    
+    // Process stories with lower concurrency to ensure proper ordering
+    await runConcurrent(indices, 5, async (idx) => {
+      const storyURL = stories[idx];
+      const storyData = await processCompleteStory(storyURL);
+      novelData.chapters.push(storyData);
+      
+      // Update progress safely
+      completed++;
+      updateProgress(completed, totalStories);
+    });
+
+    /* 5. metadata & EPUB */
+    novelData.metadata = {
+      title: `Literotica Category – ${new URL(startURL).pathname.split('/')[2]}`,
+      status: 'Complete',
+      source: startURL,
+      description: `${novelData.chapters.length} stories scraped (${indices.length} selected)`
+    };
+
+    log(`\n✓ Finished – ${novelData.chapters.length} stories loaded`, 'green');
+    downloadBtn.disabled = false;
+    saveToJsonBtn.disabled = false; 
+    editMetadataBtn.disabled = false;
+    createEpubBtn.disabled = false;
+    downloadEpubBtn.disabled = false;
+    saveEpubBtn.disabled = false;
+    
+  } catch (err) {
+    log(`Error: ${err.message}`, 'red');
+    console.error(err);
+  } finally {
+    fetchLitBtn.disabled = false;
+    progressContainer.style.display = 'none';
+  }
+}
 
     /* hook button */
     fetchLitBtn.addEventListener('click', fetchLitCategory);
