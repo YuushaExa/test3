@@ -594,8 +594,7 @@
     }
 
     /* 4. fetch selected stories - in parallel, but with lower concurrency for ordering */
-const indices = await askRange(stories.length);
-if (!indices) { log('Download cancelled'); return; }
+
 
 novelData.chapters = Array(indices.length);   // pre-allocate to preserve order
 let done = 0, total = indices.length;
