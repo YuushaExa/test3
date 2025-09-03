@@ -94,6 +94,7 @@
 
     // ---- data store ----
     let novelData = { metadata: null, chapters: [] };
+    let failedStories = []; 
 
     // ---- fetch raw html via worker ----
     async function fetchRawHTML(targetUrl) {
@@ -412,6 +413,7 @@
 
     /* for a story, collect all page URLs in correct order and return as a single chapter */
     async function processCompleteStory(url) {
+      try {
       const doc = await getDoc(url);
       
       // Determine the total number of pages for this story
@@ -481,7 +483,11 @@
         fullContent
       ].filter(Boolean).join('\n');
       
-      return { title, content, url };
+         return { title, content, url, success: true }; // Add success flag
+  } catch (err) {
+    console.error(`Failed to process story: ${url}`, err);
+    return { url, success: false, error: err.message }; // Return failure info
+  }
     }
 
     /* main crawler ------------------------------------------------ */
@@ -594,48 +600,55 @@
     }
 
     /* 4. fetch selected stories - in parallel, but with lower concurrency for ordering */
+   novelData.chapters = [];
+failedStories = []; // Reset failed stories
 
+// Track progress correctly
+let completed = 0;
+const totalStories = indices.length;
 
-novelData.chapters = Array(indices.length);   // pre-allocate to preserve order
-let done = 0, total = indices.length;
-
-/* 4a – parallel blast --------------------------------------------------- */
-await runConcurrent(indices, 100, async (selIdx, loopIdx) => {
-  const storyURL = stories[selIdx];
-  try {
-    const data = await processCompleteStory(storyURL);
-    novelData.chapters[loopIdx] = data;          // place in correct slot
-  } catch (e) {
-    console.warn(`[FAIL] ${storyURL}  – will retry later`);
-    novelData.chapters[loopIdx] = null;          // mark as missing
-  } finally {
-    done++;
-    updateProgress(done, total);
-  }
+// Process stories with lower concurrency to ensure proper ordering
+const results = await runConcurrent(indices, 100, async (idx) => {
+  const storyURL = stories[idx];
+  const storyData = await processCompleteStory(storyURL);
+  
+  // Update progress safely
+  completed++;
+  updateProgress(completed, totalStories);
+  
+  return storyData;
 });
 
-/* 4b – collect failures & retry 1-by-1 ---------------------------------- */
-const failedIndices = [];
-novelData.chapters.forEach((ch, idx) => { if (!ch) failedIndices.push(idx); });
-
-if (failedIndices.length) {
-  log(`\n${failedIndices.length} stories failed – retrying 1×1…`, 'orange');
-  for (const idx of failedIndices) {
-    const storyURL = stories[indices[idx]];
-    try {
-      log(`  retrying ${storyURL}`);
-      const data = await processCompleteStory(storyURL);
-      novelData.chapters[idx] = data;
-    } catch (e) {
-      log(`  ✗ still failed – skipping: ${storyURL}`, 'red');
-      /* leave null in array – you can filter later if desired */
-    }
+// Process results
+for (const result of results) {
+  if (result.success) {
+    novelData.chapters.push(result);
+  } else {
+    failedStories.push(result);
   }
 }
 
-/* remove nulls so downstream code never sees holes */
-novelData.chapters = novelData.chapters.filter(Boolean);
-
+/* 4.5 Retry failed stories one by one */
+if (failedStories.length > 0) {
+  log(`\n${failedStories.length} stories failed, retrying...`, 'orange');
+  
+  for (let i = 0; i < failedStories.length; i++) {
+    const failed = failedStories[i];
+    log(`Retrying ${i+1}/${failedStories.length}: ${failed.url}`);
+    
+    try {
+      const retryResult = await processCompleteStory(failed.url);
+      if (retryResult.success) {
+        novelData.chapters.push(retryResult);
+        log(`✓ Retry successful`, 'green');
+      } else {
+        log(`✗ Still failed: ${retryResult.error}`, 'red');
+      }
+    } catch (err) {
+      log(`✗ Retry error: ${err.message}`, 'red');
+    }
+  }
+}
     /* 5. metadata & EPUB */
     novelData.metadata = {
       title: `Literotica Category – ${new URL(startURL).pathname.split('/')[2]}`,
