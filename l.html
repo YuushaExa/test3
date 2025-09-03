@@ -594,22 +594,48 @@
     }
 
     /* 4. fetch selected stories - in parallel, but with lower concurrency for ordering */
-    novelData.chapters = [];
-    
-    // Track progress correctly
-    let completed = 0;
-    const totalStories = indices.length;
-    
-    // Process stories with lower concurrency to ensure proper ordering
-    await runConcurrent(indices, 100, async (idx) => {
-      const storyURL = stories[idx];
-      const storyData = await processCompleteStory(storyURL);
-      novelData.chapters.push(storyData);
-      
-      // Update progress safely
-      completed++;
-      updateProgress(completed, totalStories);
-    });
+const indices = await askRange(stories.length);
+if (!indices) { log('Download cancelled'); return; }
+
+novelData.chapters = Array(indices.length);   // pre-allocate to preserve order
+let done = 0, total = indices.length;
+
+/* 4a – parallel blast --------------------------------------------------- */
+await runConcurrent(indices, 100, async (selIdx, loopIdx) => {
+  const storyURL = stories[selIdx];
+  try {
+    const data = await processCompleteStory(storyURL);
+    novelData.chapters[loopIdx] = data;          // place in correct slot
+  } catch (e) {
+    console.warn(`[FAIL] ${storyURL}  – will retry later`);
+    novelData.chapters[loopIdx] = null;          // mark as missing
+  } finally {
+    done++;
+    updateProgress(done, total);
+  }
+});
+
+/* 4b – collect failures & retry 1-by-1 ---------------------------------- */
+const failedIndices = [];
+novelData.chapters.forEach((ch, idx) => { if (!ch) failedIndices.push(idx); });
+
+if (failedIndices.length) {
+  log(`\n${failedIndices.length} stories failed – retrying 1×1…`, 'orange');
+  for (const idx of failedIndices) {
+    const storyURL = stories[indices[idx]];
+    try {
+      log(`  retrying ${storyURL}`);
+      const data = await processCompleteStory(storyURL);
+      novelData.chapters[idx] = data;
+    } catch (e) {
+      log(`  ✗ still failed – skipping: ${storyURL}`, 'red');
+      /* leave null in array – you can filter later if desired */
+    }
+  }
+}
+
+/* remove nulls so downstream code never sees holes */
+novelData.chapters = novelData.chapters.filter(Boolean);
 
     /* 5. metadata & EPUB */
     novelData.metadata = {
