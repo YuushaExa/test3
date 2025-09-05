@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Novel Crawler</title>
+  <style>
+    body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;max-width:800px;margin:0 auto;padding:20px;background:#f5f5f5}
+    h1{color:#333;text-align:center}
+    .container{background:#fff;padding:20px;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,.1)}
+    .form-group{margin-bottom:15px}
+    label{display:block;margin-bottom:5px;font-weight:bold}
+    input[type=text]{width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;box-sizing:border-box}
+    button{background:#4CAF50;color:#fff;border:none;padding:10px 15px;border-radius:4px;cursor:pointer;font-size:16px;margin-right:10px}
+    button:disabled{background:#ccc}
+    #console{background:#1e1e1e;color:#d4d4d4;padding:15px;border-radius:4px;font-family:'Courier New',Courier,monospace;height:300px;overflow-y:auto;white-space:pre-wrap;margin-top:20px}
+    .progress-container{margin-top:15px;display:none}
+    progress{width:100%}
+    .status{text-align:center;margin:10px 0;font-weight:bold}
+
+    #rangeDialog {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.5);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 9999;
+    }
+    #rangeDialog > div {
+      background: #fff; padding: 25px;
+      border-radius: 8px; width: 300px;
+      font-family: inherit;
+    }
+    #rangeDialog label { display: block; margin-bottom: 5px; font-weight: bold; }
+    #rangeDialog input[type=text] {
+      width: 100%; padding: 6px; margin-bottom: 15px;
+    }
+    #rangeDialog button { margin-right: 8px; }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+</head>
+<body>
+  <div class="container">
+    <h1>Novel Crawler</h1>
+
+    <div class="form-group">
+      <label for="novelUrl">Category URL:</label>
+      <input type="text" id="novelUrl" placeholder="Enter Literotica category URL">
+    </div>
+
+    <button id="downloadBtn" disabled>Download as JSON</button>
+    <button id="saveToJsonBtn" disabled>Save JSON</button> 
+    <button id="editMetadataBtn" disabled>Edit Metadata</button>
+    <button id="saveMetadataBtn">Save Metadata</button>
+    <button id="fetchLitBtn" style="background:#ff6600;color:#fff">Fetch Lit Category</button>
+    <div class="progress-container" id="progressContainer">
+      <div class="status" id="statusText">Processing...</div>
+      <progress id="progressBar" value="0" max="100"></progress>
+    </div>
+
+    <div id="console"></div>
+  </div>
+
+ <script>
+  // ---- DOM refs ----
+  const consoleOutput = document.getElementById('console');
+  const novelUrlInput = document.getElementById('novelUrl');
+  const downloadBtn = document.getElementById('downloadBtn');
+  const saveToJsonBtn = document.getElementById('saveToJsonBtn');
+  const progressContainer = document.getElementById('progressContainer');
+  const progressBar = document.getElementById('progressBar');
+  const statusText = document.getElementById('statusText');
+  const fetchLitBtn = document.getElementById('fetchLitBtn');
+
+  // Rename button text for clarity
+  fetchLitBtn.textContent = 'Fetch Backloggd Category';
+  fetchLitBtn.style.background = '#007bff';
+
+  // ---- config ----
+  const WORKER_URL = 'https://curly-pond-9050.yuush.workers.dev';
+
+  // ---- helpers ----
+  function log(msg, color = '') {
+    const messageElement = document.createElement('div');
+    messageElement.textContent = msg;
+    if (color) {
+      messageElement.style.color = color;
+      messageElement.style.fontWeight = 'bold';
+    }
+    consoleOutput.appendChild(messageElement);
+    consoleOutput.scrollTop = consoleOutput.scrollHeight;
+  }
+
+  function updateProgress(current, total) {
+    const pct = Math.round((current / total) * 100);
+    progressBar.value = pct;
+    statusText.textContent = `Processing ${current}/${total} (${pct}%)`;
+  }
+
+  // ---- data store ----
+  let gameData = { metadata: null, chapters: [] }; // "chapters" = games
+  let failedGames = [];
+
+  // ---- fetch raw html via worker ----
+  async function fetchRawHTML(targetUrl) {
+    const res = await fetch(`${WORKER_URL}/api/raw?url=${encodeURIComponent(targetUrl)}`);
+    if (!res.ok) throw new Error(`raw fetch ${res.status}`);
+    return res.text();
+  }
+
+  // ---- Save Metadata ----
+  async function saveMetadata() {
+    try {
+      progressContainer.style.display = 'block';
+      statusText.textContent = 'Saving metadata...';
+
+      const metadata = gameData.metadata;
+      if (!metadata) {
+        alert('No metadata available to save');
+        return false;
+      }
+
+      const response = await fetch(`${WORKER_URL}/api/saveMetadata`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(metadata)
+      });
+
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Failed to save metadata');
+      }
+
+      log('✓ Metadata saved successfully', 'green');
+      return true;
+    } catch (error) {
+      log('✗ Error saving metadata: ' + error.message, 'red');
+      return false;
+    } finally {
+      progressContainer.style.display = 'none';
+    }
+  }
+
+  // ---- export JSON ----
+  function downloadJson() {
+    if (!gameData.metadata?.title) return alert('No data to save');
+
+    const cleanData = {
+      ...gameData,
+      chapters: gameData.chapters.map(({ url, ...rest }) => rest) // Exclude 'url'
+    };
+
+    const blob = new Blob([JSON.stringify(cleanData, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `${gameData.metadata.title.replace(/[^a-z0-9]/gi, '_')}.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  // ---- save JSON to Google Drive ----
+  async function saveJsonToGoogleDrive() {
+    if (!gameData.metadata?.title) return alert('No data to save');
+
+    try {
+      saveToJsonBtn.disabled = true;
+      log('Preparing data for Google Drive...');
+
+      const cleanData = {
+        ...gameData,
+        chapters: gameData.chapters.map(({ url, ...rest }) => rest)
+      };
+      const jsonContent = JSON.stringify(cleanData, null, 2);
+
+      log('Starting upload...');
+      const response = await fetch(`${WORKER_URL}/api/saveToGoogleDrive`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: `${gameData.metadata.title}`,
+          content: jsonContent,
+          folder: '16D-B7--4_NOjICRqDnHg0Z0SRH-SiWrH'
+        })
+      });
+
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Upload failed with unknown error');
+      }
+
+      log(`✓ Successfully saved to Google Drive`, 'green');
+      log(`File: ${result.webViewLink}`);
+      log(`File ID: ${result.fileId}`);
+
+    } catch (error) {
+      log(`Error: ${error.message}`, 'red');
+      console.error('Upload error details:', error);
+    } finally {
+      saveToJsonBtn.disabled = false;
+    }
+  }
+
+  // ---- EPUB Functions (unchanged) ----
+  let generatedEpubBlob = null;
+
+  const createEpubBtn = document.createElement('button');
+  createEpubBtn.textContent = 'Create EPUB';
+  createEpubBtn.disabled = true;
+
+  const downloadEpubBtn = document.createElement('button');
+  downloadEpubBtn.textContent = 'Download EPUB';
+  downloadEpubBtn.disabled = true;
+
+  const saveEpubBtn = document.createElement('button');
+  saveEpubBtn.textContent = 'Save EPUB';
+  saveEpubBtn.disabled = true;
+
+  document.querySelector('.container').appendChild(createEpubBtn);
+  document.querySelector('.container').appendChild(downloadEpubBtn);
+  document.querySelector('.container').appendChild(saveEpubBtn);
+
+  class EpubGenerator {
+    constructor(data) {
+      this.data = data;
+    }
+    async generate(logFn) {
+      const JSZip = window.JSZip;
+      const zip = new JSZip();
+
+      // Add mimetype
+      zip.file("mimetype", "application/epub+zip", { compression: "STORE" });
+
+      // Create META-INF
+      const metaInfFolder = zip.folder("META-INF");
+      metaInfFolder.file("container.xml", `<?xml version="1.0"?>
+<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+   <rootfiles>
+      <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>
+   </rootfiles>
+</container>`);
+
+      // Create OEBPS
+      const oebpsFolder = zip.folder("OEBPS");
+
+      // Generate title page
+      const titleHtml = `
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <title>${this.data.metadata.title}</title>
+    <style>
+        body { margin: 5%; text-align: center; }
+        h1 { color: #333; }
+    </style>
+</head>
+<body>
+    <h1>${this.data.metadata.title}</h1>
+    <p>${this.data.metadata.description || ''}</p>
+</body>
+</html>`;
+
+      oebpsFolder.file("title.xhtml", titleHtml);
+
+      // Generate chapters
+      const chapterFiles = [];
+      for (let i = 0; i < this.data.chapters.length; i++) {
+        const chapter = this.data.chapters[i];
+        const chapterHtml = `
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <title>${chapter.title}</title>
+    <style>
+        body { margin: 5%; font-family: serif; }
+        h1 { color: #333; }
+        img { max-width: 100%; height: auto; }
+    </style>
+</head>
+<body>
+    <h1>${chapter.title}</h1>
+    ${chapter.content || ''}
+</body>
+</html>`;
+        const filename = `chapter${i + 1}.xhtml`;
+        oebpsFolder.file(filename, chapterHtml);
+        chapterFiles.push({ id: `chapter${i + 1}`, href: filename, title: chapter.title });
+      }
+
+      // Generate content.opf
+      let manifestItems = chapterFiles.map(ch => `<item id="${ch.id}" href="${ch.href}" media-type="application/xhtml+xml"/>`).join('\n    ');
+      let spineItems = chapterFiles.map(ch => `<itemref idref="${ch.id}"/>`).join('\n    ');
+
+      const opfContent = `<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" unique-identifier="BookID" version="3.0">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:identifier id="BookID">urn:uuid:${Date.now()}</dc:identifier>
+    <dc:title>${this.data.metadata.title}</dc:title>
+    <dc:language>en</dc:language>
+  </metadata>
+  <manifest>
+    <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
+    <item id="title" href="title.xhtml" media-type="application/xhtml+xml"/>
+    ${manifestItems}
+  </manifest>
+  <spine toc="ncx">
+    <itemref idref="title"/>
+    ${spineItems}
+  </spine>
+</package>`;
+
+      oebpsFolder.file("content.opf", opfContent);
+
+      // Generate toc.ncx
+      const tocEntries = chapterFiles.map((ch, idx) => `
+    <navPoint id="navPoint-${idx + 1}" playOrder="${idx + 2}">
+      <navLabel><text>${ch.title}</text></navLabel>
+      <content src="${ch.href}"/>
+    </navPoint>`).join('\n');
+
+      const tocContent = `<?xml version="1.0" encoding="UTF-8"?>
+<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1" xml:lang="en">
+  <head>
+    <meta name="dtb:uid" content="urn:uuid:${Date.now()}"/>
+    <meta name="dtb:depth" content="1"/>
+    <meta name="dtb:totalPageCount" content="0"/>
+    <meta name="dtb:maxPageNumber" content="0"/>
+  </head>
+  <docTitle><text>${this.data.metadata.title}</text></docTitle>
+  <navMap>
+    <navPoint id="navPoint-0" playOrder="1">
+      <navLabel><text>Title Page</text></navLabel>
+      <content src="title.xhtml"/>
+    </navPoint>
+    ${tocEntries}
+  </navMap>
+</ncx>`;
+
+      oebpsFolder.file("toc.ncx", tocContent);
+
+      return await zip.generateAsync({ type: "blob" });
+    }
+  }
+
+  async function createEpub() {
+    if (!gameData.metadata?.title || !gameData.chapters[0]?.content) {
+      throw new Error('No chapter data available to create an EPUB.');
+    }
+
+    try {
+      createEpubBtn.disabled = true;
+      log('Generating EPUB...');
+      const generator = new EpubGenerator(gameData);
+      generatedEpubBlob = await generator.generate(log);
+      log('✓ EPUB created successfully (not downloaded yet)', 'green');
+      downloadEpubBtn.disabled = false;
+      saveEpubBtn.disabled = false;
+      return generatedEpubBlob;
+    } catch (err) {
+      log(`EPUB generation error: ${err.message}`, 'red');
+      throw err;
+    } finally {
+      createEpubBtn.disabled = false;
+    }
+  }
+
+  function downloadEpub() {
+    if (!generatedEpubBlob) {
+      throw new Error('No EPUB generated yet.');
+    }
+
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(generatedEpubBlob);
+    a.download = `${gameData.metadata.title.replace(/[^a-z0-9]/gi, '_')}.epub`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    log('EPUB download started.');
+  }
+
+  async function saveEpubToDrive() {
+    if (!generatedEpubBlob) {
+      throw new Error('No EPUB generated yet.');
+    }
+
+    try {
+      saveEpubBtn.disabled = true;
+      log('Uploading EPUB to Google Drive...');
+
+      const formData = new FormData();
+      formData.append('file', generatedEpubBlob, `${gameData.metadata.title}.epub`);
+      formData.append('folder', '1_P5VjIMg8PTp6_4en8d23hngim4NXED6');
+
+      const response = await fetch(`${WORKER_URL}/api/saveEpubToGoogleDrive`, {
+        method: 'POST',
+        body: formData
+      });
+
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Upload failed');
+      }
+
+      log(`✓ Successfully saved EPUB to Google Drive`, 'green');
+      log(`File: ${result.webViewLink}`);
+      log(`File ID: ${result.fileId}`);
+      return result;
+    } catch (error) {
+      log(`Error: ${error.message}`, 'red');
+      throw error;
+    } finally {
+      saveEpubBtn.disabled = false;
+    }
+  }
+
+  // Button event listeners
+  createEpubBtn.addEventListener('click', async () => {
+    try { await createEpub(); } catch (err) { console.error('EPUB creation failed:', err); }
+  });
+
+  downloadEpubBtn.addEventListener('click', () => {
+    try { downloadEpub(); } catch (err) { log(`Download error: ${err.message}`); }
+  });
+
+  saveEpubBtn.addEventListener('click', async () => {
+    try { await saveEpubToDrive(); } catch (err) { console.error('EPUB save failed:', err); }
+  });
+
+  // ---- Edit metadata ----
+  const editMetadataBtn = document.getElementById('editMetadataBtn');
+
+  function showEditMetadataForm() {
+    const metadata = gameData.metadata;
+    if (!metadata) return alert('No metadata available to edit');
+
+    const formHTML = `
+      <form id="metadataForm">
+        <div class="form-group">
+          <label for="editTitle">Title:</label>
+          <input type="text" id="editTitle" name="title" value="${metadata.title}" required>
+        </div>
+        <div class="form-group">
+          <label for="editCover">Cover URL:</label>
+          <input type="text" id="editCover" name="cover" value="${metadata.cover}">
+        </div>
+        <div class="form-group">
+          <label for="editStatus">Status:</label>
+          <input type="text" id="editStatus" name="status" value="${metadata.status}">
+        </div>
+        <div class="form-group">
+          <label for="editSource">Source:</label>
+          <input type="text" id="editSource" name="source" value="${metadata.source}">
+        </div>
+        <div class="form-group">
+          <label for="editDescription">Description:</label>
+          <textarea id="editDescription" name="description" rows="5">${metadata.description}</textarea>
+        </div>
+        <button type="submit">Save Changes</button>
+        <button type="button" onclick="document.getElementById('metadataForm').remove()">Cancel</button>
+      </form>
+    `;
+
+    const formContainer = document.createElement('div');
+    formContainer.innerHTML = formHTML;
+    document.body.appendChild(formContainer);
+
+    document.getElementById('metadataForm').addEventListener('submit', async function(event) {
+      event.preventDefault();
+      const formData = new FormData(event.target);
+      const newMetadata = {
+        title: formData.get('title'),
+        cover: formData.get('cover'),
+        status: formData.get('status'),
+        source: formData.get('source'),
+        description: formData.get('description'),
+      };
+      gameData.metadata = newMetadata;
+      log('Metadata updated successfully', 'green');
+      document.getElementById('metadataForm').remove();
+    });
+  }
+
+  editMetadataBtn.addEventListener('click', showEditMetadataForm);
+
+  // ---- Backloggd specific functions ----
+
+  async function getDoc(url) {
+    const html = await fetchRawHTML(url);
+    return new DOMParser().parseFromString(html, 'text/html');
+  }
+
+  function extractGameLinks(doc) {
+    const links = [];
+    doc.querySelectorAll('.col-cus-5 .quick-access .cover-link').forEach(a => {
+      const href = a.getAttribute('href');
+      if (href && href.startsWith('/games/') && !href.includes('/company/')) {
+        links.push(new URL(href, 'https://backloggd.com').href);
+      }
+    });
+    return [...new Set(links)]; // dedupe
+  }
+
+  async function processGamePage(url) {
+    try {
+      const doc = await getDoc(url);
+
+      // Title
+      const title = doc.querySelector('#title h1')?.textContent.trim() || 'Unknown Title';
+
+      // Cover
+      const coverImg = doc.querySelector('.game-cover.overlay-hide img');
+      const cover = coverImg?.getAttribute('src') || coverImg?.getAttribute('data-src') || '';
+
+      // Summary
+      const summaryDiv = doc.getElementById('collapseSummary');
+      const description = summaryDiv?.textContent.trim() || '';
+
+      // Release Date
+      const releaseDate = doc.querySelector('[href*="/release_year:"]')?.textContent.trim() || '';
+
+      // Developers
+      const devs = [...doc.querySelectorAll('[href*="/company/"]')].map(a => a.textContent.trim());
+      const developer = devs.join(', ') || '';
+
+      // Platforms
+      const platforms = [...doc.querySelectorAll('.game-page-platform')].map(a => a.textContent.trim());
+      const platformStr = platforms.join(', ') || '';
+
+      // Genres
+      const genres = [...doc.querySelectorAll('.genre-tag a')].map(a => a.textContent.trim());
+      const genreStr = genres.join(', ') || '';
+
+      // Series
+      const series = [...doc.querySelectorAll('.quick-access .game-text-centered')].map(el => el.textContent.trim());
+      const seriesStr = series.join(', ') || '';
+
+      // Build content block
+      let content = `
+<h2>${title}</h2>
+${cover ? `<img src="${cover}" alt="${title}" style="max-width:100%; height:auto; display:block; margin:1em auto;" />` : ''}
+<p><strong>Released:</strong> ${releaseDate}</p>
+<p><strong>Developer(s):</strong> ${developer}</p>
+<p><strong>Platforms:</strong> ${platformStr}</p>
+<p><strong>Genres:</strong> ${genreStr}</p>
+${description ? `<h3>Description</h3><p>${description}</p>` : ''}
+${seriesStr ? `<h3>Also in Series</h3><p>${seriesStr}</p>` : ''}
+`;
+
+      return {
+        title,
+        content,
+        url,
+        success: true,
+        metadata: {
+          cover,
+          releaseDate,
+          developer,
+          platforms,
+          genres,
+          series: series,
+          description
+        }
+      };
+    } catch (err) {
+      console.error(`Failed to process game: ${url}`, err);
+      return { url, success: false, error: err.message };
+    }
+  }
+
+  async function runConcurrent(jobs, concurrency, worker) {
+    const results = [];
+    let index = 0;
+
+    const execNext = async () => {
+      while (index < jobs.length) {
+        const cur = index++;
+        try {
+          results[cur] = await worker(jobs[cur]);
+        } catch (e) {
+          console.error(`Error processing job ${cur}:`, e);
+          results[cur] = null;
+        }
+      }
+    };
+
+    await Promise.all([...Array(concurrency)].map(execNext));
+    return results;
+  }
+
+  async function askRange(total) {
+    return new Promise((resolve) => {
+      const dialog = document.createElement('div');
+      dialog.id = 'rangeDialog';
+      dialog.innerHTML = `
+        <div>
+          <label>Total games found: ${total}</label>
+          <label>Download range (e.g. 1-10, 3-1000, all):</label>
+          <input type="text" id="rangeInput" value="1-10" />
+          <div>
+            <button id="rangeOk">OK</button>
+            <button id="rangeCancel">Cancel</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(dialog);
+
+      const ok = dialog.querySelector('#rangeOk');
+      const cancel = dialog.querySelector('#rangeCancel');
+      const input = dialog.querySelector('#rangeInput');
+
+      ok.onclick = () => {
+        dialog.remove();
+        resolve(parseRange(input.value.trim(), total));
+      };
+      cancel.onclick = () => {
+        dialog.remove();
+        resolve(null);
+      };
+    });
+  }
+
+  function parseRange(str, total) {
+    if (str.toLowerCase() === 'all') return [...Array(total).keys()];
+    const m = str.match(/^\s*(\d+)\s*-\s*(\d+)\s*$/);
+    if (!m) return null;
+    let [, from, to] = m.map(Number);
+    from = Math.max(1, from);
+    to = Math.min(total, to);
+    if (from > to) return null;
+    return [...Array(to - from + 1).keys()].map(i => i + from - 1);
+  }
+
+  async function fetchBackloggdCategory() {
+    const startURL = novelUrlInput.value.trim();
+    if (!startURL) return alert('Enter a Backloggd category URL (e.g., https://backloggd.com/games/lib/popular)');
+
+    try {
+      fetchLitBtn.disabled = true;
+      log('Fetching category pages…');
+      progressContainer.style.display = 'block';
+
+      // Get total pages
+      const firstDoc = await getDoc(startURL);
+      const lastPageLink = firstDoc.querySelector('nav[aria-label="Pages"] a:last-of-type');
+      const lastPageMatch = lastPageLink?.href?.match(/page=(\d+)/);
+      const totalPages = lastPageMatch ? parseInt(lastPageMatch[1], 10) : 1;
+
+      log(`Found ${totalPages} pages`);
+
+      // Build all page URLs
+      const pageUrls = [startURL];
+      for (let i = 2; i <= totalPages; i++) {
+        pageUrls.push(`${startURL}${startURL.includes('?') ? '&' : '?'}page=${i}`);
+      }
+
+      // Collect all game links
+      const gameSet = new Set();
+
+      await runConcurrent(pageUrls, 10, async (url, i) => {
+        const doc = await getDoc(url);
+        extractGameLinks(doc).forEach(u => gameSet.add(u));
+        updateProgress(i + 1, pageUrls.length);
+      });
+
+      const games = [...gameSet];
+      log(`Found ${games.length} unique games`);
+
+      // Ask for range
+      const indices = await askRange(games.length);
+      if (!indices) {
+        log('Download cancelled');
+        return;
+      }
+
+      // Process selected games
+      gameData.chapters = [];
+      failedGames = [];
+      let completed = 0;
+
+      const results = await runConcurrent(indices, 5, async (idx) => {
+        const gameURL = games[idx];
+        const gameData = await processGamePage(gameURL);
+        completed++;
+        updateProgress(completed, indices.length);
+        return gameData;
+      });
+
+      for (const result of results) {
+        if (result.success) {
+          gameData.chapters.push(result);
+        } else {
+          failedGames.push(result);
+        }
+      }
+
+      // Retry failed
+      if (failedGames.length > 0) {
+        log(`\n${failedGames.length} games failed, retrying...`, 'orange');
+        for (let i = 0; i < failedGames.length; i++) {
+          const failed = failedGames[i];
+          log(`Retrying ${i + 1}/${failedGames.length}: ${failed.url}`);
+          try {
+            const retryResult = await processGamePage(failed.url);
+            if (retryResult.success) {
+              gameData.chapters.push(retryResult);
+              log(`✓ Retry successful`, 'green');
+            } else {
+              log(`✗ Still failed: ${retryResult.error}`, 'red');
+            }
+          } catch (err) {
+            log(`✗ Retry error: ${err.message}`, 'red');
+          }
+        }
+      }
+
+      // Set metadata
+      gameData.metadata = {
+        title: `Backloggd Games – ${new URL(startURL).pathname.split('/').filter(Boolean).join('-')}`,
+        status: 'Complete',
+        source: startURL,
+        description: `${gameData.chapters.length} games scraped (${indices.length} selected)`
+      };
+
+      log(`\n✓ Finished – ${gameData.chapters.length} games loaded`, 'green');
+      downloadBtn.disabled = false;
+      saveToJsonBtn.disabled = false;
+      editMetadataBtn.disabled = false;
+      createEpubBtn.disabled = false;
+      downloadEpubBtn.disabled = false;
+      saveEpubBtn.disabled = false;
+
+    } catch (err) {
+      log(`Error: ${err.message}`, 'red');
+      console.error(err);
+    } finally {
+      fetchLitBtn.disabled = false;
+      progressContainer.style.display = 'none';
+    }
+  }
+
+  // Hook button
+  fetchLitBtn.addEventListener('click', fetchBackloggdCategory);
+
+  // Enable buttons when URL is entered
+  novelUrlInput.addEventListener('input', () => {
+    fetchLitBtn.disabled = !novelUrlInput.value.trim();
+  });
+</script>
+</body>
+</html>
