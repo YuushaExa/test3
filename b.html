@@ -627,122 +627,181 @@ ${seriesStr ? `<h3>Also in Series</h3><p>${seriesStr}</p>` : ''}
     if (from > to) return null;
     return [...Array(to - from + 1).keys()].map(i => i + from - 1);
   }
+async function askPageRange(total) {
+  return new Promise((resolve) => {
+    const dialog = document.createElement('div');
+    dialog.id = 'rangeDialog';
+    dialog.innerHTML = `
+      <div>
+        <label>Total pages found: ${total}</label>
+        <label>Download page range (e.g. 1-5, 4-50, all):</label>
+        <input type="text" id="rangeInput" value="1-5" />
+        <div>
+          <button id="rangeOk">OK</button>
+          <button id="rangeCancel">Cancel</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(dialog);
 
-  async function fetchBackloggdCategory() {
-    const startURL = novelUrlInput.value.trim();
-    if (!startURL) return alert('Enter a Backloggd category URL (e.g., https://backloggd.com/games/lib/popular)');
+    const ok = dialog.querySelector('#rangeOk');
+    const cancel = dialog.querySelector('#rangeCancel');
+    const input = dialog.querySelector('#rangeInput');
 
-    try {
-      fetchLitBtn.disabled = true;
-      log('Fetching category pages…');
-      progressContainer.style.display = 'block';
-
-      // Get total pages
-// Get total pages — find the LARGEST page number in pagination
-const firstDoc = await getDoc(startURL);
-let totalPages = 1;
-
-const pageLinks = [...firstDoc.querySelectorAll('nav[aria-label="Pages"] a[href*="?page="]')];
-for (const link of pageLinks) {
-  const match = link.href.match(/page=(\d+)/);
-  if (match) {
-    const pageNum = parseInt(match[1], 10);
-    if (pageNum > totalPages) totalPages = pageNum;
-  }
-}
-
-log(`Found ${totalPages} total pages`);
-
-// Build all page URLs
-const pageUrls = [startURL];
-for (let i = 2; i <= totalPages; i++) {
-  pageUrls.push(`${startURL}${startURL.includes('?') ? '&' : '?'}page=${i}`);
-}
-
-      // Collect all game links
-      const gameSet = new Set();
-
-      await runConcurrent(pageUrls, 10, async (url, i) => {
-        const doc = await getDoc(url);
-        extractGameLinks(doc).forEach(u => gameSet.add(u));
-        updateProgress(i + 1, pageUrls.length);
-      });
-
-      const games = [...gameSet];
-      log(`Found ${games.length} unique games`);
-
-      // Ask for range
-      const indices = await askRange(games.length);
-      if (!indices) {
-        log('Download cancelled');
-        return;
-      }
-
-      // Process selected games
-      gameData.chapters = [];
-      failedGames = [];
-      let completed = 0;
-
-      const results = await runConcurrent(indices, 5, async (idx) => {
-        const gameURL = games[idx];
-        const gameData = await processGamePage(gameURL);
-        completed++;
-        updateProgress(completed, indices.length);
-        return gameData;
-      });
-
-      for (const result of results) {
-        if (result.success) {
-          gameData.chapters.push(result);
+    ok.onclick = () => {
+      dialog.remove();
+      const rangeStr = input.value.trim();
+      if (rangeStr.toLowerCase() === 'all') {
+        resolve({ from: 1, to: total });
+      } else {
+        const m = rangeStr.match(/^\s*(\d+)\s*-\s*(\d+)\s*$/);
+        if (!m) {
+          alert('Invalid format. Please use "1-5", "4-50", or "all".');
+          resolve(null);
         } else {
-          failedGames.push(result);
-        }
-      }
-
-      // Retry failed
-      if (failedGames.length > 0) {
-        log(`\n${failedGames.length} games failed, retrying...`, 'orange');
-        for (let i = 0; i < failedGames.length; i++) {
-          const failed = failedGames[i];
-          log(`Retrying ${i + 1}/${failedGames.length}: ${failed.url}`);
-          try {
-            const retryResult = await processGamePage(failed.url);
-            if (retryResult.success) {
-              gameData.chapters.push(retryResult);
-              log(`✓ Retry successful`, 'green');
-            } else {
-              log(`✗ Still failed: ${retryResult.error}`, 'red');
-            }
-          } catch (err) {
-            log(`✗ Retry error: ${err.message}`, 'red');
+          let [, from, to] = m.map(Number);
+          from = Math.max(1, from);
+          to = Math.min(total, to);
+          if (from > to) {
+            alert(`"From" page cannot be greater than "To" page.`);
+            resolve(null);
+          } else {
+            resolve({ from, to });
           }
         }
       }
+    };
 
-      // Set metadata
-      gameData.metadata = {
-        title: `Backloggd Games – ${new URL(startURL).pathname.split('/').filter(Boolean).join('-')}`,
-        status: 'Complete',
-        source: startURL,
-        description: `${gameData.chapters.length} games scraped (${indices.length} selected)`
-      };
+    cancel.onclick = () => {
+      dialog.remove();
+      resolve(null);
+    };
+  });
+}
+async function fetchBackloggdCategory() {
+  const startURL = novelUrlInput.value.trim();
+  if (!startURL) return alert('Enter a Backloggd category URL (e.g., https://backloggd.com/games/lib/popular)');
 
-      log(`\n✓ Finished – ${gameData.chapters.length} games loaded`, 'green');
-      downloadBtn.disabled = false;
-      saveToJsonBtn.disabled = false;
-      editMetadataBtn.disabled = false;
-      createEpubBtn.disabled = false;
-      downloadEpubBtn.disabled = false;
-      saveEpubBtn.disabled = false;
+  try {
+    fetchLitBtn.disabled = true;
+    log('Fetching total pages…');
+    progressContainer.style.display = 'block';
 
-    } catch (err) {
-      log(`Error: ${err.message}`, 'red');
-      console.error(err);
-    } finally {
-      fetchLitBtn.disabled = false;
-      progressContainer.style.display = 'none';
+    // --- 1. Get total pages ---
+    const firstDoc = await getDoc(startURL);
+    let totalPages = 1;
+
+    const pageLinks = [...firstDoc.querySelectorAll('nav[aria-label="Pages"] a[href*="?page="]')];
+    for (const link of pageLinks) {
+      const match = link.href.match(/page=(\d+)/);
+      if (match) {
+        const pageNum = parseInt(match[1], 10);
+        if (pageNum > totalPages) totalPages = pageNum;
+      }
     }
+
+    log(`Found ${totalPages} total pages`);
+
+    // --- 2. Ask user for PAGE range ---
+    const pageRange = await askPageRange(totalPages);
+    if (!pageRange) {
+      log('Download cancelled');
+      return;
+    }
+
+    // --- 3. Build page URLs based on user range ---
+    const pageUrls = [];
+    for (let i = pageRange.from; i <= pageRange.to; i++) {
+      if (i === 1) {
+        pageUrls.push(startURL);
+      } else {
+        pageUrls.push(`${startURL}${startURL.includes('?') ? '&' : '?'}page=${i}`);
+      }
+    }
+
+    log(`Fetching ${pageUrls.length} pages: ${pageRange.from} to ${pageRange.to}`);
+
+    // --- 4. Collect all game links from selected pages ---
+    const gameSet = new Set();
+
+    await runConcurrent(pageUrls, 10, async (url, i) => {
+      const doc = await getDoc(url);
+      extractGameLinks(doc).forEach(u => gameSet.add(u));
+      updateProgress(i + 1, pageUrls.length);
+    });
+
+    const games = [...gameSet];
+    log(`Found ${games.length} unique games`);
+
+    if (games.length === 0) {
+      log('⚠️ No games found on selected pages.', 'orange');
+      return;
+    }
+
+    // --- 5. Process all games ---
+    gameData.chapters = [];
+    failedGames = [];
+    let completed = 0;
+
+    const results = await runConcurrent(games, 5, async (gameURL) => {
+      const gameData = await processGamePage(gameURL);
+      completed++;
+      updateProgress(completed, games.length);
+      return gameData;
+    });
+
+    for (const result of results) {
+      if (result.success) {
+        gameData.chapters.push(result);
+      } else {
+        failedGames.push(result);
+      }
+    }
+
+    // --- 6. Retry failed games ---
+    if (failedGames.length > 0) {
+      log(`\n${failedGames.length} games failed, retrying...`, 'orange');
+      for (let i = 0; i < failedGames.length; i++) {
+        const failed = failedGames[i];
+        log(`Retrying ${i + 1}/${failedGames.length}: ${failed.url}`);
+        try {
+          const retryResult = await processGamePage(failed.url);
+          if (retryResult.success) {
+            gameData.chapters.push(retryResult);
+            log(`✓ Retry successful`, 'green');
+          } else {
+            log(`✗ Still failed: ${retryResult.error}`, 'red');
+          }
+        } catch (err) {
+          log(`✗ Retry error: ${err.message}`, 'red');
+        }
+      }
+    }
+
+    // --- 7. Set metadata ---
+    gameData.metadata = {
+      title: `Backloggd Games – ${new URL(startURL).pathname.split('/').filter(Boolean).join('-')} (Pages ${pageRange.from}-${pageRange.to})`,
+      status: 'Complete',
+      source: startURL,
+      description: `${gameData.chapters.length} games scraped from pages ${pageRange.from} to ${pageRange.to}`
+    };
+
+    log(`\n✓ Finished – ${gameData.chapters.length} games loaded`, 'green');
+    downloadBtn.disabled = false;
+    saveToJsonBtn.disabled = false;
+    editMetadataBtn.disabled = false;
+    createEpubBtn.disabled = false;
+    downloadEpubBtn.disabled = false;
+    saveEpubBtn.disabled = false;
+
+  } catch (err) {
+    log(`Error: ${err.message}`, 'red');
+    console.error(err);
+  } finally {
+    fetchLitBtn.disabled = false;
+    progressContainer.style.display = 'none';
   }
+}
 
   // Hook button
   fetchLitBtn.addEventListener('click', fetchBackloggdCategory);
