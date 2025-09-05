@@ -156,6 +156,8 @@
     URL.revokeObjectURL(a.href);
   }
 
+   saveToJsonBtn.addEventListener('click', saveJsonToGoogleDrive);
+
   // ---- save JSON to Google Drive ----
   async function saveJsonToGoogleDrive() {
     if (!gameData.metadata?.title) return alert('No data to save');
