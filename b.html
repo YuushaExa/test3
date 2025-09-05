@@ -638,18 +638,26 @@ ${seriesStr ? `<h3>Also in Series</h3><p>${seriesStr}</p>` : ''}
       progressContainer.style.display = 'block';
 
       // Get total pages
-      const firstDoc = await getDoc(startURL);
-      const lastPageLink = firstDoc.querySelector('nav[aria-label="Pages"] a:last-of-type');
-      const lastPageMatch = lastPageLink?.href?.match(/page=(\d+)/);
-      const totalPages = lastPageMatch ? parseInt(lastPageMatch[1], 10) : 1;
+// Get total pages — find the LARGEST page number in pagination
+const firstDoc = await getDoc(startURL);
+let totalPages = 1;
 
-      log(`Found ${totalPages} pages`);
+const pageLinks = [...firstDoc.querySelectorAll('nav[aria-label="Pages"] a[href*="?page="]')];
+for (const link of pageLinks) {
+  const match = link.href.match(/page=(\d+)/);
+  if (match) {
+    const pageNum = parseInt(match[1], 10);
+    if (pageNum > totalPages) totalPages = pageNum;
+  }
+}
 
-      // Build all page URLs
-      const pageUrls = [startURL];
-      for (let i = 2; i <= totalPages; i++) {
-        pageUrls.push(`${startURL}${startURL.includes('?') ? '&' : '?'}page=${i}`);
-      }
+log(`Found ${totalPages} total pages`);
+
+// Build all page URLs
+const pageUrls = [startURL];
+for (let i = 2; i <= totalPages; i++) {
+  pageUrls.push(`${startURL}${startURL.includes('?') ? '&' : '?'}page=${i}`);
+}
 
       // Collect all game links
       const gameSet = new Set();
