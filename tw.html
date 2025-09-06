@@ -48,7 +48,7 @@
 </div>
 <button id="scroll-btn">Scroll to Bottom</button>
 <button id="auto-scroll-save-btn">Start Auto-Scroll & Save</button>
-<span id="translation-status" style="margin-left: 10px; font-weight: bold;"></span>
+
 <div id="console-translate" translate="yes"
      class="console-like"
      style="background:#121212;color:#e6e6e6;padding:15px;border-radius:4px;
@@ -804,100 +804,6 @@ function buildBatchObjects(start, end) {
   }
   return arr;
 }
-
-function isTranslationLikelyComplete(start, end) {
-  const statusEl = document.getElementById('translation-status');
-  const hiddenJsonEl = consoleTranslate.querySelector('.hidden-json');
-
-  if (!hiddenJsonEl) {
-    log('No hidden JSON found — cannot verify translation.', 'orange');
-    if (statusEl) {
-      statusEl.textContent = '❓ Unknown status';
-      statusEl.style.color = 'gray';
-    }
-    return true; // fail open
-  }
-
-  try {
-    const originalBatch = JSON.parse(hiddenJsonEl.textContent);
-    let allTranslated = true;
-    let issues = [];
-
-    for (let i = start; i < end; i++) {
-      const orig = originalBatch.find(item => item.index === i);
-      if (!orig) continue;
-
-      // Find visible title and paragraphs
-      const titleEl = consoleTranslate.querySelector(`.visible-ch[data-index="${i}"] .translatable.title`);
-      const paraEls = consoleTranslate.querySelectorAll(`.visible-ch[data-index="${i}"] .translatable.para`);
-
-      const currentTitle = titleEl?.textContent.trim() || '';
-      const currentParas = Array.from(paraEls).map(el => el.textContent.trim()).filter(t => t);
-
-      // --- HEURISTIC 1: Check if text is still mostly Chinese ---
-      const chineseRegex = /[\u4e00-\u9fff]/;
-      const isTitleStillChinese = chineseRegex.test(currentTitle);
-      const areParasStillChinese = currentParas.some(p => chineseRegex.test(p));
-
-      if (isTitleStillChinese || areParasStillChinese) {
-        allTranslated = false;
-        issues.push(`Chapter ${i+1}: Still contains Chinese characters.`);
-      }
-
-      // --- HEURISTIC 2: Compare length (translation usually changes length) ---
-      const origLength = orig.title.length + orig.paragraphs.reduce((sum, p) => sum + p.length, 0);
-      const currentLength = currentTitle.length + currentParas.reduce((sum, p) => sum + p.length, 0);
-
-      const lengthRatio = Math.abs(origLength - currentLength) / origLength;
-      if (lengthRatio < 0.1 && origLength > 50) {
-        if (!isTitleStillChinese && !areParasStillChinese) {
-          // Probably okay — maybe short or similar-length translation
-        } else {
-          allTranslated = false;
-          issues.push(`Chapter ${i+1}: Text length nearly unchanged — may not be translated.`);
-        }
-      }
-
-      // --- HEURISTIC 3: Check for common English words (customize per target language) ---
-      const commonEnglishWords = ['the', 'and', 'of', 'to', 'a', 'in', 'that', 'it', 'was', 'he', 'she', 'they', 'chapter'];
-      const containsCommonWord = commonEnglishWords.some(word =>
-        currentTitle.toLowerCase().includes(word) ||
-        currentParas.some(p => p.toLowerCase().includes(word))
-      );
-
-      if (!containsCommonWord && currentLength > 30) {
-        issues.push(`Chapter ${i+1}: No common English words detected — verify translation.`);
-      }
-    }
-
-    // ➤➤➤ UPDATE STATUS ELEMENT HERE
-    if (statusEl) {
-      if (allTranslated && issues.length === 0) {
-        statusEl.textContent = '✅ Ready to save';
-        statusEl.style.color = 'green';
-      } else {
-        statusEl.textContent = '⚠️ Check translation';
-        statusEl.style.color = 'orange';
-      }
-    }
-
-    if (!allTranslated || issues.length > 0) {
-      log('⚠️ Translation may be incomplete:', 'orange');
-      issues.forEach(msg => log(`  • ${msg}`, 'orange'));
-      return false;
-    }
-
-    return true;
-
-  } catch (e) {
-    log(`Error validating translation: ${e.message}`, 'red');
-    if (statusEl) {
-      statusEl.textContent = '❌ Error checking';
-      statusEl.style.color = 'red';
-    }
-    return true; // fail open
-  }
-}
     
 // Read back translated visible text and inject into novelData for the range [start, end)
 function extractAndSaveTranslatedBatch(start, end) {
@@ -994,13 +900,6 @@ saveTranslationBtn.addEventListener('click', () => {
   const start = translateCursor;
   const end   = Math.min(start + translateBatchSize, total);
 
-  // ➤➤➤ CHECK TRANSLATION COMPLETENESS FIRST
-  if (!isTranslationLikelyComplete(start, end)) {
-    if (!confirm("Translation may be incomplete. Save anyway?")) {
-      return; // abort save
-    }
-  }
-
   try {
     extractAndSaveTranslatedBatch(start, end);
     log(`Saved translated chapters ${start+1}–${end}.`, 'green');
@@ -1088,22 +987,8 @@ async function autoScrollAndSave() {
     await new Promise(resolve => setTimeout(resolve, 200));
 
     // 3. Programmatically click the 'Save Translation' button
-await new Promise(resolve => {
-  const checkInterval = setInterval(() => {
-    if (consoleTranslate.innerHTML.trim() !== '') {
-      // ➤➤➤ Wait until translation is likely complete
-      if (isTranslationLikelyComplete(translateCursor, Math.min(translateCursor + translateBatchSize, totalChaptersCount))) {
-        clearInterval(checkInterval);
-        saveTranslationBtn.click();
-        resolve();
-      } else {
-        log("Auto-save paused: Translation not detected. Waiting...", "orange");
-        // Optionally, you can wait a bit and retry, or notify user
-        // For now, we just keep checking every 3s
-      }
-    }
-  }, 3000);
-});    
+    saveTranslationBtn.click();
+    
     // 4. Wait for the next batch of text to load in the console
     await new Promise(resolve => {
       const checkInterval = setInterval(() => {
