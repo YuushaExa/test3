@@ -19,7 +19,7 @@
     .status{text-align:center;margin:10px 0;font-weight:bold}
   </style>
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-
+     
 </head>
 <body>
   <div class="container">
@@ -47,7 +47,7 @@
   <button id="saveTranslationBtn" disabled>Save Translation</button>
 </div>
 <button id="scroll-btn">Scroll to Bottom</button>
-
+<button id="auto-scroll-save-btn">Start Auto-Scroll & Save</button>
 
 <div id="console-translate" translate="yes"
      class="console-like"
@@ -78,12 +78,12 @@
    function log(msg, color = '') {
   const messageElement = document.createElement('div');
   messageElement.textContent = msg;
-
+  
   if (color) {
     messageElement.style.color = color;
     messageElement.style.fontWeight = 'bold';
   }
-
+  
   consoleOutput.appendChild(messageElement);
   consoleOutput.scrollTop = consoleOutput.scrollHeight;
 }
@@ -128,7 +128,7 @@ const status = doc.querySelector('.n-text p .lz')?.textContent.trim()
 const Url = doc.querySelector('.n-text a.bauthor')?.getAttribute('href') || null;
 const authorUrl = Url ? new URL(Url, url).href : null;
 
-
+    
     // Extract genres/tags
     const genres = Array.from(doc.querySelectorAll('.tags em a')).map(a => a.textContent.trim());
 
@@ -248,7 +248,7 @@ async function saveMetadata() {
   try {
     progressContainer.style.display = 'block';
     statusText.textContent = 'Saving metadata...';
-
+    
     const metadata = novelData.metadata;
     if (!metadata) {
       alert('No metadata available to save');
@@ -256,7 +256,7 @@ async function saveMetadata() {
     }
 
     console.log('Saving metadata to server...');
-
+    
     const response = await fetch(`${WORKER_URL}/api/saveMetadata`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -270,7 +270,7 @@ async function saveMetadata() {
 
     log('✓ Metadata saved successfully', 'green');
     return true;
-
+    
   } catch (error) {
     log('✓ Metadata saved successfully', 'red');
     return false;
@@ -281,12 +281,12 @@ async function saveMetadata() {
     // ---- export JSON ----
 function downloadJson() {
   if (!novelData.metadata?.title) return alert('No data to save');
-
+  
   const cleanData = {
     ...novelData,
     chapters: novelData.chapters.map(({ url, ...rest }) => rest) // Exclude 'url'
   };
-
+  
   const blob = new Blob([JSON.stringify(cleanData, null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -298,11 +298,11 @@ function downloadJson() {
   // ---- save JSON to Google Drive ----
 async function saveJsonToGoogleDrive() {
   if (!novelData.metadata?.title) return alert('No data to save');
-
+  
   try {
     saveToJsonBtn.disabled = true;
     log('Preparing data for Google Drive...');
-
+    
     // Clean data and convert to pretty JSON
     const cleanData = {
       ...novelData,
@@ -322,7 +322,7 @@ async function saveJsonToGoogleDrive() {
     });
 
     const result = await response.json();
-
+    
     if (!response.ok || !result.success) {
       throw new Error(result.error || 'Upload failed with unknown error');
     }
@@ -330,7 +330,7 @@ async function saveJsonToGoogleDrive() {
     log(`✓ Successfully saved to Google Drive`, 'green');
     log(`File: ${result.webViewLink}`);
     log(`File ID: ${result.fileId}`);
-
+    
   } catch (error) {
     log(`Error: ${error.message}`, 'red');
     console.error('Upload error details:', error);
@@ -340,7 +340,7 @@ async function saveJsonToGoogleDrive() {
 }
 
 
-
+    
     // ---- events ----
     fetchMetadataBtn.addEventListener('click', fetchMetadata);
     fetchChaptersBtn.addEventListener('click', fetchChapters);
@@ -349,7 +349,7 @@ async function saveJsonToGoogleDrive() {
     saveMetadataBtn.addEventListener('click', async () => {
   await saveMetadata();
 });
-
+    
 
 
 // ---- EPUB Functions ----
@@ -382,7 +382,7 @@ async function createEpub() {
   if (!novelData.metadata?.title || !novelData.chapters[0]?.content) {
     throw new Error('No chapter data available to create an EPUB.');
   }
-
+  
   try {
     createEpubBtn.disabled = true;
     log('Generating EPUB...');
@@ -405,7 +405,7 @@ function downloadEpub() {
   if (!generatedEpubBlob) {
     throw new Error('No EPUB generated yet.');
   }
-
+  
   const a = document.createElement('a');
   a.href = URL.createObjectURL(generatedEpubBlob);
   a.download = `${novelData.metadata.title.replace(/[^a-z0-9]/gi, '_')}.epub`;
@@ -537,20 +537,20 @@ function showEditMetadataForm() {
 document.getElementById('fetchWorksBtn').addEventListener('click', async () => {
     // Get the author URL from the novelData metadata
     const authorUrl = novelData.metadata.authorUrl;
-
+    
     if (!authorUrl) {
         alert('No author URL found in metadata');
         return;
     }
-
+    
     const statusDiv = document.getElementById('otherWorksStatus');
     statusDiv.textContent = 'Fetching author works...';
     statusDiv.style.color = 'blue';
-
+    
     try {
         const otherWorksData = await fetchAuthorWorks(authorUrl);
         novelData.metadata.otherworks = otherWorksData;
-
+        
         statusDiv.textContent = `Found ${otherWorksData.length} other works`;
         statusDiv.style.color = 'green';
     } catch (error) {
@@ -585,7 +585,7 @@ async function fetchAuthorWorks(authorUrl) {
     log(`Fetching author works from: ${authorUrl}`);
     const authorHtml = await fetchRawHTML(authorUrl);
     const authorDoc = new DOMParser().parseFromString(authorHtml, 'text/html');
-
+    
     // Get all novel items from the list
     const works = authorDoc.querySelectorAll('ul.u-list > li.burl');
 
@@ -599,22 +599,22 @@ async function fetchAuthorWorks(authorUrl) {
     works.forEach(work => {
       // Extract cover image URL
       const img = work.querySelector('.l-img img')?.src || '';
-
+      
       // Extract title and URL
       const titleEl = work.querySelector('.bname a');
       const title = titleEl?.textContent?.trim() || 'No Title';
       const titleHref = titleEl?.href || '#';
-
+      
       // Extract author (though we already know it from the URL)
       const author = work.querySelector('.bauthor a')?.textContent?.trim() || '';
-
+      
       // Extract word count and status
       const wordCount = work.querySelector('.size')?.textContent?.trim() || '';
       const status = work.querySelector('.end, .lz')?.textContent?.trim() || '';
-
+      
       // Extract description
       const description = work.querySelector('.l-p2')?.textContent?.trim() || '';
-
+      
       // Extract latest chapter info
       const latestChapter = work.querySelector('.l-chapter')?.textContent?.trim() || '';
       const updateTime = work.querySelector('.l-time')?.textContent?.trim() || '';
@@ -659,10 +659,10 @@ async function checkTitle() {
 
   try {
     log(`Checking title against database...`);
-
+    
     const res = await fetch('https://curly-pond-9050.yuush.workers.dev/titles.json');
     if (!res.ok) throw new Error(`Failed to fetch titles.json (${res.status})`);
-
+    
     const data = await res.json();
     const targetTitle = novelData.metadata.title.trim().toLowerCase();
 
@@ -804,7 +804,7 @@ function buildBatchObjects(start, end) {
   }
   return arr;
 }
-
+    
 // Read back translated visible text and inject into novelData for the range [start, end)
 function extractAndSaveTranslatedBatch(start, end) {
   for (let i = start; i < end; i++) {
@@ -962,61 +962,61 @@ btn.addEventListener('click', () => {
   animId = requestAnimationFrame(step);
 });
 
+    const autoScrollSaveBtn = document.getElementById('auto-scroll-save-btn');
+let isAutoScrolling = false;
 
+// This is the main automation function
+async function autoScrollAndSave() {
+  // This loop will continue as long as isAutoScrolling is true
+  while (isAutoScrolling) {
+    // 1. Programmatically click the 'Scroll to Bottom' button
+    btn.click();
+    
+    // 2. Wait for the scrolling animation to finish completely
+    await new Promise(resolve => {
+      const checkInterval = setInterval(() => {
+        // The 'animId' is null when the scrolling stops
+        if (!animId) {
+          clearInterval(checkInterval);
+          resolve();
+        }
+      }, 5000); // Check every 100 milliseconds
+    });
 
+    // Add a small delay to ensure the browser has caught up
+    await new Promise(resolve => setTimeout(resolve, 200));
 
+    // 3. Programmatically click the 'Save Translation' button
+    saveTranslationBtn.click();
+    
+    // 4. Wait for the next batch of text to load in the console
+    await new Promise(resolve => {
+      const checkInterval = setInterval(() => {
+        // When the console has content again, we can continue
+        if (consoleTranslate.innerHTML.trim() !== '') {
+          clearInterval(checkInterval);
+          resolve();
+        }
+      }, 3000); // Check every 100 milliseconds
+    });
+  }
+}
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+// This listens for clicks on the new button to start or stop the process
+autoScrollSaveBtn.addEventListener('click', () => {
+  // Flips the value (true to false, false to true)
+  isAutoScrolling = !isAutoScrolling;
+  
+  if (isAutoScrolling) {
+    // If we just turned it ON
+    autoScrollSaveBtn.textContent = 'Stop Auto-Scroll & Save';
+    autoScrollAndSave(); // Start the automation loop
+  } else {
+    // If we just turned it OFF
+    autoScrollSaveBtn.textContent = 'Start Auto-Scroll & Save';
+    // The loop in autoScrollAndSave() will stop automatically
+  }
+});
   </script>
 </body>
 
