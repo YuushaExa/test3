@@ -195,13 +195,12 @@ if (authorUrl) {
 }
 
     // ---- fetch chapter content (browser-side) ----
-  async function fetchChapterContent(chapterUrl) {
+async function fetchChapterContent(chapterUrl) {
   const html = await fetchRawHTML(chapterUrl);
   const doc  = new DOMParser().parseFromString(html, 'text/html');
 
   const title = doc.querySelector('.page-content h3')?.textContent?.trim() || 'Untitled Chapter';
 
-  // collect only <p> inside .page-content, skipping ads/abg/etc
   const paragraphs = [...doc.querySelectorAll('.page-content p')]
     .filter(p => 
       !p.classList.contains('abg') &&
@@ -211,7 +210,10 @@ if (authorUrl) {
     .map(p => p.textContent.trim())
     .filter(txt => txt.length > 0);
 
-  const content = paragraphs.map(txt => `<p>${txt}</p>`).join('\n');
+  // If no paragraphs, return empty string or throw?
+  const content = paragraphs.length > 0 
+    ? paragraphs.map(txt => `<p>${txt}</p>`).join('\n')
+    : "";
 
   return { title, content };
 }
