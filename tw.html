@@ -381,15 +381,35 @@ document.querySelector('.container').appendChild(saveEpubBtn);
 
 // 1️⃣ Create EPUB function
 async function createEpub() {
-  if (!novelData.metadata?.title || !novelData.chapters[0]?.content) {
-    throw new Error('No chapter data available to create an EPUB.');
+  if (!novelData.metadata?.title) {
+    throw new Error('No metadata title available to create an EPUB.');
   }
-  
+
+  // Filter out chapters with empty content
+  const filteredChapters = novelData.chapters.filter(ch => ch.content?.trim());
+
+  if (filteredChapters.length === 0) {
+    throw new Error('No chapters with content to include in EPUB.');
+  }
+
+  // Optional: Warn user about skipped chapters
+  const emptyCount = novelData.chapters.length - filteredChapters.length;
+  if (emptyCount > 0) {
+    log(`⚠️ Warning: ${emptyCount} empty chapters skipped in EPUB.`, 'orange');
+  }
+
   try {
     createEpubBtn.disabled = true;
     log('Generating EPUB...');
-    const generator = new EpubGenerator(novelData);
-    generatedEpubBlob = await generator.generate(log); // generate() already returns a Blob
+
+    const cleanNovelData = {
+      ...novelData,
+      chapters: filteredChapters
+    };
+
+    const generator = new EpubGenerator(cleanNovelData);
+    generatedEpubBlob = await generator.generate(log);
+    
     log('✓ EPUB created successfully (not downloaded yet)', 'green');
     downloadEpubBtn.disabled = false;
     saveEpubBtn.disabled = false;
