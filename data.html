@@ -261,26 +261,36 @@
                     novelCard.className = 'novel-card';
                     
                     // Create genre tags
-                    const genreTags = novel.genres.map(genre => 
-                        `<span class="genre-tag">${genre}</span>`
-                    ).join('');
+                    const genreTags = novel.genres && Array.isArray(novel.genres) 
+                        ? novel.genres.map(genre => `<span class="genre-tag">${genre}</span>`).join('')
+                        : '';
                     
-                    // Create author links
-                    const authorLinks = novel.author.map(author => 
-                        `<span class="novel-author" data-author="${author}">${author}</span>`
-                    ).join(', ');
+                    // Handle author data (could be array or string)
+                    let authorContent = 'Unknown Author';
+                    if (novel.author) {
+                        if (Array.isArray(novel.author)) {
+                            authorContent = novel.author.map(author => 
+                                `<span class="novel-author" data-author="${author}">${author}</span>`
+                            ).join(', ');
+                        } else if (typeof novel.author === 'string') {
+                            authorContent = `<span class="novel-author" data-author="${novel.author}">${novel.author}</span>`;
+                        }
+                    }
                     
                     // Determine status class
-                    const statusClass = novel.status.toLowerCase() === 'ongoing' ? 'status-ongoing' : 'status-completed';
+                    const statusClass = novel.status && novel.status.toLowerCase() === 'ongoing' 
+                        ? 'status-ongoing' 
+                        : 'status-completed';
                     
                     novelCard.innerHTML = `
-                        <img src="${novel.cover}" alt="${novel.title}" class="novel-cover" onerror="this.src='https://via.placeholder.com/300x200?text=Cover+Not+Found'">
+                        <img src="${novel.cover || 'https://via.placeholder.com/300x200?text=No+Cover'}" 
+                             alt="${novel.title || 'Untitled'}" class="novel-cover">
                         <div class="novel-content">
-                            <h2 class="novel-title">${novel.title}</h2>
-                            <div>By: ${authorLinks}</div>
-                            <div class="novel-genres">${genreTags}</div>
-                            <span class="novel-status ${statusClass}">${novel.status}</span>
-                            <p class="novel-description">${novel.description}</p>
+                            <h2 class="novel-title">${novel.title || 'Untitled'}</h2>
+                            <div>By: ${authorContent}</div>
+                            ${novel.genres ? `<div class="novel-genres">${genreTags}</div>` : ''}
+                            ${novel.status ? `<span class="novel-status ${statusClass}">${novel.status}</span>` : ''}
+                            <p class="novel-description">${novel.description || 'No description available.'}</p>
                         </div>
                     `;
                     
@@ -311,13 +321,21 @@
                 } else {
                     filteredNovels = novelsData.filter(novel => {
                         // Search in title
-                        if (novel.title.toLowerCase().includes(searchTerm)) return true;
+                        if (novel.title && novel.title.toLowerCase().includes(searchTerm)) return true;
                         
-                        // Search in authors
-                        if (novel.author.some(author => author.toLowerCase().includes(searchTerm))) return true;
+                        // Search in authors (handle both array and string cases)
+                        if (novel.author) {
+                            if (Array.isArray(novel.author)) {
+                                if (novel.author.some(author => author.toLowerCase().includes(searchTerm))) return true;
+                            } else if (typeof novel.author === 'string') {
+                                if (novel.author.toLowerCase().includes(searchTerm)) return true;
+                            }
+                        }
                         
                         // Search in genres
-                        if (novel.genres.some(genre => genre.toLowerCase().includes(searchTerm))) return true;
+                        if (novel.genres && Array.isArray(novel.genres)) {
+                            if (novel.genres.some(genre => genre.toLowerCase().includes(searchTerm))) return true;
+                        }
                         
                         return false;
                     });
