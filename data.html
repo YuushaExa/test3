@@ -94,6 +94,12 @@
             height: 200px;
             object-fit: cover;
             border-bottom: 1px solid #eee;
+            background-color: #f0f0f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #888;
+            font-size: 14px;
         }
         
         .novel-content {
@@ -104,6 +110,12 @@
             font-size: 1.3rem;
             margin-bottom: 10px;
             color: #2d3436;
+            cursor: pointer;
+            transition: color 0.3s;
+        }
+        
+        .novel-title:hover {
+            color: #6a11cb;
         }
         
         .novel-author {
@@ -131,6 +143,12 @@
             padding: 5px 10px;
             border-radius: 20px;
             font-size: 0.8rem;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        .genre-tag:hover {
+            background-color: #c7d2fe;
         }
         
         .novel-status {
@@ -158,6 +176,20 @@
             -webkit-line-clamp: 3;
             -webkit-box-orient: vertical;
             overflow: hidden;
+            transition: all 0.3s ease;
+        }
+        
+        .novel-description.expanded {
+            display: block;
+            -webkit-line-clamp: unset;
+        }
+        
+        .read-more {
+            color: #6a11cb;
+            font-weight: 500;
+            cursor: pointer;
+            margin-top: 5px;
+            display: inline-block;
         }
         
         .loading {
@@ -225,6 +257,7 @@
             
             let novelsData = [];
             let filteredNovels = [];
+            let observer;
             
             // Fetch novels from the API
             async function fetchNovels() {
@@ -241,10 +274,44 @@
                     filteredNovels = [...novelsData];
                     
                     displayNovels(filteredNovels);
+                    initLazyLoading();
                 } catch (error) {
                     console.error('Error fetching novels:', error);
                     novelsContainer.innerHTML = '<div class="no-results">Failed to load novels. Please try again later.</div>';
                 }
+            }
+            
+            // Initialize lazy loading with Intersection Observer
+            function initLazyLoading() {
+                // Disconnect previous observer if it exists
+                if (observer) {
+                    observer.disconnect();
+                }
+                
+                // Create new Intersection Observer
+                observer = new IntersectionObserver((entries) => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting) {
+                            const img = entry.target;
+                            const src = img.getAttribute('data-src');
+                            
+                            if (src) {
+                                img.src = src;
+                                img.removeAttribute('data-src');
+                            }
+                            
+                            observer.unobserve(img);
+                        }
+                    });
+                }, {
+                    rootMargin: '0px 0px 200px 0px', // Load images 200px before they enter viewport
+                    threshold: 0.1
+                });
+                
+                // Observe all lazy images
+                document.querySelectorAll('.novel-cover[data-src]').forEach(img => {
+                    observer.observe(img);
+                });
             }
             
             // Display novels in the grid
@@ -262,7 +329,7 @@
                     
                     // Create genre tags
                     const genreTags = novel.genres && Array.isArray(novel.genres) 
-                        ? novel.genres.map(genre => `<span class="genre-tag">${genre}</span>`).join('')
+                        ? novel.genres.map(genre => `<span class="genre-tag" data-genre="${genre}">${genre}</span>`).join('')
                         : '';
                     
                     // Handle author data (could be array or string)
@@ -282,15 +349,23 @@
                         ? 'status-ongoing' 
                         : 'status-completed';
                     
+                    // Use data-src for lazy loading instead of src
+                    const coverSrc = novel.cover || 'https://via.placeholder.com/300x200?text=No+Cover';
+                    
                     novelCard.innerHTML = `
-                        <img src="${novel.cover || 'https://via.placeholder.com/300x200?text=No+Cover'}" 
-                             alt="${novel.title || 'Untitled'}" class="novel-cover">
+                        <div class="novel-cover" data-src="${coverSrc}">
+                            Loading image...
+                        </div>
                         <div class="novel-content">
-                            <h2 class="novel-title">${novel.title || 'Untitled'}</h2>
+                            <h2 class="novel-title" data-full-description="${novel.description || 'No description available.'}">
+                                ${novel.title || 'Untitled'}
+                            </h2>
                             <div>By: ${authorContent}</div>
                             ${novel.genres ? `<div class="novel-genres">${genreTags}</div>` : ''}
                             ${novel.status ? `<span class="novel-status ${statusClass}">${novel.status}</span>` : ''}
-                            <p class="novel-description">${novel.description || 'No description available.'}</p>
+                            <p class="novel-description">${novel.description ? novel.description.substring(0, 150) + (novel.description.length > 150 ? '...' : '') : 'No description available.'}</p>
+                            ${novel.description && novel.description.length > 150 ? 
+                                `<span class="read-more">Read more</span>` : ''}
                         </div>
                     `;
                     
@@ -304,11 +379,65 @@
                         filterByAuthor(author);
                     });
                 });
+                
+                // Add event listeners to genre tags
+                document.querySelectorAll('.genre-tag').forEach(genreTag => {
+                    genreTag.addEventListener('click', () => {
+                        const genre = genreTag.getAttribute('data-genre');
+                        filterByGenre(genre);
+                    });
+                });
+                
+                // Add event listeners to titles for expanding description
+                document.querySelectorAll('.novel-title').forEach(title => {
+                    title.addEventListener('click', () => {
+                        const fullDescription = title.getAttribute('data-full-description');
+                        const descriptionElement = title.nextElementSibling.nextElementSibling.nextElementSibling;
+                        
+                        if (descriptionElement.classList.contains('expanded')) {
+                            descriptionElement.classList.remove('expanded');
+                            descriptionElement.textContent = fullDescription.substring(0, 150) + '...';
+                            if (descriptionElement.nextElementSibling) {
+                                descriptionElement.nextElementSibling.textContent = 'Read more';
+                            }
+                        } else {
+                            descriptionElement.classList.add('expanded');
+                            descriptionElement.textContent = fullDescription;
+                            if (descriptionElement.nextElementSibling) {
+                                descriptionElement.nextElementSibling.textContent = 'Read less';
+                            }
+                        }
+                    });
+                });
+                
+                // Add event listeners to read more links
+                document.querySelectorAll('.read-more').forEach(readMore => {
+                    readMore.addEventListener('click', () => {
+                        const descriptionElement = readMore.previousElementSibling;
+                        const fullDescription = descriptionElement.parentElement.querySelector('.novel-title').getAttribute('data-full-description');
+                        
+                        if (descriptionElement.classList.contains('expanded')) {
+                            descriptionElement.classList.remove('expanded');
+                            descriptionElement.textContent = fullDescription.substring(0, 150) + '...';
+                            readMore.textContent = 'Read more';
+                        } else {
+                            descriptionElement.classList.add('expanded');
+                            descriptionElement.textContent = fullDescription;
+                            readMore.textContent = 'Read less';
+                        }
+                    });
+                });
             }
             
             // Filter novels by author
             function filterByAuthor(author) {
                 searchInput.value = author;
+                filterNovels();
+            }
+            
+            // Filter novels by genre
+            function filterByGenre(genre) {
+                searchInput.value = genre;
                 filterNovels();
             }
             
@@ -342,6 +471,8 @@
                 }
                 
                 displayNovels(filteredNovels);
+                // Reinitialize lazy loading after filtering
+                setTimeout(initLazyLoading, 100);
             }
             
             // Event listeners
@@ -354,6 +485,49 @@
             
             // Initial fetch
             fetchNovels();
+            
+            // Add scroll event listener to check for images near viewport
+            window.addEventListener('scroll', () => {
+                // Throttle the scroll event for performance
+                if (!window.scrollCheck) {
+                    window.scrollCheck = true;
+                    
+                    setTimeout(() => {
+                        checkImagesInViewport();
+                        window.scrollCheck = false;
+                    }, 100);
+                }
+            });
+            
+            // Function to check if images are in or near viewport
+            function checkImagesInViewport() {
+                const images = document.querySelectorAll('.novel-cover[data-src]');
+                const viewportHeight = window.innerHeight;
+                const scrollY = window.scrollY;
+                
+                images.forEach(img => {
+                    const rect = img.getBoundingClientRect();
+                    const imgTop = rect.top + scrollY;
+                    const imgBottom = rect.bottom + scrollY;
+                    
+                    // Check if image is within 200px of viewport
+                    if (imgTop < scrollY + viewportHeight + 200 && imgBottom > scrollY - 200) {
+                        const src = img.getAttribute('data-src');
+                        
+                        if (src) {
+                            // Replace placeholder with actual image
+                            img.innerHTML = '';
+                            img.style.backgroundImage = `url(${src})`;
+                            img.style.backgroundSize = 'cover';
+                            img.style.backgroundPosition = 'center';
+                            img.removeAttribute('data-src');
+                        }
+                    }
+                });
+            }
+            
+            // Initial check for images in viewport
+            setTimeout(checkImagesInViewport, 500);
         });
     </script>
 </body>
