@@ -94,12 +94,15 @@
             height: 200px;
             object-fit: cover;
             border-bottom: 1px solid #eee;
-            background-color: #f0f0f0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #888;
-            font-size: 14px;
+        }
+
+        .novel-cover.lazy {
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out;
+        }
+
+        .novel-cover.lazy.loaded {
+            opacity: 1;
         }
         
         .novel-content {
@@ -257,7 +260,6 @@
             
             let novelsData = [];
             let filteredNovels = [];
-            let observer;
             
             // Fetch novels from the API
             async function fetchNovels() {
@@ -274,44 +276,10 @@
                     filteredNovels = [...novelsData];
                     
                     displayNovels(filteredNovels);
-                    initLazyLoading();
                 } catch (error) {
                     console.error('Error fetching novels:', error);
                     novelsContainer.innerHTML = '<div class="no-results">Failed to load novels. Please try again later.</div>';
                 }
-            }
-            
-            // Initialize lazy loading with Intersection Observer
-            function initLazyLoading() {
-                // Disconnect previous observer if it exists
-                if (observer) {
-                    observer.disconnect();
-                }
-                
-                // Create new Intersection Observer
-                observer = new IntersectionObserver((entries) => {
-                    entries.forEach(entry => {
-                        if (entry.isIntersecting) {
-                            const img = entry.target;
-                            const src = img.getAttribute('data-src');
-                            
-                            if (src) {
-                                img.src = src;
-                                img.removeAttribute('data-src');
-                            }
-                            
-                            observer.unobserve(img);
-                        }
-                    });
-                }, {
-                    rootMargin: '0px 0px 200px 0px', // Load images 200px before they enter viewport
-                    threshold: 0.1
-                });
-                
-                // Observe all lazy images
-                document.querySelectorAll('.novel-cover[data-src]').forEach(img => {
-                    observer.observe(img);
-                });
             }
             
             // Display novels in the grid
@@ -349,13 +317,10 @@
                         ? 'status-ongoing' 
                         : 'status-completed';
                     
-                    // Use data-src for lazy loading instead of src
-                    const coverSrc = novel.cover || 'https://via.placeholder.com/300x200?text=No+Cover';
-                    
                     novelCard.innerHTML = `
-                        <div class="novel-cover" data-src="${coverSrc}">
-                            Loading image...
-                        </div>
+                        <img data-src="${novel.cover || 'https://via.placeholder.com/300x200?text=No+Cover'}" 
+                             alt="${novel.title || 'Untitled'}" class="novel-cover lazy" 
+                             src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=">
                         <div class="novel-content">
                             <h2 class="novel-title" data-full-description="${novel.description || 'No description available.'}">
                                 ${novel.title || 'Untitled'}
@@ -363,7 +328,7 @@
                             <div>By: ${authorContent}</div>
                             ${novel.genres ? `<div class="novel-genres">${genreTags}</div>` : ''}
                             ${novel.status ? `<span class="novel-status ${statusClass}">${novel.status}</span>` : ''}
-                            <p class="novel-description">${novel.description ? novel.description.substring(0, 150) + (novel.description.length > 150 ? '...' : '') : 'No description available.'}</p>
+                            <p class="novel-description">${novel.description || 'No description available.'}</p>
                             ${novel.description && novel.description.length > 150 ? 
                                 `<span class="read-more">Read more</span>` : ''}
                         </div>
@@ -397,13 +362,13 @@
                         if (descriptionElement.classList.contains('expanded')) {
                             descriptionElement.classList.remove('expanded');
                             descriptionElement.textContent = fullDescription.substring(0, 150) + '...';
-                            if (descriptionElement.nextElementSibling) {
+                            if (descriptionElement.nextElementSibling && descriptionElement.nextElementSibling.classList.contains('read-more')) {
                                 descriptionElement.nextElementSibling.textContent = 'Read more';
                             }
                         } else {
                             descriptionElement.classList.add('expanded');
                             descriptionElement.textContent = fullDescription;
-                            if (descriptionElement.nextElementSibling) {
+                            if (descriptionElement.nextElementSibling && descriptionElement.nextElementSibling.classList.contains('read-more')) {
                                 descriptionElement.nextElementSibling.textContent = 'Read less';
                             }
                         }
@@ -414,19 +379,55 @@
                 document.querySelectorAll('.read-more').forEach(readMore => {
                     readMore.addEventListener('click', () => {
                         const descriptionElement = readMore.previousElementSibling;
-                        const fullDescription = descriptionElement.parentElement.querySelector('.novel-title').getAttribute('data-full-description');
                         
                         if (descriptionElement.classList.contains('expanded')) {
                             descriptionElement.classList.remove('expanded');
-                            descriptionElement.textContent = fullDescription.substring(0, 150) + '...';
                             readMore.textContent = 'Read more';
                         } else {
                             descriptionElement.classList.add('expanded');
-                            descriptionElement.textContent = fullDescription;
                             readMore.textContent = 'Read less';
                         }
                     });
                 });
+
+                // Initialize lazy loading for images
+                initLazyLoad();
+            }
+
+            // Lazy Load Images with Intersection Observer
+            function initLazyLoad() {
+                const lazyImages = document.querySelectorAll('img.lazy');
+
+                if ('IntersectionObserver' in window) {
+                    const imageObserver = new IntersectionObserver((entries, observer) => {
+                        entries.forEach(entry => {
+                            if (entry.isIntersecting) {
+                                const img = entry.target;
+                                const src = img.getAttribute('data-src');
+                                if (src) {
+                                    img.src = src;
+                                    img.classList.add('loaded');
+                                    img.removeAttribute('data-src');
+                                    observer.unobserve(img);
+                                }
+                            }
+                        });
+                    }, {
+                        rootMargin: '50px 0px', // Load images 50px before entering viewport
+                    });
+
+                    lazyImages.forEach(img => imageObserver.observe(img));
+                } else {
+                    // Fallback for browsers without IntersectionObserver
+                    lazyImages.forEach(img => {
+                        const src = img.getAttribute('data-src');
+                        if (src) {
+                            img.src = src;
+                            img.classList.add('loaded');
+                            img.removeAttribute('data-src');
+                        }
+                    });
+                }
             }
             
             // Filter novels by author
@@ -471,8 +472,6 @@
                 }
                 
                 displayNovels(filteredNovels);
-                // Reinitialize lazy loading after filtering
-                setTimeout(initLazyLoading, 100);
             }
             
             // Event listeners
@@ -485,49 +484,6 @@
             
             // Initial fetch
             fetchNovels();
-            
-            // Add scroll event listener to check for images near viewport
-            window.addEventListener('scroll', () => {
-                // Throttle the scroll event for performance
-                if (!window.scrollCheck) {
-                    window.scrollCheck = true;
-                    
-                    setTimeout(() => {
-                        checkImagesInViewport();
-                        window.scrollCheck = false;
-                    }, 100);
-                }
-            });
-            
-            // Function to check if images are in or near viewport
-            function checkImagesInViewport() {
-                const images = document.querySelectorAll('.novel-cover[data-src]');
-                const viewportHeight = window.innerHeight;
-                const scrollY = window.scrollY;
-                
-                images.forEach(img => {
-                    const rect = img.getBoundingClientRect();
-                    const imgTop = rect.top + scrollY;
-                    const imgBottom = rect.bottom + scrollY;
-                    
-                    // Check if image is within 200px of viewport
-                    if (imgTop < scrollY + viewportHeight + 200 && imgBottom > scrollY - 200) {
-                        const src = img.getAttribute('data-src');
-                        
-                        if (src) {
-                            // Replace placeholder with actual image
-                            img.innerHTML = '';
-                            img.style.backgroundImage = `url(${src})`;
-                            img.style.backgroundSize = 'cover';
-                            img.style.backgroundPosition = 'center';
-                            img.removeAttribute('data-src');
-                        }
-                    }
-                });
-            }
-            
-            // Initial check for images in viewport
-            setTimeout(checkImagesInViewport, 500);
         });
     </script>
 </body>
