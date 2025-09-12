@@ -126,6 +126,7 @@ body: JSON.stringify({ title, link, content }) // Send title, link, and content
                         showMessage(`Success! Saved "${title}". File ID: ${data.fileId}`, 'success');
                         // Optionally clear the form
                         titleInput.value = '';
+                        linkInput.value = '';
                         contentInput.value = '';
                     } else {
                         throw new Error(data.error || 'Failed to save data');
@@ -140,7 +141,7 @@ body: JSON.stringify({ title, link, content }) // Send title, link, and content
 
             function showMessage(text, type) {
                 messageDiv.textContent = text;
-                messageDiv.className = ''; // Clear previous classes
+                messageDiv.className = '';
                 if (type) {
                     messageDiv.classList.add(type);
                 }
