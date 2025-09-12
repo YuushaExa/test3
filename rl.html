@@ -79,13 +79,10 @@
     <label for="linkInput">Link:</label>
     <input type="text" id="linkInput" placeholder="Enter the link (e.g., https://example.com)..." required>
 </div>
- <div class="form-group">
-    <label for="contentInput">Content:</label>
-    <div id="contentInput" contenteditable="true" 
-         style="width: 100%; min-height: 150px; padding: 8px; box-sizing: border-box; 
-                border: 1px solid #ccc; border-radius: 4px; overflow: auto;"
-         placeholder="Enter the content..."></div>
-</div>
+<div class="form-group">
+        <label for="contentInput">Content:</label>
+        <textarea id="contentInput" placeholder="Enter the content..." required></textarea>
+    </div>
     <button id="saveButton">Save to Read Later</button>
 
     <div id="message"></div>
@@ -103,7 +100,7 @@
             saveButton.addEventListener('click', async () => {
                 const title = titleInput.value.trim();
                 const link = document.getElementById('linkInput').value.trim(); 
-const content = document.getElementById('contentInput').innerText.trim();
+const content = document.getElementById('contentInput').value.trim();
                 if (!title || !content) {
                     showMessage('Please fill in both title and content.', 'error');
                     return;
@@ -129,7 +126,7 @@ body: JSON.stringify({ title, link, content }) // Send title, link, and content
                         // Optionally clear the form
                         titleInput.value = '';
                         linkInput.value = '';
-                        contentInput.innerText = '';
+                        contentInput.value = '';
                     } else {
                         throw new Error(data.error || 'Failed to save data');
                     }
