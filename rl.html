@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Save to Read Later</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            max-width: 800px;
+            margin: auto;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="text"], textarea {
+            width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        textarea {
+            height: 150px;
+            resize: vertical; /* Allows vertical resizing only */
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button:disabled {
+             background-color: #cccccc;
+             cursor: not-allowed;
+        }
+        #message {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .success {
+            background-color: #dff0d8;
+            color: #3c763d;
+            border: 1px solid #d6e9c6;
+        }
+        .error {
+            background-color: #f2dede;
+            color: #a94442;
+            border: 1px solid #ebccd1;
+        }
+        .processing {
+             color: #31708f;
+             background-color: #d9edf7;
+             border-color: #bce8f1;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Save to Read Later</h1>
+    <div class="form-group">
+        <label for="titleInput">Title:</label>
+        <input type="text" id="titleInput" placeholder="Enter the title..." required>
+    </div>
+    <div class="form-group">
+        <label for="contentInput">Content:</label>
+        <textarea id="contentInput" placeholder="Enter the content..." required></textarea>
+    </div>
+    <button id="saveButton">Save to Read Later</button>
+
+    <div id="message"></div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const titleInput = document.getElementById('titleInput');
+            const contentInput = document.getElementById('contentInput');
+            const saveButton = document.getElementById('saveButton');
+            const messageDiv = document.getElementById('message');
+
+            // Use the base URL of your deployed worker
+            const WORKER_URL = 'https://curly-pond-9050.workit1990k.workers.dev'; // Ensure no trailing slash if appending path
+
+            saveButton.addEventListener('click', async () => {
+                const title = titleInput.value.trim();
+                const content = contentInput.value.trim();
+
+                if (!title || !content) {
+                    showMessage('Please fill in both title and content.', 'error');
+                    return;
+                }
+
+                // Disable button and show processing
+                saveButton.disabled = true;
+                showMessage('Saving...', 'processing');
+
+                try {
+                    const response = await fetch(`${WORKER_URL}/api/readlater`, { // Append the correct path
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ title, content }) // Send the data as JSON
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok && data.success) {
+                        showMessage(`Success! Saved "${title}". File ID: ${data.fileId}`, 'success');
+                        // Optionally clear the form
+                        titleInput.value = '';
+                        contentInput.value = '';
+                    } else {
+                        throw new Error(data.error || 'Failed to save data');
+                    }
+                } catch (error) {
+                    console.error('Error saving data:', error);
+                    showMessage(`Error: ${error.message}`, 'error');
+                } finally {
+                    saveButton.disabled = false;
+                }
+            });
+
+            function showMessage(text, type) {
+                messageDiv.textContent = text;
+                messageDiv.className = ''; // Clear previous classes
+                if (type) {
+                    messageDiv.classList.add(type);
+                }
+                messageDiv.style.display = text ? 'block' : 'none';
+            }
+        });
+    </script>
+
+</body>
+</html>
