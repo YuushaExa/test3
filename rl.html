@@ -126,7 +126,7 @@
 const urlParams = new URLSearchParams(window.location.search);
 const initialTitle = urlParams.get('title');
 const initialLink = urlParams.get('link');
-const initialContent = urlParams.get('content'); // 👈 NEW
+const initialContentB64 = urlParams.get('content_b64');
 
 if (initialTitle) {
     titleInput.value = decodeURIComponent(initialTitle);
@@ -135,8 +135,14 @@ if (initialLink) {
     linkInput.value = decodeURIComponent(initialLink);
     updateFavicon(linkInput.value);
 }
-if (initialContent) { // 👈 NEW
-    contentInput.innerText = decodeURIComponent(initialContent);
+if (initialContentB64) {
+    try {
+        const decoded = decodeURIComponent(atob(initialContentB64));
+        contentInput.innerText = decoded;
+    } catch (e) {
+        console.error('Failed to decode Base64 content:', e);
+        contentInput.innerText = 'Failed to load description.';
+    }
 }
 
         // Optional: Update favicon as user types (debounced)
