@@ -77,6 +77,8 @@
     </div>
     <div class="form-group">
     <label for="linkInput">Link:</label>
+            <div id="faviconContainer">
+        </div>
     <input type="text" id="linkInput" placeholder="Enter the link (e.g., https://example.com)..." required>
 </div>
  <div class="form-group">
@@ -90,18 +92,37 @@
 
     <div id="message"></div>
 
-  <script>
+<script>
     document.addEventListener('DOMContentLoaded', () => {
         const titleInput = document.getElementById('titleInput');
         const linkInput = document.getElementById('linkInput');
         const contentInput = document.getElementById('contentInput');
         const saveButton = document.getElementById('saveButton');
         const messageDiv = document.getElementById('message');
+        const faviconContainer = document.getElementById('faviconContainer');
 
-        // Use the base URL of your deployed worker
         const WORKER_URL = 'https://curly-pond-9050.workit1990k.workers.dev';
 
-        // 🆕 Auto-fill from URL parameters on page load
+        // Function to update favicon based on URL
+        function updateFavicon(url) {
+            if (!url) {
+                faviconContainer.innerHTML = '';
+                return;
+            }
+            try {
+                const urlObj = new URL(url);
+                const domain = urlObj.hostname;
+                faviconContainer.innerHTML = `
+                    <img src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=32" 
+                         alt="Favicon" 
+                         style="width: 24px; height: 24px; border-radius: 4px;">
+                `;
+            } catch (e) {
+                faviconContainer.innerHTML = '';
+            }
+        }
+
+        // Auto-fill from URL parameters
         const urlParams = new URLSearchParams(window.location.search);
         const initialTitle = urlParams.get('title');
         const initialLink = urlParams.get('link');
@@ -111,28 +132,35 @@
         }
         if (initialLink) {
             linkInput.value = decodeURIComponent(initialLink);
+            updateFavicon(linkInput.value); // 👈 Set favicon on load
         }
+
+        // Optional: Update favicon as user types (debounced)
+        let faviconTimeout;
+        linkInput.addEventListener('input', () => {
+            clearTimeout(faviconTimeout);
+            faviconTimeout = setTimeout(() => {
+                updateFavicon(linkInput.value);
+            }, 500);
+        });
 
         saveButton.addEventListener('click', async () => {
             const title = titleInput.value.trim();
             const link = linkInput.value.trim();
-            const content = contentInput.innerText.trim(); // ← Changed to innerText for contenteditable
+            const content = contentInput.innerText.trim();
 
             if (!title || !content) {
                 showMessage('Please fill in both title and content.', 'error');
                 return;
             }
 
-            // Disable button and show processing
             saveButton.disabled = true;
             showMessage('Saving...', 'processing');
 
             try {
                 const response = await fetch(`${WORKER_URL}/api/readlater`, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ title, link, content })
                 });
 
@@ -140,10 +168,10 @@
 
                 if (response.ok && data.success) {
                     showMessage(`Success! Saved "${title}". File ID: ${data.fileId}`, 'success');
-                    // Optionally clear the form
                     titleInput.value = '';
                     linkInput.value = '';
                     contentInput.innerText = '';
+                    faviconContainer.innerHTML = ''; // Clear favicon after saving
                 } else {
                     throw new Error(data.error || 'Failed to save data');
                 }
