@@ -122,18 +122,22 @@
             }
         }
 
-        // Auto-fill from URL parameters
-        const urlParams = new URLSearchParams(window.location.search);
-        const initialTitle = urlParams.get('title');
-        const initialLink = urlParams.get('link');
+// Auto-fill from URL parameters
+const urlParams = new URLSearchParams(window.location.search);
+const initialTitle = urlParams.get('title');
+const initialLink = urlParams.get('link');
+const initialContent = urlParams.get('content'); // 👈 NEW
 
-        if (initialTitle) {
-            titleInput.value = decodeURIComponent(initialTitle);
-        }
-        if (initialLink) {
-            linkInput.value = decodeURIComponent(initialLink);
-            updateFavicon(linkInput.value); // 👈 Set favicon on load
-        }
+if (initialTitle) {
+    titleInput.value = decodeURIComponent(initialTitle);
+}
+if (initialLink) {
+    linkInput.value = decodeURIComponent(initialLink);
+    updateFavicon(linkInput.value);
+}
+if (initialContent) { // 👈 NEW
+    contentInput.innerText = decodeURIComponent(initialContent);
+}
 
         // Optional: Update favicon as user types (debounced)
         let faviconTimeout;
