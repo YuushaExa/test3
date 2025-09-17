@@ -90,66 +90,80 @@
 
     <div id="message"></div>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const titleInput = document.getElementById('titleInput');
-            const contentInput = document.getElementById('contentInput');
-            const saveButton = document.getElementById('saveButton');
-            const messageDiv = document.getElementById('message');
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const titleInput = document.getElementById('titleInput');
+        const linkInput = document.getElementById('linkInput');
+        const contentInput = document.getElementById('contentInput');
+        const saveButton = document.getElementById('saveButton');
+        const messageDiv = document.getElementById('message');
 
-            // Use the base URL of your deployed worker
-            const WORKER_URL = 'https://curly-pond-9050.workit1990k.workers.dev'; // Ensure no trailing slash if appending path
+        // Use the base URL of your deployed worker
+        const WORKER_URL = 'https://curly-pond-9050.workit1990k.workers.dev';
 
-            saveButton.addEventListener('click', async () => {
-                const title = titleInput.value.trim();
-                const link = document.getElementById('linkInput').value.trim(); 
-const content = document.getElementById('contentInput').value.trim();
-                if (!title || !content) {
-                    showMessage('Please fill in both title and content.', 'error');
-                    return;
+        // 🆕 Auto-fill from URL parameters on page load
+        const urlParams = new URLSearchParams(window.location.search);
+        const initialTitle = urlParams.get('title');
+        const initialLink = urlParams.get('link');
+
+        if (initialTitle) {
+            titleInput.value = decodeURIComponent(initialTitle);
+        }
+        if (initialLink) {
+            linkInput.value = decodeURIComponent(initialLink);
+        }
+
+        saveButton.addEventListener('click', async () => {
+            const title = titleInput.value.trim();
+            const link = linkInput.value.trim();
+            const content = contentInput.innerText.trim(); // ← Changed to innerText for contenteditable
+
+            if (!title || !content) {
+                showMessage('Please fill in both title and content.', 'error');
+                return;
+            }
+
+            // Disable button and show processing
+            saveButton.disabled = true;
+            showMessage('Saving...', 'processing');
+
+            try {
+                const response = await fetch(`${WORKER_URL}/api/readlater`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ title, link, content })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    showMessage(`Success! Saved "${title}". File ID: ${data.fileId}`, 'success');
+                    // Optionally clear the form
+                    titleInput.value = '';
+                    linkInput.value = '';
+                    contentInput.innerText = '';
+                } else {
+                    throw new Error(data.error || 'Failed to save data');
                 }
-
-                // Disable button and show processing
-                saveButton.disabled = true;
-                showMessage('Saving...', 'processing');
-
-                try {
-                    const response = await fetch(`${WORKER_URL}/api/readlater`, { // Append the correct path
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-body: JSON.stringify({ title, link, content }) // Send title, link, and content
-    });
-
-                    const data = await response.json();
-
-                    if (response.ok && data.success) {
-                        showMessage(`Success! Saved "${title}". File ID: ${data.fileId}`, 'success');
-                        // Optionally clear the form
-                        titleInput.value = '';
-                        linkInput.value = '';
-                        contentInput.value = '';
-                    } else {
-                        throw new Error(data.error || 'Failed to save data');
-                    }
-                } catch (error) {
-                    console.error('Error saving data:', error);
-                    showMessage(`Error: ${error.message}`, 'error');
-                } finally {
-                    saveButton.disabled = false;
-                }
-            });
-
-            function showMessage(text, type) {
-                messageDiv.textContent = text;
-                messageDiv.className = '';
-                if (type) {
-                    messageDiv.classList.add(type);
-                }
-                messageDiv.style.display = text ? 'block' : 'none';
+            } catch (error) {
+                console.error('Error saving data:', error);
+                showMessage(`Error: ${error.message}`, 'error');
+            } finally {
+                saveButton.disabled = false;
             }
         });
-    </script>
+
+        function showMessage(text, type) {
+            messageDiv.textContent = text;
+            messageDiv.className = '';
+            if (type) {
+                messageDiv.classList.add(type);
+            }
+            messageDiv.style.display = text ? 'block' : 'none';
+        }
+    });
+</script>
 </body>
 </html>
