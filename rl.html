@@ -159,8 +159,8 @@ if (initialContentB64) {
             const link = linkInput.value.trim();
             const content = contentInput.innerText.trim();
 
-            if (!title || !content) {
-                showMessage('Please fill in both title and content.', 'error');
+            if (!title) {
+                showMessage('Please fill in title.', 'error');
                 return;
             }
 
