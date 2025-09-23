@@ -172,7 +172,6 @@ const authorUrl = Url ? new URL(Url, url).href : null;
     log(`Total chapters found: ${chapters.length}`);
     fetchChaptersBtn.disabled = false;
     checkTitle();
-    saveMetadata();
 if (authorUrl) {
         log('\nFetching author\'s other works...');
         try {
@@ -704,6 +703,10 @@ const match = data.some(item =>
     consoleOutput.innerHTML += `<div style="${style.replace(/%c/g, '')}">${match ? 'Duplicate' : 'Original'}</div>`;
     consoleOutput.scrollTop = consoleOutput.scrollHeight;
 
+  if (!match) {
+      saveMetadata();
+    }
+    
   } catch (err) {
     log(`Error checking title: ${err.message}`);
   }
