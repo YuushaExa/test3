@@ -91,7 +91,16 @@
     <button id="saveButton">Save to Read Later</button>
 
     <div id="message"></div>
-
+<hr>
+<h2>Read Later List</h2>
+<button id="loadListButton">Load Read Later List</button>
+<div id="readLaterList" style="margin-top: 20px;"></div>
+<div id="blogPostView" style="display: none; margin-top: 30px; padding: 20px; border: 1px solid #ddd; border-radius: 8px; background: #f9f9f9;">
+  <h2 id="blogTitle"></h2>
+  <p><strong>Link:</strong> <a id="blogLink" target="_blank"></a></p>
+  <div id="blogContent" style="margin-top: 15px; line-height: 1.6;"></div>
+  <button id="backToList" style="margin-top: 20px;">← Back to List</button>
+</div>
 <script>
     document.addEventListener('DOMContentLoaded', () => {
         const titleInput = document.getElementById('titleInput');
@@ -202,6 +211,69 @@ if (initialContentB64) {
             messageDiv.style.display = text ? 'block' : 'none';
         }
     });
+
+    // ============ Read Later List UI ============
+const loadListButton = document.getElementById('loadListButton');
+const readLaterList = document.getElementById('readLaterList');
+const blogPostView = document.getElementById('blogPostView');
+const blogTitle = document.getElementById('blogTitle');
+const blogLink = document.getElementById('blogLink');
+const blogContent = document.getElementById('blogContent');
+const backToListBtn = document.getElementById('backToList');
+
+loadListButton.addEventListener('click', async () => {
+  loadListButton.disabled = true;
+  readLaterList.innerHTML = '<p>Loading...</p>';
+
+  try {
+    const response = await fetch(`${WORKER_URL}/api/readlaterdata`);
+    const items = await response.json();
+
+    if (!Array.isArray(items) || items.length === 0) {
+      readLaterList.innerHTML = '<p>No items saved yet.</p>';
+    } else {
+      const listHtml = items.map((item, index) => 
+        `<div style="margin-bottom: 10px;">
+          <button class="readLaterItem" data-index="${index}" style="text-align: left; width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; background: white; cursor: pointer;">
+            ${item.title || '(No title)'}
+          </button>
+        </div>`
+      ).join('');
+      readLaterList.innerHTML = listHtml;
+
+      // Attach click handlers
+      document.querySelectorAll('.readLaterItem').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const idx = btn.getAttribute('data-index');
+          const item = items[idx];
+          showBlogPost(item);
+        });
+      });
+    }
+  } catch (error) {
+    console.error('Failed to load read later list:', error);
+    readLaterList.innerHTML = `<p style="color: red;">Error loading list: ${error.message}</p>`;
+  } finally {
+    loadListButton.disabled = false;
+  }
+});
+
+function showBlogPost(item) {
+  blogTitle.textContent = item.title || '(No title)';
+  blogLink.textContent = item.link || '';
+  blogLink.href = item.link || '#';
+  blogContent.innerHTML = item.content ? item.content.replace(/\n/g, '<br>') : '(No content)';
+  
+  readLaterList.style.display = 'none';
+  loadListButton.style.display = 'none';
+  blogPostView.style.display = 'block';
+}
+
+backToListBtn.addEventListener('click', () => {
+  blogPostView.style.display = 'none';
+  readLaterList.style.display = 'block';
+  loadListButton.style.display = 'inline-block';
+});
 </script>
 </body>
 </html>
