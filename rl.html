@@ -229,16 +229,15 @@ const searchInput = document.getElementById('searchInput');
 const toggleOrderBtn = document.getElementById('toggleOrderBtn');
 
 let originalItems = [];
-let isReversed = true; // Start with reversed order (newest first)
+let isReversed = true; // newest first by default
 
 loadListButton.addEventListener('click', async () => {
   loadListButton.disabled = true;
   readLaterList.innerHTML = '<p>Loading...</p>';
   
-  // Show search and toggle controls
   searchInput.style.display = 'block';
   toggleOrderBtn.style.display = 'block';
-  toggleOrderBtn.textContent = isReversed ? 'Show Newest First' : 'Show Oldest First';
+  toggleOrderBtn.textContent = isReversed ? 'Show Oldest First' : 'Show Newest First';
 
   try {
     const response = await fetch(`${WORKER_URL}/api/readlaterdata`);
@@ -249,8 +248,7 @@ loadListButton.addEventListener('click', async () => {
       searchInput.style.display = 'none';
       toggleOrderBtn.style.display = 'none';
     } else {
-      renderList(originalItems);
-      setupEventListeners();
+      renderList();
     }
   } catch (error) {
     console.error('Failed to load read later list:', error);
@@ -262,61 +260,62 @@ loadListButton.addEventListener('click', async () => {
   }
 });
 
-function renderList(items) {
-  let processedItems = [...items];
-  
-  // Apply current sort order
-  if (isReversed) {
-    processedItems = processedItems.reverse();
-  }
-  
-  // Apply search filter if needed
+function renderList() {
+  let displayedItems = [...originalItems];
+
+  // Apply search filter
   const searchTerm = searchInput.value.trim().toLowerCase();
   if (searchTerm) {
-    processedItems = processedItems.filter(item => 
+    displayedItems = displayedItems.filter(item =>
       (item.title && item.title.toLowerCase().includes(searchTerm)) ||
       (item.content && item.content.toLowerCase().includes(searchTerm))
     );
   }
 
-  if (processedItems.length === 0) {
-    readLaterList.innerHTML = '<p>No matching items found.</p>';
+  // Apply sort order
+  if (isReversed) {
+    displayedItems = displayedItems.reverse();
+  }
+
+  if (displayedItems.length === 0) {
+    readLaterList.innerHTML = searchTerm
+      ? '<p>No matching items found.</p>'
+      : '<p>No items saved yet.</p>';
     return;
   }
 
-  const listHtml = processedItems.map((item, index) => 
-    `<div style="margin-bottom: 10px;">
-      <button class="readLaterItem" data-original-index="${items.indexOf(item)}" style="text-align: left; width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; background: white; cursor: pointer;">
-        ${item.title || '(No title)'}
-      </button>
-    </div>`
-  ).join('');
-  
-  readLaterList.innerHTML = listHtml;
-}
+  // Render with original index preserved
+  const listHtml = displayedItems.map(item => {
+    const originalIndex = originalItems.indexOf(item);
+    return `
+      <div style="margin-bottom: 10px;">
+        <button class="readLaterItem" data-original-index="${originalIndex}" 
+          style="text-align: left; width: 100%; padding: 10px; border: 1px solid #ccc; 
+                 border-radius: 4px; background: white; cursor: pointer;">
+          ${item.title || '(No title)'}
+        </button>
+      </div>`;
+  }).join('');
 
-function setupEventListeners() {
-  // Attach click handlers for list items
+  readLaterList.innerHTML = listHtml;
+
+  // Attach click handlers
   document.querySelectorAll('.readLaterItem').forEach(btn => {
     btn.addEventListener('click', () => {
-      const originalIndex = parseInt(btn.getAttribute('data-original-index'));
-      const item = originalItems[originalIndex];
+      const idx = parseInt(btn.getAttribute('data-original-index'), 10);
+      const item = originalItems[idx];
       showBlogPost(item);
     });
   });
-
-  // Search input event
-  searchInput.addEventListener('input', () => {
-    renderList(originalItems);
-  });
-
-  // Toggle order button
-  toggleOrderBtn.addEventListener('click', () => {
-    isReversed = !isReversed;
-    toggleOrderBtn.textContent = isReversed ? 'Show Newest First' : 'Show Oldest First';
-    renderList(originalItems);
-  });
 }
+
+// Set up search and toggle once (outside render to avoid duplicate listeners)
+searchInput.addEventListener('input', () => renderList());
+toggleOrderBtn.addEventListener('click', () => {
+  isReversed = !isReversed;
+  toggleOrderBtn.textContent = isReversed ? 'Show Oldest First' : 'Show Newest First';
+  renderList();
+});
 
 function showBlogPost(item) {
   blogTitle.textContent = item.title || '(No title)';
@@ -324,6 +323,7 @@ function showBlogPost(item) {
   blogLink.href = item.link || '#';
   blogContent.innerHTML = item.content ? item.content.replace(/\n/g, '<br>') : '(No content)';
   
+  // Hide list view
   readLaterList.style.display = 'none';
   loadListButton.style.display = 'none';
   searchInput.style.display = 'none';
