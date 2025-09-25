@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Save to Read Later</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            max-width: 800px;
+            margin: auto;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="text"], textarea {
+            width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        textarea {
+            height: 150px;
+            resize: vertical; /* Allows vertical resizing only */
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button:disabled {
+             background-color: #cccccc;
+             cursor: not-allowed;
+        }
+        button.readLaterItem {
+    color: black;
+        }
+        #message {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .success {
+            background-color: #dff0d8;
+            color: #3c763d;
+            border: 1px solid #d6e9c6;
+        }
+        .error {
+            background-color: #f2dede;
+            color: #a94442;
+            border: 1px solid #ebccd1;
+        }
+        .processing {
+             color: #31708f;
+             background-color: #d9edf7;
+             border-color: #bce8f1;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Save to Read Later</h1>
+    <div class="form-group">
+        <label for="titleInput">Title:</label>
+        <input type="text" id="titleInput" placeholder="Enter the title..." required>
+    </div>
+</div>
+ <div class="form-group">
+    <label for="contentInput">Content:</label>
+    <div id="contentInput" contenteditable="true" 
+         style="width: 100%; max-height: 150px; padding: 8px; box-sizing: border-box; 
+                border: 1px solid #ccc; border-radius: 4px; overflow: auto;"
+         placeholder="Enter the content..."></div>
+</div>
+    <button id="saveButton">Save to Read Later</button>
+
+    <div id="message"></div>
+<hr>
+<h2>Read Later List</h2>
+<button id="loadListButton">Load Read Later List</button>
+    <input type="text" id="searchInput" placeholder="Search saved items..." style="width: 100%; padding: 8px; margin-bottom: 10px; display: none;">
+<button id="toggleOrderBtn" style="margin-bottom: 10px; display: none;">Show Newest First</button>
+<div id="readLaterList" style="margin-top: 20px;"></div>
+<div id="blogPostView" style="display: none; margin-top: 30px; padding: 20px; border: 1px solid #ddd; border-radius: 8px; background: #f9f9f9;">
+  <h2 id="blogTitle"></h2>
+  <div id="blogContent" style="margin-top: 15px; line-height: 1.6;"></div>
+  <button id="backToList" style="margin-top: 20px;">← Back to List</button>
+</div>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const titleInput = document.getElementById('titleInput');
+        const contentInput = document.getElementById('contentInput');
+        const saveButton = document.getElementById('saveButton');
+        const messageDiv = document.getElementById('message');
+        const faviconContainer = document.getElementById('faviconContainer');
+
+        const WORKER_URL = 'https://cms.workit1990k.workers.dev';
+
+// Auto-fill from URL parameters
+const urlParams = new URLSearchParams(window.location.search);
+const initialTitle = urlParams.get('title');
+const initialContentB64 = urlParams.get('content_b64');
+
+if (initialTitle) {
+    titleInput.value = decodeURIComponent(initialTitle);
+}
+if (initialContentB64) {
+    try {
+        const decoded = decodeURIComponent(atob(initialContentB64));
+        contentInput.innerText = decoded;
+    } catch (e) {
+        console.error('Failed to decode Base64 content:', e);
+        contentInput.innerText = 'Failed to load description.';
+    }
+}
+
+
+        saveButton.addEventListener('click', async () => {
+            const title = titleInput.value.trim();
+            const content = contentInput.innerText.trim();
+
+            if (!title) {
+                showMessage('Please fill in title.', 'error');
+                return;
+            }
+
+            saveButton.disabled = true;
+            showMessage('Saving...', 'processing');
+
+            try {
+                const response = await fetch(`${WORKER_URL}/api/readlater`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title, content })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    showMessage(`Success! Saved "${title}". File ID: ${data.fileId}`, 'success');
+                    titleInput.value = '';
+                    contentInput.innerText = '';
+                } else {
+                    throw new Error(data.error || 'Failed to save data');
+                }
+            } catch (error) {
+                console.error('Error saving data:', error);
+                showMessage(`Error: ${error.message}`, 'error');
+            } finally {
+                saveButton.disabled = false;
+            }
+        });
+
+        function showMessage(text, type) {
+            messageDiv.textContent = text;
+            messageDiv.className = '';
+            if (type) {
+                messageDiv.classList.add(type);
+            }
+            messageDiv.style.display = text ? 'block' : 'none';
+        }
+
+
+    // ============ Read Later List UI ============
+const loadListButton = document.getElementById('loadListButton');
+const readLaterList = document.getElementById('readLaterList');
+const blogPostView = document.getElementById('blogPostView');
+const blogTitle = document.getElementById('blogTitle');
+const blogLink = document.getElementById('blogLink');
+const blogContent = document.getElementById('blogContent');
+const backToListBtn = document.getElementById('backToList');
+const searchInput = document.getElementById('searchInput');
+const toggleOrderBtn = document.getElementById('toggleOrderBtn');
+
+let originalItems = [];
+let isReversed = true; // newest first by default
+
+loadListButton.addEventListener('click', async () => {
+  loadListButton.disabled = true;
+  readLaterList.innerHTML = '<p>Loading...</p>';
+  
+  searchInput.style.display = 'block';
+  toggleOrderBtn.style.display = 'block';
+  toggleOrderBtn.textContent = isReversed ? 'Show Oldest First' : 'Show Newest First';
+
+  try {
+    const response = await fetch(`${WORKER_URL}/api/readlaterdata`);
+    originalItems = await response.json();
+
+    if (!Array.isArray(originalItems) || originalItems.length === 0) {
+      readLaterList.innerHTML = '<p>No items saved yet.</p>';
+      searchInput.style.display = 'none';
+      toggleOrderBtn.style.display = 'none';
+    } else {
+      renderList();
+    }
+  } catch (error) {
+    console.error('Failed to load read later list:', error);
+    readLaterList.innerHTML = `<p style="color: red;">Error loading list: ${error.message}</p>`;
+    searchInput.style.display = 'none';
+    toggleOrderBtn.style.display = 'none';
+  } finally {
+    loadListButton.disabled = false;
+  }
+});
+
+function renderList() {
+  let displayedItems = [...originalItems];
+
+  // Apply search filter
+  const searchTerm = searchInput.value.trim().toLowerCase();
+  if (searchTerm) {
+    displayedItems = displayedItems.filter(item =>
+      (item.title && item.title.toLowerCase().includes(searchTerm)) ||
+      (item.content && item.content.toLowerCase().includes(searchTerm))
+    );
+  }
+
+  // Apply sort order
+  if (isReversed) {
+    displayedItems = [...displayedItems].reverse(); // avoid mutating original
+  }
+
+  if (displayedItems.length === 0) {
+    readLaterList.innerHTML = searchTerm
+      ? '<p>No matching items found.</p>'
+      : '<p>No items saved yet.</p>';
+    return;
+  }
+
+  // Helper: extract first image URL from content (supports plain text or HTML)
+function extractFirstImageUrl(content) {
+  if (!content) return null;
+
+  // First, try to find an <img> tag (for HTML content)
+  const imgTagMatch = content.match(/<img[^>]+src=["']([^"']+\.(?:webp|jpe?g|png))["'][^>]*>/i);
+  if (imgTagMatch && imgTagMatch[1]) {
+    try {
+      return new URL(imgTagMatch[1], window.location.href).href;
+    } catch (e) {
+      return imgTagMatch[1];
+    }
+  }
+
+  // Then, try to find a standalone image URL in plain text
+  const urlRegex = /\bhttps?:\/\/[^\s<>"']+\.(?:webp|jpe?g|png)\b/ig;
+  const plainUrlMatch = content.match(urlRegex);
+  if (plainUrlMatch && plainUrlMatch[0]) {
+    try {
+      return new URL(plainUrlMatch[0], window.location.href).href;
+    } catch (e) {
+      return plainUrlMatch[0];
+    }
+  }
+
+  return null;
+}
+
+  // Render list with optional image
+  const listHtml = displayedItems.map(item => {
+    const originalIndex = originalItems.indexOf(item);
+    const firstImgUrl = extractFirstImageUrl(item.content);
+
+    const imgHtml = firstImgUrl
+      ? `<img src="${firstImgUrl}" 
+                alt="" 
+                width="32" 
+                height="32" 
+                loading="lazy"
+                style="float: right; margin-left: 10px; border-radius: 4px; object-fit: cover;">`
+      : '';
+
+    return `
+      <div style="margin-bottom: 10px; clear: both;">
+        <button class="readLaterItem" data-original-index="${originalIndex}" 
+          style="text-align: left; width: 100%; padding: 10px; border: 1px solid #ccc; 
+                 border-radius: 4px; background: white; cursor: pointer; display: flex; align-items: center; justify-content: space-between;">
+          <span style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+            ${item.title || '(No title)'}
+          </span>
+          ${imgHtml}
+        </button>
+      </div>`;
+  }).join('');
+
+  readLaterList.innerHTML = listHtml;
+
+  // Attach click handlers
+  document.querySelectorAll('.readLaterItem').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = parseInt(btn.getAttribute('data-original-index'), 10);
+      const item = originalItems[idx];
+      showBlogPost(item);
+    });
+  });
+}
+// Set up search and toggle once (outside render to avoid duplicate listeners)
+searchInput.addEventListener('input', () => renderList());
+toggleOrderBtn.addEventListener('click', () => {
+  isReversed = !isReversed;
+  toggleOrderBtn.textContent = isReversed ? 'Show Oldest First' : 'Show Newest First';
+  renderList();
+});
+
+function showBlogPost(item) {
+  blogTitle.textContent = item.title || '(No title)';
+  blogLink.textContent = item.link || '';
+  blogLink.href = item.link || '#';
+  blogContent.innerHTML = item.content ? item.content.replace(/\n/g, '<br>') : '(No content)';
+  
+  // Hide list view
+  readLaterList.style.display = 'none';
+  loadListButton.style.display = 'none';
+  searchInput.style.display = 'none';
+  toggleOrderBtn.style.display = 'none';
+  blogPostView.style.display = 'block';
+}
+
+backToListBtn.addEventListener('click', () => {
+  blogPostView.style.display = 'none';
+  readLaterList.style.display = 'block';
+  loadListButton.style.display = 'inline-block';
+  searchInput.style.display = 'block';
+  toggleOrderBtn.style.display = 'block';
+});
+        
+    });
+
+</script>
+</body>
+</html>
