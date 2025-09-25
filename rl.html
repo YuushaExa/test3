@@ -285,19 +285,32 @@ function renderList() {
   }
 
   // Helper: extract first image URL from content (supports plain text or HTML)
-  function extractFirstImageUrl(content) {
-    if (!content) return null;
-    const imgMatch = content.match(/<img[^>]+src=["']([^"']+\.(?:webp|jpe?g|png))["'][^>]*>/i);
-    if (imgMatch && imgMatch[1]) {
-      try {
-        // Ensure it's a valid absolute URL
-        return new URL(imgMatch[1], window.location.href).href;
-      } catch (e) {
-        return imgMatch[1]; // fallback if relative or invalid
-      }
+function extractFirstImageUrl(content) {
+  if (!content) return null;
+
+  // First, try to find an <img> tag (for HTML content)
+  const imgTagMatch = content.match(/<img[^>]+src=["']([^"']+\.(?:webp|jpe?g|png))["'][^>]*>/i);
+  if (imgTagMatch && imgTagMatch[1]) {
+    try {
+      return new URL(imgTagMatch[1], window.location.href).href;
+    } catch (e) {
+      return imgTagMatch[1];
     }
-    return null;
   }
+
+  // Then, try to find a standalone image URL in plain text
+  const urlRegex = /\bhttps?:\/\/[^\s<>"']+\.(?:webp|jpe?g|png)\b/ig;
+  const plainUrlMatch = content.match(urlRegex);
+  if (plainUrlMatch && plainUrlMatch[0]) {
+    try {
+      return new URL(plainUrlMatch[0], window.location.href).href;
+    } catch (e) {
+      return plainUrlMatch[0];
+    }
+  }
+
+  return null;
+}
 
   // Render list with optional image
   const listHtml = displayedItems.map(item => {
