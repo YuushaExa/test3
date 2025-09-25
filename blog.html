@@ -318,8 +318,6 @@ toggleOrderBtn.addEventListener('click', () => {
 
 function showBlogPost(item) {
   blogTitle.textContent = item.title || '(No title)';
-  blogLink.textContent = item.link || '';
-  blogLink.href = item.link || '#';
   blogContent.innerHTML = item.content ? item.content.replace(/\n/g, '<br>') : '(No content)';
   
   // Hide list view
