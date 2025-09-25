@@ -110,7 +110,10 @@
         <div class="header">
             <h1>Mini CodePen</h1>
         </div>
-        
+               <div class="panel preview-container">
+            <div class="panel-header">Preview</div>
+            <iframe id="preview-frame" class="preview-frame"></iframe>
+        </div>
         <div class="panel">
             <div class="panel-header">HTML</div>
             <textarea id="html-editor" class="editor" spellcheck="false"><h1>Hello World</h1>
@@ -135,10 +138,7 @@ h1 {
             <textarea id="js-editor" class="editor" spellcheck="false">console.log('Hello from JS!');</textarea>
         </div>
         
-        <div class="panel preview-container">
-            <div class="panel-header">Preview</div>
-            <iframe id="preview-frame" class="preview-frame"></iframe>
-        </div>
+ 
     </div>
 
     <script>
