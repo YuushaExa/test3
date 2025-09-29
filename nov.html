@@ -139,7 +139,7 @@
       .map(a => a.textContent.trim().replace(/,\s*$/, ''))
       .filter(Boolean);
 
-    const description = ''; // Not shown on main page
+    const description = doc.querySelector('.book-details .summary .content')?.textContent?.trim() || '';
 
     // Step 2: Fetch full chapter list from API
     log(`Fetching chapter list via API (bookId: ${bookId})...`);
@@ -201,9 +201,8 @@
       const html = await fetchRawHTML(chapterUrl);
       const doc  = new DOMParser().parseFromString(html, 'text/html');
 
-      const novelTitle = doc.querySelector('.chapter-info a')?.textContent?.trim() || '';
       const chTitle    = doc.querySelector('.chapter__content h1')?.textContent?.trim() || '';
-      const title      = `${novelTitle} - ${chTitle}`;
+      const title      = `${chTitle}`;
 
       let content = doc.querySelector('.content-inner')?.innerHTML || 'Chapter not found';
 
