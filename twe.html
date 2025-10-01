@@ -1134,8 +1134,16 @@ autoScrollSaveBtn.addEventListener('click', () => {
     }
 
     // Event listener for Check Translation button
-    checkTranslationBtn.addEventListener('click', checkTranslation);
+checkTranslationBtn.addEventListener('click', () => {
+  // Stop auto-scroll/save if it's running
+  if (isAutoScrolling) {
+    isAutoScrolling = false;
+    autoScrollSaveBtn.textContent = 'Start Auto-Scroll & Save';
+    log('Auto-scroll/save stopped by manual "Check Translation"', 'orange');
+  }
 
+  checkTranslation(); // your existing function
+});
   </script>
 </body>
 
