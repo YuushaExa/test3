@@ -83,7 +83,8 @@
     const statusText      = document.getElementById('statusText');
     const checkTranslationBtn = document.getElementById('checkTranslationBtn');
 let selectedStart = 1;
-let selectedEnd = 0; // will be set after metadata fetch
+let selectedEnd = 0; 
+    let lastNumber = 0; 
     // ---- config ----
     const WORKER_URL = 'https://curly-pond-9050.yuush.workers.dev';
 
