@@ -84,7 +84,6 @@
     const checkTranslationBtn = document.getElementById('checkTranslationBtn');
 let selectedStart = 1;
 let selectedEnd = 0; 
-    let lastNumber = 0; 
     // ---- config ----
     const WORKER_URL = 'https://curly-pond-9050.yuush.workers.dev';
 
@@ -199,13 +198,6 @@ if (authorUrl) {
         log('No author URL found - skipping author works fetch', 'yellow');
       }
 
-
-
-  } catch (err) {
-    log(`Error: ${err.message}`, 'red');
-    fetchMetadataBtn.disabled = false;
-  }
-
   // Inside fetchMetadata(), after you determine `lastNumber`:
 selectedEnd = lastNumber;
 document.getElementById('endChapter').max = lastNumber;
@@ -213,6 +205,12 @@ document.getElementById('endChapter').value = lastNumber;
 document.getElementById('startChapter').max = lastNumber;
 document.getElementById('startChapter').value = 1;
 document.getElementById('rangeHint').textContent = `Total chapters: ${lastNumber}`;
+
+  } catch (err) {
+    log(`Error: ${err.message}`, 'red');
+    fetchMetadataBtn.disabled = false;
+  }
+
 }
 
     document.getElementById('applyRangeBtn').addEventListener('click', () => {
