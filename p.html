@@ -399,16 +399,50 @@ document.querySelector('.container').appendChild(saveEpubBtn);
 
 // 1️⃣ Create EPUB function
 async function createEpub() {
-  if (!novelData.metadata?.title || !novelData.chapters[0]?.content) {
-    throw new Error('No chapter data available to create an EPUB.');
+  const metadata = novelData.metadata;
+  const chapters = novelData.chapters;
+
+  // Basic checks
+  if (!metadata?.title) {
+    throw new Error('Metadata (title) is missing.');
   }
-  
+
+  if (!chapters || chapters.length === 0) {
+    throw new Error('No chapters found.');
+  }
+
+  // Filter out chapters with no content
+  const validChapters = chapters.filter(ch => 
+    ch.content && 
+    ch.content.trim().length > 0 &&
+    // Optional: ensure it has at least one <p> tag or real text
+    (ch.content.includes('<p>') || /[\u4e00-\u9fff\w]/.test(ch.content))
+  );
+
+  if (validChapters.length === 0) {
+    throw new Error('No chapters contain valid content. Cannot create EPUB.');
+  }
+
+  if (validChapters.length < chapters.length) {
+    const missing = chapters.length - validChapters.length;
+    log(`⚠️ ${missing} chapter(s) skipped due to empty/invalid content.`, 'orange');
+  }
+
   try {
     createEpubBtn.disabled = true;
-    log('Generating EPUB...');
+    log('Generating EPUB from valid chapters...');
+
+    // Temporarily replace chapters with only valid ones (or modify EpubGenerator to accept a list)
+    const originalChapters = novelData.chapters;
+    novelData.chapters = validChapters;
+
     const generator = new EpubGenerator(novelData);
-    generatedEpubBlob = await generator.generate(log); // generate() already returns a Blob
-    log('✓ EPUB created successfully (not downloaded yet)', 'green');
+    generatedEpubBlob = await generator.generate(log);
+
+    // Restore original if needed (optional)
+    novelData.chapters = originalChapters;
+
+    log('✓ EPUB created successfully!', 'green');
     downloadEpubBtn.disabled = false;
     saveEpubBtn.disabled = false;
     return generatedEpubBlob;
