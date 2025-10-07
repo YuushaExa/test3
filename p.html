@@ -1142,8 +1142,7 @@ retryBtn.addEventListener('click', startCountdown);
   
   while (true) {
     // 1. Scroll to bottom
-performScrollToBottom();
-    
+document.getElementById('scroll-btn').click();    
     // 3. Wait for timer to reach 0
  await new Promise(resolve => setTimeout(resolve, 100000));
     
