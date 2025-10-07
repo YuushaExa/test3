@@ -1147,8 +1147,8 @@ retryBtn.addEventListener('click', startCountdown);
   
   while (true) {
     // 1. Scroll to bottom
-    if (animId) cancelAnimationFrame(animId); // Cancel any ongoing scroll
-    scrollBtn.click();
+    scrollToBottomWithCharCount();
+
     
     // 2. Wait for scroll to complete (check every 100ms)
     await new Promise(resolve => {
