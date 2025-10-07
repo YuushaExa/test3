@@ -45,6 +45,7 @@
 
 <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap">
   <button id="saveTranslationBtn" disabled>Save Translation</button>
+    <button id="checkTranslationBtn">Check Translation</button>
 </div>
 <button id="scroll-btn">Scroll to Bottom</button>
 <button id="retryBtn" style="display:none;">Retry from failed</button>
@@ -769,6 +770,93 @@ function splitParagraphsFromContent(html) {
     .filter(Boolean);
   return ps.length ? ps : (html ? [tmp.textContent.trim()] : []);
 }
+
+    // Function to detect Chinese characters
+function hasChinese(text) {
+  const chineseRegex = /[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]/;
+  return chineseRegex.test(text);
+}
+
+// Check Translation functionality
+function checkTranslation() {
+  if (!novelData.chapters.length) {
+    log('No chapters to check', 'red');
+    return;
+  }
+
+  // Clear console-translate
+  consoleTranslate.innerHTML = '';
+  
+  // Find chapters with Chinese characters
+  const chineseChapters = [];
+  novelData.chapters.forEach((chapter, index) => {
+    if (hasChinese(chapter.title) || hasChinese(chapter.content)) {
+      chineseChapters.push({ ...chapter, _index: index });
+    }
+  });
+
+  if (chineseChapters.length === 0) {
+    log('✓ No Chinese characters detected in any chapters!', 'green');
+    return;
+  }
+
+  log(`Found ${chineseChapters.length} chapters with Chinese characters`, 'orange');
+  
+  // Build hidden JSON structure
+  const jsonArray = chineseChapters.map(ch => ({
+    index: ch._index,
+    title: ch.title,
+    paragraphs: splitParagraphsFromContent(ch.content)
+  }));
+
+  const hiddenPre = document.createElement('pre');
+  hiddenPre.style.display = 'none';
+  hiddenPre.setAttribute('translate', 'no');
+  hiddenPre.className = 'hidden-json';
+  hiddenPre.textContent = JSON.stringify(jsonArray, null, 2);
+  consoleTranslate.appendChild(hiddenPre);
+
+  // Render visible content for translation
+  const visContainer = document.createElement('div');
+  visContainer.setAttribute('translate', 'yes');
+
+  chineseChapters.forEach(ch => {
+    const chapterDiv = document.createElement('div');
+    chapterDiv.className = 'visible-ch';
+    chapterDiv.dataset.index = ch._index;
+
+    // Title
+    const titleDiv = document.createElement('div');
+    titleDiv.className = 'translatable title';
+    titleDiv.dataset.index = ch._index;
+    titleDiv.textContent = ch.title;
+    titleDiv.style.marginBottom = '8px';
+    chapterDiv.appendChild(titleDiv);
+
+    // Paragraphs
+    const paragraphs = splitParagraphsFromContent(ch.content);
+    paragraphs.forEach((pText, pIdx) => {
+      const pDiv = document.createElement('div');
+      pDiv.className = 'translatable para';
+      pDiv.dataset.index = ch._index;
+      pDiv.dataset.pIndex = pIdx;
+      pDiv.style.marginBottom = '6px';
+      pDiv.textContent = pText;
+      chapterDiv.appendChild(pDiv);
+    });
+
+    // Chapter separator
+    const sep = document.createElement('div');
+    sep.style.height = '14px';
+    visContainer.appendChild(chapterDiv);
+    visContainer.appendChild(sep);
+  });
+
+  consoleTranslate.appendChild(visContainer);
+  saveTranslationBtn.disabled = false;
+  log('Chapters with Chinese characters loaded for translation. Use browser translate then click "Save Translation".', 'green');
+}
+    
 // Render a batch so:
 // - Hidden: JSON string (translate="no") — exact structure preserved
 // - Visible: plain text only (title, newline, paragraphs) and each text piece has .translatable spans
@@ -954,7 +1042,8 @@ retryBtn.addEventListener('click', () => {
   retryBtn.style.display = 'none';
   fetchNextTranslateBatch();                // continue exactly from failedStart
 });
-
+const checkTranslationBtn = document.getElementById('checkTranslationBtn');
+checkTranslationBtn.addEventListener('click', checkTranslation);
 // Wire the save button: read translations back, move to next batch
 saveTranslationBtn.addEventListener('click', () => {
   const total = totalChaptersCount || novelData.chapters.length;
