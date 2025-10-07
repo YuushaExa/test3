@@ -1142,6 +1142,7 @@ retryBtn.addEventListener('click', startCountdown);
   
   while (true) {
     // 1. Scroll to bottom
+        await new Promise(resolve => setTimeout(resolve, 3000));
 document.getElementById('scroll-btn').click();    
     // 3. Wait for timer to reach 0
  await new Promise(resolve => setTimeout(resolve, 100000));
@@ -1155,8 +1156,6 @@ document.getElementById('scroll-btn').click();
     // 5. Click Save Translation
     saveTranslationBtn.click();
     
-    // 6. Wait a bit for processing
-    await new Promise(resolve => setTimeout(resolve, 1000));
     // 7. Check if we've processed all chapters
     if (translateCursor >= totalChaptersCount) {
       log('Auto Save: All chapters processed!', 'green');
