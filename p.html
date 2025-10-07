@@ -1156,19 +1156,11 @@ retryBtn.addEventListener('click', startCountdown);
           clearInterval(checkScroll);
           resolve();
         }
-      }, 100);
+      }, 1000);
     });
     
     // 3. Wait for timer to reach 0
-    await new Promise(resolve => {
-      const checkTimer = setInterval(() => {
-        const timerText = timerElement.textContent;
-        if (timerText.includes('0s') || !timerText.includes('Time remaining')) {
-          clearInterval(checkTimer);
-          resolve();
-        }
-      }, 500);
-    });
+ await new Promise(resolve => setTimeout(resolve, 90000));
     
     // 4. Check if save button is enabled (translation ready)
     if (saveTranslationBtn.disabled) {
