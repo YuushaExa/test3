@@ -1144,16 +1144,6 @@ retryBtn.addEventListener('click', startCountdown);
     // 1. Scroll to bottom
 performScrollToBottom();
     
-    // 2. Wait for scroll to complete (check every 100ms)
-    await new Promise(resolve => {
-      const checkScroll = setInterval(() => {
-        if (!animId) {
-          clearInterval(checkScroll);
-          resolve();
-        }
-      }, 1000);
-    });
-    
     // 3. Wait for timer to reach 0
  await new Promise(resolve => setTimeout(resolve, 100000));
     
