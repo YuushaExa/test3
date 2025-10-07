@@ -45,6 +45,7 @@
 
 <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap">
   <button id="saveTranslationBtn" disabled>Save Translation</button>
+  <button id="autoSaveBtn" disabled>Auto Save</button>
     <button id="checkTranslationBtn">Check Translation</button>
 </div>
 <button id="scroll-btn">Scroll to Bottom</button>
@@ -72,7 +73,8 @@
     const progressContainer = document.getElementById('progressContainer');
     const progressBar     = document.getElementById('progressBar');
     const statusText      = document.getElementById('statusText');
-
+const autoSaveBtn = document.getElementById('autoSaveBtn');
+const timerElement = document.getElementById('timer');
     // ---- config ----
     const WORKER_URL = 'https://curly-pond-9050.yuush.workers.dev';
 
@@ -1138,6 +1140,61 @@ function startCountdown() {
 fetchChaptersBtn.addEventListener('click', startCountdown);
 saveTranslationBtn.addEventListener('click', startCountdown);
 retryBtn.addEventListener('click', startCountdown);
+
+    autoSaveBtn.addEventListener('click', async () => {
+  autoSaveBtn.disabled = true;
+  const scrollBtn = document.getElementById('scroll-btn');
+  
+  while (true) {
+    // 1. Scroll to bottom
+    if (animId) cancelAnimationFrame(animId); // Cancel any ongoing scroll
+    scrollBtn.click();
+    
+    // 2. Wait for scroll to complete (check every 100ms)
+    await new Promise(resolve => {
+      const checkScroll = setInterval(() => {
+        if (!animId) {
+          clearInterval(checkScroll);
+          resolve();
+        }
+      }, 100);
+    });
+    
+    // 3. Wait for timer to reach 0
+    await new Promise(resolve => {
+      const checkTimer = setInterval(() => {
+        const timerText = timerElement.textContent;
+        if (timerText.includes('0s') || !timerText.includes('Time remaining')) {
+          clearInterval(checkTimer);
+          resolve();
+        }
+      }, 500);
+    });
+    
+    // 4. Check if save button is enabled (translation ready)
+    if (saveTranslationBtn.disabled) {
+      log('Auto Save: Translation not ready or completed', 'yellow');
+      break;
+    }
+    
+    // 5. Click Save Translation
+    saveTranslationBtn.click();
+    
+    // 6. Wait a bit for processing
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // 7. Check if we've processed all chapters
+    if (translateCursor >= totalChaptersCount) {
+      log('Auto Save: All chapters processed!', 'green');
+      break;
+    }
+    
+    // Brief pause before next iteration
+    await new Promise(resolve => setTimeout(resolve, 500));
+  }
+  
+  autoSaveBtn.disabled = false;
+});
   </script>
 </body>
 <!-- ===== NUInfo button + results container ===== -->
