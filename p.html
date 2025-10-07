@@ -45,7 +45,7 @@
 
 <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap">
   <button id="saveTranslationBtn" disabled>Save Translation</button>
-  <button id="autoSaveBtn" disabled>Auto Save</button>
+  <button id="autoSaveBtn">Auto Save</button>
     <button id="checkTranslationBtn">Check Translation</button>
 </div>
 <button id="scroll-btn">Scroll to Bottom</button>
@@ -1075,6 +1075,7 @@ const btn       = document.getElementById('scroll-btn');
 const consoleEl = document.getElementById('console-translate');
 
 let animId = null;         
+function scrollToBottomWithCharCount() {
 
 btn.addEventListener('click', () => {
   // If an animation is already running → cancel it
@@ -1114,7 +1115,7 @@ function step(now) {
 
   animId = requestAnimationFrame(step);
 });
-
+};
     // Timer logic
 let countdownInterval;
 const timerElement = document.getElementById('timer');
@@ -1160,7 +1161,7 @@ retryBtn.addEventListener('click', startCountdown);
     });
     
     // 3. Wait for timer to reach 0
- await new Promise(resolve => setTimeout(resolve, 90000));
+ await new Promise(resolve => setTimeout(resolve, 100000));
     
     // 4. Check if save button is enabled (translation ready)
     if (saveTranslationBtn.disabled) {
@@ -1173,7 +1174,7 @@ retryBtn.addEventListener('click', startCountdown);
     
     // 6. Wait a bit for processing
     await new Promise(resolve => setTimeout(resolve, 1000));
-    
+    scrollToBottomWithCharCount();
     // 7. Check if we've processed all chapters
     if (translateCursor >= totalChaptersCount) {
       log('Auto Save: All chapters processed!', 'green');
