@@ -59,7 +59,7 @@
 <button id="scroll-btn">Scroll to Bottom</button>
 <button id="auto-scroll-save-btn">Start Auto-Scroll & Save</button>
     <button id="checkTranslationBtn">Check Translation</button>
-
+<button id="refetchEmptyBtn">Re-fetch Empty Chapters</button>
 <div id="console-translate" translate="yes"
      class="console-like"
      style="background:#121212;color:#e6e6e6;padding:15px;border-radius:4px;
@@ -84,6 +84,7 @@
     const checkTranslationBtn = document.getElementById('checkTranslationBtn');
 let selectedStart = 1;
 let selectedEnd = 0; 
+    
     // ---- config ----
     const WORKER_URL = 'https://curly-pond-9050.yuush.workers.dev';
 
@@ -288,8 +289,51 @@ async function fetchChapters() {
     progressContainer.style.display = 'none';
   }
 }
+// ---- Re-fetch chapters with empty or missing content ----
+async function refetchEmptyChapters() {
+  if (!novelData.chapters || novelData.chapters.length === 0) {
+    log('No chapters to re-fetch.', 'red');
+    return;
+  }
 
+  const emptyChapters = novelData.chapters.filter(ch => !ch.content || ch.content.trim() === '');
+  if (emptyChapters.length === 0) {
+    log('No empty chapters found.', 'green');
+    return;
+  }
 
+  log(`Re-fetching ${emptyChapters.length} empty/failed chapters...`, 'orange');
+  progressContainer.style.display = 'block';
+  statusText.textContent = 'Re-fetching empty chapters...';
+
+  let successCount = 0;
+  for (let i = 0; i < emptyChapters.length; i++) {
+    const ch = emptyChapters[i];
+    try {
+      log(`Re-fetching: ${ch.title || ch.url}`, 'orange');
+      const fresh = await fetchChapterContent(ch.url);
+      // Find the chapter in the main array and update it
+      const idx = novelData.chapters.findIndex(c => c.url === ch.url);
+      if (idx !== -1) {
+        novelData.chapters[idx] = { ...novelData.chapters[idx], ...fresh };
+        successCount++;
+      }
+    } catch (err) {
+      log(`Failed to re-fetch ${ch.url}: ${err.message}`, 'red');
+    }
+    updateProgress(i + 1, emptyChapters.length);
+  }
+
+  log(`✓ Re-fetch complete: ${successCount}/${emptyChapters.length} succeeded.`, 'green');
+  progressContainer.style.display = 'none';
+
+  // Re-enable EPUB/Create buttons if content now exists
+  if (novelData.chapters.some(c => c.content?.trim())) {
+    createEpubBtn.disabled = false;
+    checkTranslationBtn.disabled = false;
+  }
+}
+document.getElementById('refetchEmptyBtn').addEventListener('click', refetchEmptyChapters);
 // ---- Save Metadata ----
 async function saveMetadata() {
   try {
