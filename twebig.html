@@ -59,8 +59,8 @@
 <button id="scroll-btn">Scroll to Bottom</button>
 <button id="auto-scroll-save-btn">Start Auto-Scroll & Save</button>
     <button id="checkTranslationBtn">Check Translation</button>
-<button id="refetchEmptyBtn">Re-fetch Empty Chapters</button>
-<div id="console-translate" translate="yes"
+<button id="refetchFailedBtn">Re-fetch Failed Chapters</button>
+    <div id="console-translate" translate="yes"
      class="console-like"
      style="background:#121212;color:#e6e6e6;padding:15px;border-radius:4px;
             font-family:'Courier New',Courier,monospace;height:320px;
@@ -289,51 +289,58 @@ async function fetchChapters() {
     progressContainer.style.display = 'none';
   }
 }
-// ---- Re-fetch chapters with empty or missing content ----
-async function refetchEmptyChapters() {
+// ---- Re-fetch only failed or empty chapters ----
+async function refetchFailedChapters() {
   if (!novelData.chapters || novelData.chapters.length === 0) {
     log('No chapters to re-fetch.', 'red');
     return;
   }
 
-  const emptyChapters = novelData.chapters.filter(ch => !ch.content || ch.content.trim() === '');
-  if (emptyChapters.length === 0) {
-    log('No empty chapters found.', 'green');
+  // Identify indices of chapters with missing or empty content
+  const failedIndices = novelData.chapters
+    .map((ch, i) => (!ch.content || ch.content.trim() === '') ? i : -1)
+    .filter(i => i !== -1);
+
+  if (failedIndices.length === 0) {
+    log('✅ No failed or empty chapters found.', 'green');
     return;
   }
 
-  log(`Re-fetching ${emptyChapters.length} empty/failed chapters...`, 'orange');
+  log(`🔁 Re-fetching ${failedIndices.length} failed/empty chapter(s)...`, 'orange');
+  refetchFailedBtn.disabled = true;
   progressContainer.style.display = 'block';
-  statusText.textContent = 'Re-fetching empty chapters...';
 
   let successCount = 0;
-  for (let i = 0; i < emptyChapters.length; i++) {
-    const ch = emptyChapters[i];
+  let errorCount = 0;
+
+  for (const idx of failedIndices) {
+    const ch = novelData.chapters[idx];
     try {
-      log(`Re-fetching: ${ch.title || ch.url}`, 'orange');
-      const fresh = await fetchChapterContent(ch.url);
-      // Find the chapter in the main array and update it
-      const idx = novelData.chapters.findIndex(c => c.url === ch.url);
-      if (idx !== -1) {
-        novelData.chapters[idx] = { ...novelData.chapters[idx], ...fresh };
-        successCount++;
-      }
+      log(`Fetching failed chapter ${idx + 1}: ${ch.url}`);
+      const freshData = await fetchChapterContent(ch.url);
+      novelData.chapters[idx] = { ...ch, ...freshData };
+      successCount++;
     } catch (err) {
-      log(`Failed to re-fetch ${ch.url}: ${err.message}`, 'red');
+      log(`❌ Failed to re-fetch chapter ${idx + 1}: ${err.message}`, 'red');
+      errorCount++;
     }
-    updateProgress(i + 1, emptyChapters.length);
+    updateProgress(successCount + errorCount, failedIndices.length);
   }
 
-  log(`✓ Re-fetch complete: ${successCount}/${emptyChapters.length} succeeded.`, 'green');
+  log(`✅ Re-fetch complete: ${successCount} succeeded, ${errorCount} still failed.`, 
+      errorCount === 0 ? 'green' : 'orange');
   progressContainer.style.display = 'none';
+  refetchFailedBtn.disabled = false;
 
-  // Re-enable EPUB/Create buttons if content now exists
-  if (novelData.chapters.some(c => c.content?.trim())) {
+  // Re-enable EPUB/Create if now valid
+  if (novelData.chapters.some(ch => ch.content?.trim())) {
     createEpubBtn.disabled = false;
-    checkTranslationBtn.disabled = false;
+    downloadBtn.disabled = false;
+    saveToJsonBtn.disabled = false;
   }
 }
-document.getElementById('refetchEmptyBtn').addEventListener('click', refetchEmptyChapters);
+    document.getElementById('refetchFailedBtn').addEventListener('click', refetchFailedChapters);
+    
 // ---- Save Metadata ----
 async function saveMetadata() {
   try {
