@@ -42,6 +42,7 @@
 
     <button id="fetchMetadataBtn">Fetch Metadata</button>
     <button id="fetchChaptersBtn" disabled>Fetch Chapters</button>
+    <button id="retryBatchBtn" disabled>Retry Failed Batch</button>
     <button id="downloadBtn" disabled>Download as JSON</button>
     <button id="saveToJsonBtn" disabled>Save JSON</button> 
   <button id="editMetadataBtn" disabled>Edit Metadata</button>
@@ -1017,6 +1018,56 @@ async function fetchNextTranslateBatch() {
   // and click "Save Translation".
 }
 
+let lastFailedBatchStart = null;
+let lastFailedBatchEnd = null;
+
+// Wrap the original fetchNextTranslateBatch to capture failure range
+const originalFetchNextTranslateBatch = fetchNextTranslateBatch;
+fetchNextTranslateBatch = async function() {
+  const total = totalChaptersCount || novelData.chapters.length;
+  const start = translateCursor;
+  const end = Math.min(start + translateBatchSize, total);
+  
+  try {
+    await originalFetchNextTranslateBatch();
+    // If successful, clear retry state
+    lastFailedBatchStart = null;
+    lastFailedBatchEnd = null;
+    document.getElementById('retryBatchBtn').disabled = true;
+  } catch (err) {
+    // Save the failed range for retry
+    lastFailedBatchStart = start;
+    lastFailedBatchEnd = end;
+    document.getElementById('retryBatchBtn').disabled = false;
+    throw err; // re-throw so original error handling still runs
+  }
+};
+
+// Retry button handler
+document.getElementById('retryBatchBtn').addEventListener('click', async () => {
+  if (lastFailedBatchStart === null || lastFailedBatchEnd === null) return;
+
+  log(`Retrying batch: chapters ${lastFailedBatchStart + 1}–${lastFailedBatchEnd}`, 'orange');
+
+  // Temporarily set cursor to the failed start
+  const originalCursor = translateCursor;
+  translateCursor = lastFailedBatchStart;
+
+  try {
+    await fetchNextTranslateBatch();
+    log('Retry succeeded!', 'green');
+  } catch (err) {
+    log(`Retry failed again: ${err.message}`, 'red');
+    // Keep retry button enabled so user can try again
+  } finally {
+    // Ensure cursor is restored if something went wrong
+    if (translateCursor !== lastFailedBatchEnd) {
+      translateCursor = originalCursor;
+    }
+  }
+});
+
+    
 // Wire the save button: read translations back, move to next batch
 saveTranslationBtn.addEventListener('click', () => {
   const total = totalChaptersCount || novelData.chapters.length;
