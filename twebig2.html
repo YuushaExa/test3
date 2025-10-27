@@ -22,55 +22,10 @@
      
 </head>
 <body>
-  <div class="container">
-    <h1>Novel Crawler</h1>
-
-    <div class="form-group">
-      <label for="novelUrl">Novel URL:</label>
-      <input type="text" id="novelUrl" placeholder="link">
-    </div>
-    <div class="form-group">
-  <label for="chapterRange">Chapter Range (e.g., 1–100):</label>
-  <div style="display:flex;gap:10px;align-items:center">
-    <input type="number" id="startChapter" min="1" placeholder="Start" style="width:100px">
-    <span>to</span>
-    <input type="number" id="endChapter" min="1" placeholder="End" style="width:100px">
-    <button id="applyRangeBtn">Apply Range</button>
-  </div>
-  <small id="rangeHint" style="color:#666;display:block;margin-top:5px"></small>
-</div>
+ 
 <input type="url" id="novelUrl" placeholder="https://ixdzs.tw/read/12345/" />
 <button onclick="triggerCrawl()">Start Crawl</button>
-    <button id="fetchMetadataBtn">Fetch Metadata</button>
-    <button id="fetchChaptersBtn" disabled>Fetch Chapters</button>
-    <button id="retryBatchBtn" disabled>Retry Failed Batch</button>
-    <button id="downloadBtn" disabled>Download as JSON</button>
-    <button id="saveToJsonBtn" disabled>Save JSON</button> 
-  <button id="editMetadataBtn" disabled>Edit Metadata</button>
-    <button id="saveMetadataBtn">Save Metadata</button>
-    <div class="progress-container" id="progressContainer">
-      <div class="status" id="statusText">Processing...</div>
-      <progress id="progressBar" value="0" max="100"></progress>
-    </div>
-
-    <div id="console"></div>
-
-<div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap">
-  <button id="saveTranslationBtn" disabled>Save Translation</button>
-</div>
-<button id="scroll-btn">Scroll to Bottom</button>
-<button id="auto-scroll-save-btn">Start Auto-Scroll & Save</button>
-    <button id="checkTranslationBtn">Check Translation</button>
-<button id="refetchFailedBtn">Re-fetch Failed Chapters</button>
-    <div id="console-translate" translate="yes"
-     class="console-like"
-     style="background:#121212;color:#e6e6e6;padding:15px;border-radius:4px;
-            font-family:'Courier New',Courier,monospace;height:320px;
-            overflow-y:auto;white-space:pre; margin-top:8px; border:1px solid #333">
-</div>
-
-
-  </div>
+  
 
   <script>
    
