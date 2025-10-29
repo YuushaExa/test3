@@ -737,6 +737,15 @@ const match = data.some(item =>
     consoleOutput.innerHTML += `<div style="${style.replace(/%c/g, '')}">${match ? 'Duplicate' : 'Original'}</div>`;
     consoleOutput.scrollTop = consoleOutput.scrollHeight;
 
+  if (!match) {
+      const saveBtn = document.getElementById('saveMetadataBtn');
+      if (saveBtn) {
+        saveBtn.click();
+      } else {
+        log('Warning: #saveMetadataBtn not found.');
+      }
+    }
+    
   } catch (err) {
     log(`Error checking title: ${err.message}`);
   }
