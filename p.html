@@ -157,7 +157,7 @@ const totalMatch = showAllBtn?.textContent?.match(/(\d+)/);
 if (!totalMatch) throw new Error('Cannot determine chapter count');
 const lastNumber = parseInt(totalMatch[1], 10);
 
-const base = 'https://www.wa01.com/novel/pagea/';
+const base = 'https://www.bg3.co/novel/pagea/';
 const chapters = [];
 for (let i = 1; i <= lastNumber; i++) {
   chapters.push({
