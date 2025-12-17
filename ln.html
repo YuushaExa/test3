@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Novel Crawler</title>
+  <style>
+    body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;max-width:800px;margin:0 auto;padding:20px;background:#f5f5f5}
+    h1{color:#333;text-align:center}
+    .container{background:#fff;padding:20px;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,.1)}
+    .form-group{margin-bottom:15px}
+    label{display:block;margin-bottom:5px;font-weight:bold}
+    input[type=text]{width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;box-sizing:border-box}
+    button{background:#4CAF50;color:#fff;border:none;padding:10px 15px;border-radius:4px;cursor:pointer;font-size:16px;margin-right:10px}
+    button:disabled{background:#ccc}
+    #console{background:#1e1e1e;color:#d4d4d4;padding:15px;border-radius:4px;font-family:'Courier New',Courier,monospace;height:300px;overflow-y:auto;white-space:pre-wrap;margin-top:20px}
+    .progress-container{margin-top:15px;display:none}
+    progress{width:100%}
+    .status{text-align:center;margin:10px 0;font-weight:bold}
+
+    #rangeDialog {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.5);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 9999;
+    }
+    #rangeDialog > div {
+      background: #fff; padding: 25px;
+      border-radius: 8px; width: 300px;
+      font-family: inherit;
+    }
+    #rangeDialog label { display: block; margin-bottom: 5px; font-weight: bold; }
+    #rangeDialog input[type=text] {
+      width: 100%; padding: 6px; margin-bottom: 15px;
+    }
+    #rangeDialog button { margin-right: 8px; }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+</head>
+<body>
+  <div class="container">
+    <h1>Novel Crawler</h1>
+
+    <div class="form-group">
+      <label for="novelUrl">Category URL:</label>
+      <input type="text" id="novelUrl" placeholder="Enter Literotica category URL">
+    </div>
+
+    <button id="downloadBtn" disabled>Download as JSON</button>
+    <button id="saveToJsonBtn" disabled>Save JSON</button> 
+    <button id="editMetadataBtn" disabled>Edit Metadata</button>
+    <button id="saveMetadataBtn">Save Metadata</button>
+    <button id="fetchLitBtn" style="background:#ff6600;color:#fff">Fetch Lit Category</button>
+    <div class="progress-container" id="progressContainer">
+      <div class="status" id="statusText">Processing...</div>
+      <progress id="progressBar" value="0" max="100"></progress>
+    </div>
+
+    <div id="console"></div>
+  </div>
+
+  <script>
+    // ---- DOM refs ----
+    const consoleOutput   = document.getElementById('console');
+    const novelUrlInput   = document.getElementById('novelUrl');
+    const downloadBtn     = document.getElementById('downloadBtn');
+    const saveToJsonBtn   = document.getElementById('saveToJsonBtn'); 
+    const progressContainer = document.getElementById('progressContainer');
+    const progressBar     = document.getElementById('progressBar');
+    const statusText      = document.getElementById('statusText');
+
+    // ---- config ----
+    const WORKER_URL = 'https://curly-pond-9050.yuush.workers.dev';
+
+    // ---- helpers ----
+    function log(msg, color = '') {
+      const messageElement = document.createElement('div');
+      messageElement.textContent = msg;
+      
+      if (color) {
+        messageElement.style.color = color;
+        messageElement.style.fontWeight = 'bold';
+      }
+      
+      consoleOutput.appendChild(messageElement);
+      consoleOutput.scrollTop = consoleOutput.scrollHeight;
+    }
+
+    function updateProgress(current, total) {
+      const pct = Math.round((current / total) * 100);
+      progressBar.value = pct;
+      statusText.textContent = `Processing ${current}/${total} (${pct}%)`;
+    }
+
+    // ---- data store ----
+    let novelData = { metadata: null, chapters: [] };
+    let failedStories = []; 
+
+    // ---- fetch raw html via worker ----
+    async function fetchRawHTML(targetUrl) {
+      const res = await fetch(`${WORKER_URL}/api/raw?url=${encodeURIComponent(targetUrl)}`);
+      if (!res.ok) throw new Error(`raw fetch ${res.status}`);
+      return res.text();
+    }
+
+    // ---- Save Metadata ----
+    async function saveMetadata() {
+      try {
+        progressContainer.style.display = 'block';
+        statusText.textContent = 'Saving metadata...';
+        
+        const metadata = novelData.metadata;
+        if (!metadata) {
+          alert('No metadata available to save');
+          return false;
+        }
+
+        console.log('Saving metadata to server...');
+        
+        const response = await fetch(`${WORKER_URL}/api/saveMetadata`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(metadata)
+        });
+
+        const result = await response.json();
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || 'Failed to save metadata');
+        }
+
+        log('✓ Metadata saved successfully', 'green');
+        return true;
+        
+      } catch (error) {
+        log('✗ Error saving metadata: ' + error.message, 'red');
+        return false;
+      } finally {
+        progressContainer.style.display = 'none';
+      }
+    }
+
+    // ---- export JSON ----
+    function downloadJson() {
+      if (!novelData.metadata?.title) return alert('No data to save');
+      
+      const cleanData = {
+        ...novelData,
+        chapters: novelData.chapters.map(({ url, ...rest }) => rest) // Exclude 'url'
+      };
+      
+      const blob = new Blob([JSON.stringify(cleanData, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `${novelData.metadata.title.replace(/[^a-z0-9]/gi, '_')}.json`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    // ---- save JSON to Google Drive ----
+    async function saveJsonToGoogleDrive() {
+      if (!novelData.metadata?.title) return alert('No data to save');
+      
+      try {
+        saveToJsonBtn.disabled = true;
+        log('Preparing data for Google Drive...');
+        
+        // Clean data and convert to pretty JSON
+        const cleanData = {
+          ...novelData,
+          chapters: novelData.chapters.map(({ url, ...rest }) => rest)
+        };
+        const jsonContent = JSON.stringify(cleanData, null, 2);
+
+        log('Starting upload...');
+        const response = await fetch(`${WORKER_URL}/api/saveToGoogleDrive`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: `${novelData.metadata.title}`,
+            content: jsonContent,
+            folder: '16D-B7--4_NOjICRqDnHg0Z0SRH-SiWrH' // Your folder ID
+          })
+        });
+
+        const result = await response.json();
+        
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || 'Upload failed with unknown error');
+        }
+
+        log(`✓ Successfully saved to Google Drive`, 'green');
+        log(`File: ${result.webViewLink}`);
+        log(`File ID: ${result.fileId}`);
+        
+      } catch (error) {
+        log(`Error: ${error.message}`, 'red');
+        console.error('Upload error details:', error);
+      } finally {
+        saveToJsonBtn.disabled = false;
+      }
+    }
+
+    // ---- events ----
+    downloadBtn.addEventListener('click', downloadJson);
+    saveToJsonBtn.addEventListener('click', saveJsonToGoogleDrive); 
+    saveMetadataBtn.addEventListener('click', async () => {
+      await saveMetadata();
+    });
+
+    // ---- EPUB Functions ----
+    // Global for storing the generated EPUB blob
+    let generatedEpubBlob = null;
+
+    // Create EPUB button
+    const createEpubBtn = document.createElement('button');
+    createEpubBtn.textContent = 'Create EPUB';
+    createEpubBtn.disabled = true;
+
+    // Download EPUB button
+    const downloadEpubBtn = document.createElement('button');
+    downloadEpubBtn.textContent = 'Download EPUB';
+    downloadEpubBtn.disabled = true;
+
+    // Save EPUB button
+    const saveEpubBtn = document.createElement('button');
+    saveEpubBtn.textContent = 'Save EPUB';
+    saveEpubBtn.disabled = true;
+
+    // Add buttons to container
+    document.querySelector('.container').appendChild(createEpubBtn);
+    document.querySelector('.container').appendChild(downloadEpubBtn);
+    document.querySelector('.container').appendChild(saveEpubBtn);
+
+    // 1️⃣ Create EPUB function
+    async function createEpub() {
+      if (!novelData.metadata?.title || !novelData.chapters[0]?.content) {
+        throw new Error('No chapter data available to create an EPUB.');
+      }
+      
+      try {
+        createEpubBtn.disabled = true;
+        log('Generating EPUB...');
+        const generator = new EpubGenerator(novelData);
+        generatedEpubBlob = await generator.generate(log); // generate() already returns a Blob
+        log('✓ EPUB created successfully (not downloaded yet)', 'green');
+        downloadEpubBtn.disabled = false;
+        saveEpubBtn.disabled = false;
+        return generatedEpubBlob;
+      } catch (err) {
+        log(`EPUB generation error: ${err.message}`, 'red');
+        throw err;
+      } finally {
+        createEpubBtn.disabled = false;
+      }
+    }
+
+    // 2️⃣ Download EPUB function
+    function downloadEpub() {
+      if (!generatedEpubBlob) {
+        throw new Error('No EPUB generated yet.');
+      }
+      
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(generatedEpubBlob);
+      a.download = `${novelData.metadata.title.replace(/[^a-z0-9]/gi, '_')}.epub`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      log('EPUB download started.');
+    }
+
+    // 3️⃣ Save EPUB to Google Drive function
+    async function saveEpubToDrive() {
+      if (!generatedEpubBlob) {
+        throw new Error('No EPUB generated yet.');
+      }
+
+      try {
+        saveEpubBtn.disabled = true;
+        log('Uploading EPUB to Google Drive...');
+
+        const formData = new FormData();
+        formData.append('file', generatedEpubBlob, `${novelData.metadata.title}.epub`);
+        formData.append('folder', '1_P5VjIMg8PTp6_4en8d23hngim4NXED6');
+
+        const response = await fetch(`${WORKER_URL}/api/saveEpubToGoogleDrive`, {
+          method: 'POST',
+          body: formData
+        });
+
+        const result = await response.json();
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || 'Upload failed');
+        }
+
+        log(`✓ Successfully saved EPUB to Google Drive`, 'green');
+        log(`File: ${result.webViewLink}`);
+        log(`File ID: ${result.fileId}`);
+        return result;
+      } catch (error) {
+        log(`Error: ${error.message}`, 'red');
+        throw error;
+      } finally {
+        saveEpubBtn.disabled = false;
+      }
+    }
+
+    // Button event listeners
+    createEpubBtn.addEventListener('click', async () => {
+      try {
+        await createEpub();
+      } catch (err) {
+        console.error('EPUB creation failed:', err);
+      }
+    });
+
+    downloadEpubBtn.addEventListener('click', () => {
+      try {
+        downloadEpub();
+      } catch (err) {
+        log(`Download error: ${err.message}`);
+      }
+    });
+
+    saveEpubBtn.addEventListener('click', async () => {
+      try {
+        await saveEpubToDrive();
+      } catch (err) {
+        console.error('EPUB save failed:', err);
+      }
+    });
+
+    // ---- Edit metadata ----
+    const editMetadataBtn = document.getElementById('editMetadataBtn');
+
+    // ---- helpers ----
+    function showEditMetadataForm() {
+      const metadata = novelData.metadata;
+      if (!metadata) return alert('No metadata available to edit');
+
+      const formHTML = `
+        <form id="metadataForm">
+          <div class="form-group">
+            <label for="editTitle">Title:</label>
+            <input type="text" id="editTitle" name="title" value="${metadata.title}" required>
+          </div>
+          <div class="form-group">
+            <label for="editCover">Cover URL:</label>
+            <input type="text" id="editCover" name="cover" value="${metadata.cover}">
+          </div>
+          <div class="form-group">
+            <label for="editStatus">Status:</label>
+            <input type="text" id="editStatus" name="status" value="${metadata.status}">
+          </div>
+          <div class="form-group">
+            <label for="editSource">Source:</label>
+            <input type="text" id="editSource" name="source" value="${metadata.source}">
+          </div>
+          <div class="form-group">
+            <label for="editDescription">Description:</label>
+            <textarea id="editDescription" name="description" rows="5">${metadata.description}</textarea>
+          </div>
+          <button type="submit">Save Changes</button>
+          <button type="button" onclick="document.getElementById('metadataForm').remove()">Cancel</button>
+        </form>
+      `;
+
+      const formContainer = document.createElement('div');
+      formContainer.innerHTML = formHTML;
+      document.body.appendChild(formContainer);
+
+      document.getElementById('metadataForm').addEventListener('submit', async function(event) {
+        event.preventDefault();
+
+        const formData = new FormData(event.target);
+
+        const newMetadata = {
+          title: formData.get('title'),
+          cover: formData.get('cover'),
+          status: formData.get('status'),
+          source: formData.get('source'),
+          description: formData.get('description'),
+        };
+
+        novelData.metadata = newMetadata;
+        log('Metadata updated successfully (including other works as JSON)', 'green');
+        document.getElementById('metadataForm').remove();
+      });
+    }
+
+    // ---- events ----
+    editMetadataBtn.addEventListener('click', showEditMetadataForm);
+
+    // ---- Literotica specific functions ----
+    const fetchLitBtn = document.getElementById('fetchLitBtn');
+
+    /* small helper to fetch any url */
+    async function getDoc(url) {
+      const html = await fetchRawHTML(url);
+      return new DOMParser().parseFromString(html, 'text/html');
+    }
+
+    /* grab last page number from the pager */
+    function lastPage(doc) {
+      const sel = doc.querySelector('.b-pager-pages select[name="page"] option:last-child');
+      return sel ? parseInt(sel.value, 10) : 1;
+    }
+
+    /* grab every /s/ link on a category page */
+    function storyLinks(doc) {
+      return [...doc.querySelectorAll('.b-sl-item-r h3 a[href*="/s/"]')]
+             .map(a => a.href.split('?')[0]);          // strip existing ?page=
+    }
+
+    /* for a story, collect all page URLs in correct order and return as a single chapter */
+    async function processCompleteStory(url) {
+      try {
+      const doc = await getDoc(url);
+      
+      // Determine the total number of pages for this story
+      let totalPages = 1;
+      const pageLinks = doc.querySelectorAll('.page__main--float a[href*="?page="]');
+      
+      if (pageLinks.length > 0) {
+        // Extract page numbers from all pagination links
+        const pageNumbers = Array.from(pageLinks).map(a => {
+          const pageParam = new URL(a.href).searchParams.get('page');
+          return parseInt(pageParam, 10);
+        }).filter(n => !isNaN(n));
+        
+        // Find the maximum page number
+        totalPages = Math.max(...pageNumbers, 1);
+      }
+      
+      // Generate all page URLs in correct order
+      const pageUrls = [];
+      for (let p = 1; p <= totalPages; p++) {
+        pageUrls.push(p === 1 ? url : `${url}?page=${p}`);
+      }
+      
+      // Extract content from all pages IN ORDER
+      let fullContent = '';
+      let title = '';
+      let authorHtml = '';
+      let tags = '';
+      let info = '';
+      
+      for (let i = 0; i < pageUrls.length; i++) {
+        const pageUrl = pageUrls[i];
+        const pageDoc = await getDoc(pageUrl);
+        
+        // Only extract metadata from the first page
+        if (i === 0) {
+          title = pageDoc.querySelector('h1.j_bm')?.textContent.trim() || 'Untitled';
+          
+          const authorA = pageDoc.querySelector('.clearfix.panel.y_eP a.y_eU');
+          authorHtml = authorA
+            ? `<p><strong>Author:</strong> <a href="${authorA.href}">${authorA.textContent.trim()}</a></p>`
+            : '';
+          
+          tags = [...pageDoc.querySelectorAll('.bn_Q a.av_as')].map(a =>
+            `<a href="${a.href}">${a.textContent.trim()}</a>`).join(', ');
+          
+          info = pageDoc.querySelector('#tabpanel-info .bn_B')?.textContent.trim() || '';
+        }
+        
+        // Extract content from this page
+        const pageContent = [...pageDoc.querySelectorAll('.panel.article p')]
+          .map(p => p.outerHTML).join('\n');
+        
+        fullContent += pageContent + '\n';
+        
+        // Add page break if not the last page
+        if (i < pageUrls.length - 1) {
+          fullContent += `<hr class="page-break" />\n`;
+        }
+      }
+      
+      // Build final content
+      const content = [
+        authorHtml,
+        tags ? `<p><strong>Tags:</strong> ${tags}</p>` : '',
+        info ? `<p><em>${info}</em></p>` : '',
+        fullContent
+      ].filter(Boolean).join('\n');
+      
+         return { title, content, url, success: true }; // Add success flag
+  } catch (err) {
+    console.error(`Failed to process story: ${url}`, err);
+    return { url, success: false, error: err.message }; // Return failure info
+  }
+    }
+
+    /* main crawler ------------------------------------------------ */
+    async function runConcurrent(jobs, concurrency, worker) {
+      const results = [];
+      let index = 0;
+
+      const execNext = async () => {
+        while (index < jobs.length) {
+          const cur = index++;
+          try   { results[cur] = await worker(jobs[cur]); }
+          catch (e) { 
+            console.error(`Error processing job ${cur}:`, e);
+            results[cur] = null; 
+          }
+        }
+      };
+
+      await Promise.all([...Array(concurrency)].map(execNext));
+      return results;
+    }
+
+    /* ----------------------------------------------------------
+       1.  Ask user for a range (inclusive, 1-based)
+    ---------------------------------------------------------- */
+    async function askRange(total) {
+      return new Promise((resolve) => {
+        const dialog = document.createElement('div');
+        dialog.id = 'rangeDialog';
+        dialog.innerHTML = `
+          <div>
+            <label>Total stories/pages found: ${total}</label>
+            <label>Download range (e.g. 1-10, 3-1000, all):</label>
+            <input type="text" id="rangeInput" value="1-10" />
+            <div>
+              <button id="rangeOk">OK</button>
+              <button id="rangeCancel">Cancel</button>
+            </div>
+          </div>
+        `;
+        document.body.appendChild(dialog);
+
+        const ok = dialog.querySelector('#rangeOk');
+        const cancel = dialog.querySelector('#rangeCancel');
+        const input = dialog.querySelector('#rangeInput');
+
+        ok.onclick = () => {
+          dialog.remove();
+          resolve(parseRange(input.value.trim(), total));
+        };
+        cancel.onclick = () => {
+          dialog.remove();
+          resolve(null);          // user aborted
+        };
+      });
+    }
+
+    /* ----------------------------------------------------------
+       2.  Parse range string → array of indices (0-based)
+    ---------------------------------------------------------- */
+    function parseRange(str, total) {
+      if (str.toLowerCase() === 'all') return [...Array(total).keys()];
+      const m = str.match(/^\s*(\d+)\s*-\s*(\d+)\s*$/);
+      if (!m) return null;
+      let [, from, to] = m.map(Number);
+      from = Math.max(1, from);
+      to   = Math.min(total, to);
+      if (from > to) return null;
+      return [...Array(to - from + 1).keys()].map(i => i + from - 1);
+    }
+
+    /* ----------------------------------------------------------
+       3.  Wrap the big crawler with the dialog
+    ---------------------------------------------------------- */
+ async function fetchLitCategory() {
+  const startURL = novelUrlInput.value.trim();
+  if (!startURL) return alert('Enter a literotica category URL (…/1-page)');
+
+  try {
+    fetchLitBtn.disabled = true;
+    log('Fetching category pages…');
+    progressContainer.style.display = 'block';
+
+    /* 1. discover every category page 1 … N */
+    const firstDoc = await getDoc(startURL);
+    const last = lastPage(firstDoc);
+    const catPages = [];
+    for (let i = 1; i <= last; i++) {
+      catPages.push(startURL.replace(/1-page$/, `${i}-page`));
+    }
+
+    /* 2. collect every story URL – in parallel */
+    const MAX_CAT_CONCURRENCY = 100;
+    const storySet = new Set();
+
+    await runConcurrent(catPages, MAX_CAT_CONCURRENCY, async (url, i) => {
+      const doc = await getDoc(url);
+      storyLinks(doc).forEach(u => storySet.add(u));
+      updateProgress(i + 1, catPages.length);
+    });
+
+    const stories = [...storySet];
+    log(`Found ${stories.length} unique stories`);
+
+    /* 3. ask user for range */
+    const indices = await askRange(stories.length);
+    if (!indices) {
+      log('Download cancelled');
+      return;
+    }
+
+    /* 4. fetch selected stories - in parallel, but with lower concurrency for ordering */
+   novelData.chapters = [];
+failedStories = []; // Reset failed stories
+
+// Track progress correctly
+let completed = 0;
+const totalStories = indices.length;
+
+// Process stories with lower concurrency to ensure proper ordering
+const results = await runConcurrent(indices, 100, async (idx) => {
+  const storyURL = stories[idx];
+  const storyData = await processCompleteStory(storyURL);
+  
+  // Update progress safely
+  completed++;
+  updateProgress(completed, totalStories);
+  
+  return storyData;
+});
+
+// Process results
+for (const result of results) {
+  if (result.success) {
+    novelData.chapters.push(result);
+  } else {
+    failedStories.push(result);
+  }
+}
+
+/* 4.5 Retry failed stories one by one */
+if (failedStories.length > 0) {
+  log(`\n${failedStories.length} stories failed, retrying...`, 'orange');
+  
+  for (let i = 0; i < failedStories.length; i++) {
+    const failed = failedStories[i];
+    log(`Retrying ${i+1}/${failedStories.length}: ${failed.url}`);
+    
+    try {
+      const retryResult = await processCompleteStory(failed.url);
+      if (retryResult.success) {
+        novelData.chapters.push(retryResult);
+        log(`✓ Retry successful`, 'green');
+      } else {
+        log(`✗ Still failed: ${retryResult.error}`, 'red');
+      }
+    } catch (err) {
+      log(`✗ Retry error: ${err.message}`, 'red');
+    }
+  }
+}
+    /* 5. metadata & EPUB */
+    novelData.metadata = {
+      title: `Literotica Category – ${new URL(startURL).pathname.split('/')[2]}`,
+      status: 'Complete',
+      source: startURL,
+      description: `${novelData.chapters.length} stories scraped (${indices.length} selected)`
+    };
+
+    log(`\n✓ Finished – ${novelData.chapters.length} stories loaded`, 'green');
+    downloadBtn.disabled = false;
+    saveToJsonBtn.disabled = false; 
+    editMetadataBtn.disabled = false;
+    createEpubBtn.disabled = false;
+    downloadEpubBtn.disabled = false;
+    saveEpubBtn.disabled = false;
+    
+  } catch (err) {
+    log(`Error: ${err.message}`, 'red');
+    console.error(err);
+  } finally {
+    fetchLitBtn.disabled = false;
+    progressContainer.style.display = 'none';
+  }
+}
+
+    /* hook button */
+    fetchLitBtn.addEventListener('click', fetchLitCategory);
+  </script>
+  <script src="ep-lit.js"></script>
+</body>
+</html>
