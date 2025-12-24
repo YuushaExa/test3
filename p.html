@@ -1145,88 +1145,36 @@ fetchChaptersBtn.addEventListener('click', startCountdown);
 saveTranslationBtn.addEventListener('click', startCountdown);
 retryBtn.addEventListener('click', startCountdown);
 
-autoSaveBtn.addEventListener('click', async () => {
+    autoSaveBtn.addEventListener('click', async () => {
   autoSaveBtn.disabled = true;
-  log('Auto Save: Waiting for translation content to appear...', 'blue');
-
-  // Wait until at least one .visible-ch appears (max 5 minutes)
-  const maxWait = 300000; // 5 minutes
-  const checkInterval = 1000;
-  let waited = 0;
-  while (waited < maxWait) {
-    const visibleCh = document.querySelector('#console-translate .visible-ch');
-    if (visibleCh) break;
-    await new Promise(resolve => setTimeout(resolve, checkInterval));
-    waited += checkInterval;
-  }
-
-  if (waited >= maxWait) {
-    log('Auto Save: Timed out waiting for translation content.', 'red');
-    autoSaveBtn.disabled = false;
-    return;
-  }
-
-  log('Auto Save: Translation content detected. Starting auto cycle...', 'green');
-
-  // Now enter the main auto-save loop
+  const scrollBtn = document.getElementById('scroll-btn');
+  
   while (true) {
-    // 1. Scroll to bottom (helps trigger browser translate or render)
-    document.getElementById('scroll-btn').click();
-    await new Promise(resolve => setTimeout(resolve, 2000)); // wait for scroll
-
-    // 2. Wait up to 100 seconds for user/browser translation (or skip if already ready)
-    const startTime = Date.now();
-    const timeoutMs = 100000;
-    while (Date.now() - startTime < timeoutMs) {
-      if (!saveTranslationBtn.disabled) {
-        break; // translation ready!
-      }
-      await new Promise(resolve => setTimeout(resolve, 1000));
-    }
-
-    // 3. If still disabled after timeout, check if we're done
-    if (saveTranslationBtn.disabled) {
-      // Possibly all done
-      if (translateCursor >= totalChaptersCount) {
-        log('Auto Save: All chapters processed!', 'green');
-        break;
-      } else {
-        log('Auto Save: Save button still disabled and not finished. Retrying...', 'yellow');
-        // Refetch next batch if stuck
-        if (failedStart !== -1) {
-          retryBtn.click();
-        } else {
-          fetchNextTranslateBatch();
-        }
+    // 1. Scroll to bottom
         await new Promise(resolve => setTimeout(resolve, 5000));
-        continue;
-      }
+document.getElementById('scroll-btn').click();    
+    // 3. Wait for timer to reach 0
+ await new Promise(resolve => setTimeout(resolve, 101000));
+    
+    // 4. Check if save button is enabled (translation ready)
+    if (saveTranslationBtn.disabled) {
+      log('Auto Save: Translation not ready or completed', 'yellow');
+      break;
     }
-
-    // 4. Click Save Translation
+    
+    // 5. Click Save Translation
     saveTranslationBtn.click();
-    await new Promise(resolve => setTimeout(resolve, 3000)); // let it process
-
-    // 5. Check completion
+    
+    // 7. Check if we've processed all chapters
     if (translateCursor >= totalChaptersCount) {
       log('Auto Save: All chapters processed!', 'green');
       break;
     }
-
-    // 6. Wait for next batch to render
-    waited = 0;
-    while (waited < maxWait) {
-      const nextBatch = document.querySelector('#console-translate .visible-ch');
-      if (nextBatch) break;
-      await new Promise(resolve => setTimeout(resolve, checkInterval));
-      waited += checkInterval;
-    }
-    if (waited >= maxWait) {
-      log('Auto Save: Failed to load next batch.', 'red');
-      break;
-    }
+    
+    // Brief pause before next iteration
+    await new Promise(resolve => setTimeout(resolve, 500));
   }
-
+  
   autoSaveBtn.disabled = false;
 });
   </script>
