@@ -50,6 +50,7 @@
     <button id="fetchChaptersBtn" disabled>Fetch Chapters</button>
     <button id="retryBatchBtn" disabled>Retry Failed Batch</button>
     <button id="downloadBtn" disabled>Download as JSON</button>
+    <button id="forceContinueBtn" disabled>Force Continue (Skip Validation)</button>
     <button id="saveToJsonBtn" disabled>Save JSON</button> 
   <button id="editMetadataBtn" disabled>Edit Metadata</button>
     <button id="saveMetadataBtn">Save Metadata</button>
@@ -1079,11 +1080,12 @@ document.getElementById('retryBatchBtn').addEventListener('click', async () => {
 
     
 // Wire the save button: read translations back, move to next batch
+// Wire the save button: read translations back, validate, then move to next batch
 saveTranslationBtn.addEventListener('click', () => {
   const total = totalChaptersCount || novelData.chapters.length;
   const start = translateCursor;
   const end   = Math.min(start + translateBatchSize, total);
-
+  
   try {
     extractAndSaveTranslatedBatch(start, end);
     log(`Saved translated chapters ${start+1}–${end}.`, 'green');
@@ -1091,13 +1093,37 @@ saveTranslationBtn.addEventListener('click', () => {
     log(`Error saving translation: ${e.message}`, 'red');
     return;
   }
-
-  // Advance cursor & fetch next batch
+  
+  // === VALIDATION: Check for remaining Chinese characters ===
+  const { totalChinese, chaptersWithChinese } = countChineseInBatch(start, end);
+  
+  if (totalChinese > 200) {
+    // More than 200 Chinese symbols - needs re-translation
+    log(`⚠️ Warning: ${totalChinese} Chinese characters detected in this batch!`, 'orange');
+    log(`Chapters with Chinese: ${chaptersWithChinese.map(c => `Ch${c.index}(${c.count})`).join(', ')}`, 'orange');
+    log(`Re-rendering batch ${start+1}–${end} for re-translation...`, 'orange');
+    
+    // Re-render the same batch instead of advancing
+    const batchObjs = buildBatchObjects(start, end);
+    renderTranslationBatchToConsole(batchObjs, start);
+    
+    // Don't advance cursor - user needs to re-translate
+    log('Please re-translate this batch and click "Save Translation" again.', 'orange');
+    return;
+  } else if (totalChinese > 0) {
+    // Some Chinese but under threshold - warn but continue
+    log(`ℹ️ Note: ${totalChinese} Chinese characters remaining (below 200 threshold)`, 'blue');
+    log(`Chapters: ${chaptersWithChinese.map(c => `Ch${c.index}(${c.count})`).join(', ')}`, 'blue');
+  } else {
+    log('✓ No Chinese characters detected in this batch', 'green');
+  }
+  
+  // Validation passed - advance cursor & fetch next batch
   translateCursor = end;
   consoleTranslate.innerHTML = '';
   saveTranslationBtn.disabled = true;
-
-  // Auto-continue
+  
+  // Auto-continue to next batch
   fetchNextTranslateBatch().catch(err => {
     log(`Error loading next batch: ${err.message}`, 'red');
   });
@@ -1377,6 +1403,166 @@ async function loadFromJsonUrl() {
 
 // Add event listener
 document.getElementById('loadJsonBtn').addEventListener('click', loadFromJsonUrl);
+
+    // Function to detect Chinese characters
+function hasChinese(text) {
+  const chineseRegex = /[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]/;
+  return chineseRegex.test(text);
+}
+
+// Count Chinese characters in text
+function countChineseChars(text) {
+  const chineseRegex = /[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]/g;
+  const matches = text.match(chineseRegex);
+  return matches ? matches.length : 0;
+}
+
+// Count Chinese characters in a batch of chapters
+function countChineseInBatch(start, end) {
+  let totalChinese = 0;
+  let chaptersWithChinese = [];
+  
+  for (let i = start; i < end; i++) {
+    const ch = novelData.chapters[i];
+    const titleCount = countChineseChars(ch.title || '');
+    const contentCount = countChineseChars(ch.content || '');
+    const chapterTotal = titleCount + contentCount;
+    
+    if (chapterTotal > 0) {
+      totalChinese += chapterTotal;
+      chaptersWithChinese.push({
+        index: i + 1,
+        title: ch.title,
+        count: chapterTotal
+      });
+    }
+  }
+  
+  return { totalChinese, chaptersWithChinese };
+}
+
+    // Track retry attempts per batch
+let batchRetryCounts = new Map();
+const MAX_RETRIES_PER_BATCH = 3;
+
+// Modified save handler with retry limit
+saveTranslationBtn.addEventListener('click', () => {
+  const total = totalChaptersCount || novelData.chapters.length;
+  const start = translateCursor;
+  const end   = Math.min(start + translateBatchSize, total);
+  
+  try {
+    extractAndSaveTranslatedBatch(start, end);
+    log(`Saved translated chapters ${start+1}–${end}.`, 'green');
+  } catch (e) {
+    log(`Error saving translation: ${e.message}`, 'red');
+    return;
+  }
+  
+  // === VALIDATION: Check for remaining Chinese characters ===
+  const { totalChinese, chaptersWithChinese } = countChineseInBatch(start, end);
+  
+  if (totalChinese > 200) {
+    // Track retry count for this batch
+    const batchKey = `${start}-${end}`;
+    const retryCount = (batchRetryCounts.get(batchKey) || 0) + 1;
+    batchRetryCounts.set(batchKey, retryCount);
+    
+    if (retryCount >= MAX_RETRIES_PER_BATCH) {
+      log(`⚠️ Batch ${start+1}–${end} has failed translation ${retryCount} times.`, 'red');
+      log(`Skipping this batch due to retry limit. You can manually re-translate later.`, 'red');
+      
+      // Ask user if they want to skip or continue retrying
+      const skip = confirm(`Batch ${start+1}–${end} still has ${totalChinese} Chinese characters after ${retryCount} attempts.\n\nClick OK to skip this batch, or Cancel to try again.`);
+      
+      if (skip) {
+        // Skip and continue
+        translateCursor = end;
+        consoleTranslate.innerHTML = '';
+        saveTranslationBtn.disabled = true;
+        fetchNextTranslateBatch().catch(err => {
+          log(`Error loading next batch: ${err.message}`, 'red');
+        });
+        return;
+      } else {
+        // User chose to retry - continue below
+      }
+    }
+    
+    // More than 200 Chinese symbols - needs re-translation
+    log(`⚠️ Warning: ${totalChinese} Chinese characters detected in this batch!`, 'orange');
+    log(`Chapters with Chinese: ${chaptersWithChinese.map(c => `Ch${c.index}(${c.count})`).join(', ')}`, 'orange');
+    log(`Re-rendering batch ${start+1}–${end} for re-translation (attempt ${retryCount}/${MAX_RETRIES_PER_BATCH})...`, 'orange');
+    
+    // Re-render the same batch instead of advancing
+    const batchObjs = buildBatchObjects(start, end);
+    renderTranslationBatchToConsole(batchObjs, start);
+    
+    // Don't advance cursor - user needs to re-translate
+    log('Please re-translate this batch and click "Save Translation" again.', 'orange');
+    return;
+  } else if (totalChinese > 0) {
+    // Some Chinese but under threshold - warn but continue
+    log(`ℹ️ Note: ${totalChinese} Chinese characters remaining (below 200 threshold)`, 'blue');
+    if (chaptersWithChinese.length > 0) {
+      log(`Chapters: ${chaptersWithChinese.map(c => `Ch${c.index}(${c.count})`).join(', ')}`, 'blue');
+    }
+  } else {
+    log('✓ No Chinese characters detected in this batch', 'green');
+    // Clear retry count for this batch since it passed
+    batchRetryCounts.delete(`${start}-${end}`);
+  }
+  
+  // Validation passed - advance cursor & fetch next batch
+  translateCursor = end;
+  consoleTranslate.innerHTML = '';
+  saveTranslationBtn.disabled = true;
+  
+  // Auto-continue to next batch
+  fetchNextTranslateBatch().catch(err => {
+    log(`Error loading next batch: ${err.message}`, 'red');
+  });
+});
+
+    const forceContinueBtn = document.createElement('button');
+forceContinueBtn.textContent = 'Force Continue (Skip Validation)';
+forceContinueBtn.disabled = true;
+forceContinueBtn.id = 'forceContinueBtn';
+document.querySelector('.container').appendChild(forceContinueBtn);
+
+// Enable when validation fails
+let validationFailed = false;
+let failedBatchStart = null;
+let failedBatchEnd = null;
+
+// Modified validation section in save handler:
+if (totalChinese > 200) {
+  validationFailed = true;
+  failedBatchStart = start;
+  failedBatchEnd = end;
+  forceContinueBtn.disabled = false;
+  
+  // ... rest of validation code
+}
+
+// Force continue handler
+forceContinueBtn.addEventListener('click', () => {
+  if (!validationFailed) return;
+  
+  log('⚠️ Forcing continuation despite Chinese characters...', 'orange');
+  log(`Skipping validation for batch ${failedBatchStart+1}–${failedBatchEnd}`, 'orange');
+  
+  // Advance cursor & fetch next batch
+  translateCursor = failedBatchEnd;
+  consoleTranslate.innerHTML = '';
+  saveTranslationBtn.disabled = true;
+  forceContinueBtn.disabled = true;
+  validationFailed = false;
+  
+  fetchNextTranslateBatch().catch(err => {
+    log(`Error loading next batch: ${err.message}`, 'red');
+  });
+});
   </script>
 </body>
 
