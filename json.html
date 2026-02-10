@@ -826,7 +826,7 @@ const consoleTranslate   = document.getElementById('console-translate');
 const saveTranslationBtn = document.getElementById('saveTranslationBtn');
 
 // State for batched fetching/translation
-let translateBatchSize = 50;
+let translateBatchSize = 10;
 let translateCursor    = 0;      // next chapter index to fetch
 let totalChaptersCount = 0;      // filled after metadata is loaded
 
