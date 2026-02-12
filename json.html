@@ -1341,6 +1341,8 @@ async function loadFromJsonUrl() {
     if (!res.ok) throw new Error(`Failed to load JSON: ${res.status}`);
     const jsonData = await res.json();
     
+const otherWorks = jsonData.meta.otherWorks || [];
+    
     // Map JSON structure to novelData format
     novelData.metadata = {
       title: jsonData.meta.title || 'Untitled',
@@ -1351,7 +1353,13 @@ async function loadFromJsonUrl() {
       description: jsonData.meta.description || '',
       authorUrl: jsonData.meta.authorUrl?.trim() || null,
       sourceUrl: jsonData.meta.sourceUrl?.trim() || jsonUrl,
-      totalChapters: jsonData.meta.totalChapters || jsonData.chapters?.length || 0
+      totalChapters: jsonData.meta.totalChapters || jsonData.chapters?.length || 0,
+      otherWorks: otherWorks.map(work => ({
+        title: work.title || '',
+        image: work.image?.trim() || '',
+        description: work.description || '',
+        url: work.url?.trim() || ''
+      }))
     };
     
     // Map chapters (preserve original structure but add url field for compatibility)
