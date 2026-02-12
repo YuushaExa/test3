@@ -1341,7 +1341,14 @@ async function loadFromJsonUrl() {
     if (!res.ok) throw new Error(`Failed to load JSON: ${res.status}`);
     const jsonData = await res.json();
     
-const otherWorks = jsonData.meta.otherWorks || [];
+  // === MAP otherWorks → otherworks (lowercase) with cover field ===
+    const otherworks = (jsonData.meta.otherWorks || []).map(work => ({
+      cover: work.image?.trim() || '',      // image → cover
+      title: work.title || '',
+      description: work.description || '',
+      url: work.url?.trim() || '',
+      genres: [] // Optional: add if your JSON has it
+    }));
     
     // Map JSON structure to novelData format
     novelData.metadata = {
@@ -1354,12 +1361,8 @@ const otherWorks = jsonData.meta.otherWorks || [];
       authorUrl: jsonData.meta.authorUrl?.trim() || null,
       sourceUrl: jsonData.meta.sourceUrl?.trim() || jsonUrl,
       totalChapters: jsonData.meta.totalChapters || jsonData.chapters?.length || 0,
-      otherWorks: otherWorks.map(work => ({
-        title: work.title || '',
-        image: work.image?.trim() || '',
-        description: work.description || '',
-        url: work.url?.trim() || ''
-      }))
+      // CRITICAL: lowercase "otherworks" to match EPUB generator
+      otherworks: otherworks
     };
     
     // Map chapters (preserve original structure but add url field for compatibility)
@@ -1574,5 +1577,5 @@ forceContinueBtn.addEventListener('click', () => {
   </script>
 </body>
 
-<script src="ep-singleauthor.js"></script>
+<script src="epubjson.js"></script>
 </html>
