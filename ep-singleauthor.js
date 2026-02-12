@@ -131,7 +131,6 @@ class EpubGenerator {
   ${this.novelData.metadata.originalPublisher ? `<p><strong>Original Publisher:</strong> ${escapeXML(this.novelData.metadata.originalPublisher)}</p>` : ''}
   ${this.novelData.metadata.statuscoo ? `<p><strong>Original Status:</strong> ${escapeXML(this.novelData.metadata.statuscoo)}</p>` : ''}
   ${this.novelData.metadata.genres.length ? `<p><strong>Genres:</strong> ${this.novelData.metadata.genres.map(escapeHTMLContent).join(', ')}</p>` : ''} 
-  ${this.novelData.metadata.totalChapters ? `<p><strong>Chapters:</strong> ${escapeXML(this.novelData.metadata.totalChapters)}</p>` : ''}
 
   <h3>Description</h3>
   <p>${escapeHTMLContent(this.novelData.metadata.description)}</p>
