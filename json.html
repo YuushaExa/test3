@@ -1342,7 +1342,7 @@ async function loadFromJsonUrl() {
     const jsonData = await res.json();
     
   // === MAP otherWorks → otherworks (lowercase) with cover field ===
-    const otherworks = (jsonData.meta.otherWorks || []).map(work => ({
+    const otherworks = (jsonData.meta.otherworks || []).map(work => ({
       cover: work.image?.trim() || '',      // image → cover
       title: work.title || '',
       description: work.description || '',
@@ -1361,7 +1361,6 @@ async function loadFromJsonUrl() {
       authorUrl: jsonData.meta.authorUrl?.trim() || null,
       sourceUrl: jsonData.meta.sourceUrl?.trim() || jsonUrl,
       totalChapters: jsonData.meta.totalChapters || jsonData.chapters?.length || 0,
-      // CRITICAL: lowercase "otherworks" to match EPUB generator
       otherworks: otherworks
     };
     
