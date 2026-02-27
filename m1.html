@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>MangaDex Downloader (single page)</title>
+  <style>
+    body { font-family: system-ui, Arial; margin: 20px; max-width: 900px; }
+    input[type="text"]{ width: 60%; padding: 8px; }
+    button{ padding: 8px 12px; }
+    #log{ white-space: pre-wrap; background:#f7f7f7; padding:10px; margin-top:12px; max-height:420px; overflow:auto; }
+    .chapter { margin:6px 0; }
+    .dl-btn{ margin-left:8px; }
+  </style>
+</head>
+<body>
+  <h2>MangaDex — English chapters downloader</h2>
+  <div>
+    <label>Enter Manga UUID: <input id="mangaId" placeholder="e.g. 123e4567-e89b-12d3-a456-426614174000" /></label>
+    <button id="ok">OK — Get chapters & start</button>
+    <label style="margin-left:12px">Throttle (ms): <input id="throttle" type="number" value="500" min="50" max="5000" /></label>
+  </div>
+
+  <div id="status"></div>
+  <div id="chapters"></div>
+
+  <div id="log"></div>
+
+<script>
+(async ()=>{
+const API_BASE = 'https://api.mangadex.org';
+const LICENSED_GROUPS = [
+  '4f1de6a2-f0c5-4ac5-bce5-02c7dbb67deb',
+  '8d8ecf83-8d42-4f8c-add8-60963f9f28d9'
+];
+
+const $ = sel=>document.querySelector(sel);
+const log = msg=> { const el=$('#log'); el.textContent += msg + '\\n'; el.scrollTop = el.scrollHeight; };
+const sleep = ms => new Promise(r=>setTimeout(r,ms));
+
+function padNum(number, places){
+  let range = number.split('-');
+  range = range.map(chapter => {
+    chapter = chapter.trim();
+    let digits = chapter.split('.')[0].length;
+    return '0'.repeat(Math.max(0, places - digits)) + chapter;
+  });
+  return range.join('-');
+}
+
+async function fetchJSON(input, retries=0){
+  for(let i=0;i<=retries;i++){
+    try{
+      const res = await fetch(input);
+      if(!res.ok) throw new Error('HTTP '+res.status);
+      return await res.json();
+    }catch(e){
+      if(i===retries) throw e;
+      await sleep(500);
+    }
+  }
+}
+
+async function getChapters(mangaId, throttle){
+  let all = [];
+  for(let page=0;;page++){
+    await sleep(throttle);
+    const uri = new URL('/chapter', API_BASE);
+    uri.searchParams.set('limit', 100);
+    uri.searchParams.set('offset', 100 * page);
+    uri.searchParams.append('contentRating[]', 'safe');
+    uri.searchParams.append('contentRating[]', 'suggestive');
+    uri.searchParams.append('contentRating[]', 'erotica');
+    uri.searchParams.append('contentRating[]', 'pornographic');
+    uri.searchParams.set('manga', mangaId);
+    uri.searchParams.set('translatedLanguage[]', 'en');
+    log('Fetching chapters page ' + page);
+    const data = await fetchJSON(uri, 2);
+    if(!data || !data.data || data.data.length===0) break;
+    all.push(...data.data);
+    if(data.data.length < 100) break;
+  }
+  // map to simpler objects, filter licensed-only
+  const groupNames = await getScanlationGroups(all, throttle);
+  const mapped = all.map(ch=>{
+    let title = '';
+    if(ch.attributes.volume) title += 'Vol.' + padNum(ch.attributes.volume,2);
+    if(ch.attributes.chapter) title += ' Ch.' + padNum(ch.attributes.chapter,4);
+    if(ch.attributes.title) title += (title ? ' - ' : '') + ch.attributes.title;
+    const groups = ch.relationships.filter(r=>r.type==='scanlation_group');
+    if(groups.length>0) title += ' [' + groups.map(g => groupNames[g.id] || 'unknown').join(', ') + ']';
+    const groupsIds = groups.map(g=>g.id);
+    const licensedOnly = groupsIds.length>0 && groupsIds.every(id=> LICENSED_GROUPS.includes(id));
+    return licensedOnly ? null : {
+      id: ch.id,
+      chap: ch.attributes.chapter || '',
+      title: title.trim(),
+      createdAt: ch.attributes.createdAt || '',
+      lang: ch.attributes.translatedLanguage
+    };
+  }).filter(Boolean);
+
+  // sort by createdAt ascending so chapter 1 first
+  mapped.sort((a,b)=> new Date(a.createdAt) - new Date(b.createdAt));
+  return mapped;
+}
+
+async function getScanlationGroups(chapters, throttle){
+  const groupList={};
+  let ids = chapters.reduce((acc,c)=> acc.concat(c.relationships.filter(r=>r.type==='scanlation_group').map(g=>g.id)), []);
+  ids = Array.from(new Set(ids));
+  if(ids.length===0) return groupList;
+  await sleep(throttle);
+  const uri = new URL('/group', API_BASE);
+  uri.searchParams.set('limit', 100);
+  ids.forEach(id => uri.searchParams.append('ids[]', id));
+  const data = await fetchJSON(uri,2);
+  data.data.forEach(g => groupList[g.id] = g.attributes.name || 'unknown');
+  return groupList;
+}
+
+async function getAtHomeServer(chapterId){
+  const uri = API_BASE + '/at-home/server/' + chapterId;
+  const data = await fetchJSON(uri, 2);
+  return data;
+}
+
+async function downloadBlobAsFile(blob, filename){
+  const a = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 30000);
+}
+
+async function downloadChapterImages(chapter, throttle, serverSeeds){
+  log('Resolving at-home for chapter ' + chapter.title + ' (' + chapter.id + ')');
+  const serverResp = await getAtHomeServer(chapter.id);
+  const baseUrl = serverResp.baseUrl.endsWith('/') ? serverResp.baseUrl : serverResp.baseUrl + '/';
+  const hash = serverResp.chapter.hash;
+  const files = serverResp.chapter.data;
+  // build candidate servers (prefer known seeds)
+  const seeds = [ ...serverSeeds, baseUrl.replace(/\\/g,'') ];
+  for(const file of files){
+    let success = false;
+    for(const seed of seeds){
+      const url = seed.replace(/\/+$/,'') + '/' + hash + '/' + file;
+      try {
+        await sleep(throttle);
+        const resp = await fetch(url);
+        if(resp.ok){
+          const blob = await resp.blob();
+          const ext = (file.split('.').pop()||'jpg').split('?')[0];
+          const filename = `${chapter.title.replace(/[\\/:*?"<>|]/g,'_') || chapter.id}_p_${file.replace(/[^0-9a-zA-Z.-]/g,'_')}`;
+          await downloadBlobAsFile(blob, filename);
+          log('Downloaded: ' + filename);
+          success = true;
+          break;
+        }
+      }catch(e){
+        // try next seed
+      }
+    }
+    if(!success) log('Failed to download file: ' + file);
+  }
+}
+
+document.getElementById('ok').addEventListener('click', async ()=>{
+  try{
+    $('#log').textContent = '';
+    const mangaId = $('#mangaId').value.trim();
+    if(!mangaId) { log('Provide manga UUID'); return; }
+    const throttle = Math.max(50, parseInt($('#throttle').value,10) || 500);
+    // optional server seeds for MangaDex@Home network
+    const serverSeeds = [
+      'https://uploads.mangadex.org/data/',
+      'https://cache.ayaya.red/mdah/data/'
+    ];
+    log('Fetching manga info for ' + mangaId);
+    // get basic manga to show title
+    const mangaInfo = await fetchJSON(API_BASE + '/manga/' + mangaId, 2);
+    const title = (mangaInfo.data.attributes.title.en) ? mangaInfo.data.attributes.title.en : Object.values(mangaInfo.data.attributes.title)[0];
+    log('Manga: ' + title);
+    const chapters = await getChapters(mangaId, throttle);
+    if(chapters.length===0){ log('No English chapters found or all chapters licensed-only.'); return; }
+    log('Found ' + chapters.length + ' English chapters.');
+    // show list
+    const chList = $('#chapters');
+    chList.innerHTML = '';
+    chapters.forEach((c, idx)=>{
+      const div = document.createElement('div');
+      div.className='chapter';
+      div.innerHTML = (idx+1) + '. ' + (c.title || c.chap || c.id) + ' ';
+      const dl = document.createElement('button');
+      dl.textContent = 'Download this chapter';
+      dl.className='dl-btn';
+      dl.onclick = ()=> downloadChapterImages(c, throttle, serverSeeds);
+      div.appendChild(dl);
+      chList.appendChild(div);
+    });
+    // Auto-download starting from first chapter sequentially
+    log('Starting sequential download from first chapter...');
+    for(const chapter of chapters){
+      await downloadChapterImages(chapter, throttle, serverSeeds);
+    }
+    log('All done.');
+  }catch(err){
+    log('Error: ' + (err.message || err));
+  }
+});
+
+})(); 
+</script>
+</body>
+</html>
