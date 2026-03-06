@@ -1,0 +1,28 @@
+name: Test Image Download
+
+on:
+  workflow_dispatch:
+
+jobs:
+  download:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download image
+        run: |
+          curl -L \
+          -H "Referer: https://comix.to/" \
+          -H "User-Agent: Mozilla/5.0" \
+          "https://80pd.wowpic4.store/ii/bEqPbYfoNT0GmznlMk6fvB5s2oUVf/2.webp" \
+          -o image.webp
+
+      - name: Verify file
+        run: |
+          ls -lh
+          file image.webp
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: downloaded-image
+          path: image.webp
