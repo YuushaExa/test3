@@ -190,15 +190,20 @@
           hasMore = items.length === 100;
           page++;
         }
-        await new Promise(r => setTimeout(r, 100)); // Small delay
+        await new Promise(r => setTimeout(r, 100));
       }
 
-      // Simple sort by chapter number (no deduplication)
+      // ✅ FIXED: Robust numeric sort that handles number/string types
       return allItems.sort((a, b) => {
         const na = parseFloat(a.number);
         const nb = parseFloat(b.number);
-        if (na !== nb) return na - nb;
-        return a.number.localeCompare(b.number, undefined, { numeric: true });
+        
+        // If both are valid numbers, sort numerically
+        if (!isNaN(na) && !isNaN(nb)) {
+          return na - nb;
+        }
+        // Fallback: string compare (with numeric-aware sorting)
+        return String(a.number).localeCompare(String(b.number), undefined, { numeric: true, sensitivity: 'base' });
       });
     };
 
@@ -233,11 +238,11 @@
         const manga = await getMangaInfo(code);
         showStatus(`📚 Found: ${manga.title} — Fetching chapters...`, 'loading');
         
-        // Fetch all chapters (simple, no dedup)
+        // Fetch all chapters
         const chapters = await getAllChapters(code);
         showStatus(`✅ ${chapters.length} chapters fetched`, 'success');
         
-        // Build output (simple structure)
+        // Build output
         const output = {
           manga: manga,
           chapters: chapters.map(ch => ({
@@ -282,7 +287,7 @@
     };
 
     const downloadJSON = () => {
-      const mangaTitle = (document.getElementById('urlInput').value.match(/title\/[^/]+/)?.[0] || 'manga').replace('title/', '');
+      const mangaTitle = (urlInput.value.match(/title\/[^/]+/)?.[0] || 'manga').replace('title/', '');
       const blob = new Blob([outputEl.textContent], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
