@@ -3,314 +3,624 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Comix.to JSON Exporter</title>
+  <title>Comix Downloader</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: system-ui, -apple-system, sans-serif;
-      background: #0f0f1a;
-      color: #e0e0ff;
-      padding: 20px;
-      line-height: 1.5;
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
     }
-    .container { max-width: 1200px; margin: 0 auto; }
-    h1 { color: #7ee787; margin-bottom: 20px; }
-    
-    .input-group {
+
+    :root {
+      --bg-primary: #1a1b26;
+      --bg-secondary: #24283b;
+      --bg-tertiary: #2f3549;
+      --text-primary: #c0caf5;
+      --text-secondary: #7982a9;
+      --accent: #e0af68;
+      --accent-hover: #f0bf78;
+      --success: #9ece6a;
+      --border: #414868;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+    }
+
+    /* Header */
+    .header {
+      background: var(--bg-secondary);
+      padding: 12px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .logo {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .url-input-container {
+      flex: 1;
       display: flex;
       gap: 10px;
-      margin-bottom: 20px;
-      flex-wrap: wrap;
+      max-width: 1200px;
     }
+
     #urlInput {
       flex: 1;
-      min-width: 300px;
-      padding: 12px 16px;
-      border: 1px solid #333;
+      padding: 10px 16px;
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
       border-radius: 6px;
-      background: #1a1a2e;
-      color: #fff;
+      color: var(--text-primary);
       font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s;
     }
-    #urlInput:focus { outline: 2px solid #7ee787; border-color: transparent; }
-    
-    button {
-      padding: 12px 24px;
-      background: #7ee787;
-      color: #0f0f1a;
+
+    #urlInput:focus {
+      border-color: var(--accent);
+    }
+
+    .btn {
+      padding: 10px 24px;
+      background: var(--accent);
+      color: var(--bg-primary);
       border: none;
       border-radius: 6px;
       font-weight: 600;
       cursor: pointer;
-      font-size: 14px;
+      font-size: 13px;
       transition: background 0.2s;
     }
-    button:hover { background: #56d364; }
-    button:disabled { background: #333; color: #666; cursor: not-allowed; }
-    
-    #status {
-      padding: 10px 16px;
-      margin-bottom: 15px;
-      border-radius: 6px;
-      font-size: 14px;
-      display: none;
+
+    .btn:hover {
+      background: var(--accent-hover);
     }
-    #status.loading { background: #1a1a2e; color: #888; display: block; }
-    #status.success { background: #1a2e1a; color: #7ee787; display: block; }
-    #status.error { background: #2e1a1a; color: #f85149; display: block; }
-    
-    #jsonOutput {
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .btn-secondary {
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover {
+      background: var(--border);
+    }
+
+    /* Main Container */
+    .container {
+      display: flex;
+      padding: 20px;
+      gap: 20px;
+      max-width: 1600px;
+      margin: 0 auto;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      width: 280px;
+      flex-shrink: 0;
+    }
+
+    .manga-cover {
       width: 100%;
-      min-height: 400px;
-      background: #1a1a2e;
-      border: 1px solid #333;
-      border-radius: 6px;
-      padding: 15px;
-      font-family: 'Consolas', 'Monaco', monospace;
-      font-size: 12px;
-      line-height: 1.4;
-      white-space: pre-wrap;
-      word-break: break-all;
-      color: #e0e0ff;
-      overflow: auto;
-      resize: vertical;
+      border-radius: 8px;
+      overflow: hidden;
+      margin-bottom: 16px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
     }
-    
-    .actions {
+
+    .manga-cover img {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    .manga-title {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      line-height: 1.3;
+    }
+
+    .manga-info {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+    }
+
+    .manga-info span {
+      color: var(--text-primary);
+      font-weight: 500;
+    }
+
+    .manga-description {
+      font-size: 12px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+      margin-top: 12px;
+      max-height: 150px;
+      overflow-y: auto;
+    }
+
+    /* Chapters Panel */
+    .chapters-panel {
+      flex: 1;
+      background: var(--bg-secondary);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      min-height: 600px;
+    }
+
+    .chapters-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .chapters-title {
+      font-size: 16px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .chapters-count {
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    .chapters-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px;
+    }
+
+    .chapter-item {
+      display: flex;
+      align-items: flex-start;
+      padding: 12px;
+      margin-bottom: 4px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .chapter-item:hover {
+      background: var(--bg-tertiary);
+    }
+
+    .chapter-item.selected {
+      background: rgba(224, 175, 104, 0.15);
+      border: 1px solid var(--accent);
+    }
+
+    .chapter-checkbox {
+      margin-right: 12px;
+      margin-top: 2px;
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+      accent-color: var(--accent);
+    }
+
+    .chapter-info {
+      flex: 1;
+    }
+
+    .chapter-number {
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+
+    .chapter-group {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .chapter-group.official {
+      color: var(--success);
+    }
+
+    /* Footer */
+    .footer {
+      background: var(--bg-secondary);
+      border-top: 1px solid var(--border);
+      padding: 16px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .footer-left {
       display: flex;
       gap: 10px;
-      margin: 15px 0;
-      flex-wrap: wrap;
+      align-items: center;
     }
-    .btn-secondary {
-      background: #58a6ff;
-      color: #0f0f1a;
+
+    .footer-right {
+      display: flex;
+      gap: 10px;
+      align-items: center;
     }
-    .btn-secondary:hover { background: #388bfd; }
-    .btn-danger {
-      background: #f85149;
-      color: #fff;
+
+    .select-count {
+      font-size: 13px;
+      color: var(--text-secondary);
     }
-    .btn-danger:hover { background: #da3633; }
-    
-    @media (max-width: 600px) {
-      .input-group { flex-direction: column; }
-      #urlInput { min-width: 100%; }
+
+    .select-count strong {
+      color: var(--accent);
+    }
+
+    select {
+      padding: 8px 12px;
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text-primary);
+      font-size: 13px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    select:focus {
+      border-color: var(--accent);
+    }
+
+    .btn-download {
+      padding: 12px 32px;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Loading */
+    .loading {
+      display: none;
+      text-align: center;
+      padding: 40px;
+      color: var(--text-secondary);
+    }
+
+    .loading.active {
+      display: block;
+    }
+
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 16px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: var(--bg-primary);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--text-secondary);
+    }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      .container {
+        flex-direction: column;
+      }
+      .sidebar {
+        width: 100%;
+      }
     }
   </style>
 </head>
 <body>
+  <div class="header">
+    <div class="logo">Comix Downloader</div>
+    <div class="url-input-container">
+      <input type="text" id="urlInput" placeholder="https://comix.to/title/..." value="https://comix.to/title/93q1r-the-summoner-apocalypse-rewinds">
+      <button class="btn" id="fetchBtn" onclick="fetchManga()">FETCH</button>
+    </div>
+  </div>
+
   <div class="container">
-    <h1>📚 Comix.to JSON Exporter</h1>
-    
-    <div class="input-group">
-      <input 
-        type="text" 
-        id="urlInput" 
-        placeholder="https://comix.to/title/mjwy-my-first-case-the-corpse-of-my-ex-girlfriend"
-        value="https://comix.to/title/mjwy-my-first-case-the-corpse-of-my-ex-girlfriend"
-      >
-      <button id="fetchBtn" onclick="fetchManga()">🔍 Fetch JSON</button>
+    <div class="sidebar">
+      <div id="mangaInfo" style="display: none;">
+        <div class="manga-cover">
+          <img id="coverImg" src="" alt="Cover">
+        </div>
+        <div class="manga-title" id="mangaTitle"></div>
+        <div class="manga-info">Type: <span id="mangaType"></span></div>
+        <div class="manga-info">Language: <span id="mangaLang"></span></div>
+        <div class="manga-info">Status: <span id="mangaStatus"></span></div>
+        <div class="manga-info">Year: <span id="mangaYear"></span></div>
+        <div class="manga-info">Latest: <span id="mangaLatest"></span></div>
+        <div class="manga-info">Followers: <span id="mangaFollowers"></span></div>
+        <div class="manga-description" id="mangaDesc"></div>
+      </div>
     </div>
-    
-    <div id="status"></div>
-    
-    <div class="actions" id="actions" style="display:none">
-      <button class="btn-secondary" onclick="copyJSON()">📋 Copy JSON</button>
-      <button class="btn-secondary" onclick="downloadJSON()">💾 Download .json</button>
-      <button class="btn-danger" onclick="clearOutput()">🗑️ Clear</button>
+
+    <div class="chapters-panel">
+      <div class="chapters-header">
+        <div class="chapters-title">Chapters</div>
+        <div class="chapters-count" id="chaptersCount">0 shown (of 0)</div>
+      </div>
+
+      <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <div>Fetching chapters...</div>
+      </div>
+
+      <div class="chapters-list" id="chaptersList">
+        <div style="text-align: center; padding: 60px 20px; color: var(--text-secondary);">
+          Enter a manga URL and click FETCH to load chapters
+        </div>
+      </div>
+
+      <div class="footer">
+        <div class="footer-left">
+          <button class="btn btn-secondary" onclick="selectAll()">Select All</button>
+          <button class="btn btn-secondary" onclick="deselectAll()">None</button>
+          <select id="scanlatorFilter" onchange="filterChapters()">
+            <option value="">All Scanlators</option>
+          </select>
+        </div>
+        <div class="footer-right">
+          <div class="select-count"><strong id="selectedCount">0</strong> selected</div>
+          <button class="btn btn-download" onclick="downloadSelected()" id="downloadBtn" disabled>
+            <span>▶</span> DOWNLOAD
+          </button>
+        </div>
+      </div>
     </div>
-    
-    <pre id="jsonOutput">// JSON result will appear here...</pre>
   </div>
 
   <script>
-    // ===== CONFIG =====
-    const API = {
-      BASE: 'https://comix.to/api/v2',
-      HEADERS: {
-        'Referer': 'https://comix.to/',
-        'User-Agent': 'Mozilla/5.0'
-      }
-    };
+    const API_BASE = 'https://comix.to/api/v2';
+    const HEADERS = { 'Referer': 'https://comix.to/', 'User-Agent': 'Mozilla/5.0' };
 
-    // ===== UTILS =====
-    const extractCode = (url) => {
-      return url.replace(/\/$/, '').split('/').pop()?.split('-')[0] || '';
-    };
+    let allChapters = [];
+    let filteredChapters = [];
+    let selectedChapters = new Set();
+    let scanlators = new Set();
+
+    const extractCode = (url) => url.replace(/\/$/, '').split('/').pop()?.split('-')[0] || '';
 
     const fetchRetry = async (url, retries = 3) => {
-      for (let attempt = 1; attempt <= retries; attempt++) {
+      for (let i = 1; i <= retries; i++) {
         try {
-          const res = await fetch(url, { headers: API.HEADERS });
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const res = await fetch(url, { headers: HEADERS });
+          if (!res.ok) throw new Error('HTTP ' + res.status);
           return await res.json();
-        } catch (err) {
-          if (attempt === retries) throw err;
-          await new Promise(r => setTimeout(r, 1000 * attempt));
+        } catch (e) {
+          if (i === retries) throw e;
+          await new Promise(r => setTimeout(r, 1000 * i));
         }
       }
     };
 
-    // ===== API FUNCTIONS =====
-    const getMangaInfo = async (code) => {
-      const data = await fetchRetry(`${API.BASE}/manga/${code}/`);
-      const r = data.result;
-      return {
-        manga_id: r.manga_id,
-        hash_id: r.hash_id,
-        title: r.title || 'Unknown',
-        alt_titles: r.alt_titles || [],
-        slug: r.slug,
-        poster_url: r.poster?.large || r.poster?.medium,
-        original_language: r.original_language,
-        status: r.status,
-        latest_chapter: r.latest_chapter,
-        year: r.year,
-        genres: r.term_ids || [],
-        description: r.synopsis || '',
-        is_nsfw: !!r.is_nsfw
-      };
-    };
+    async function fetchManga() {
+      const url = document.getElementById('urlInput').value.trim();
+      const btn = document.getElementById('fetchBtn');
+      const loading = document.getElementById('loading');
+      const list = document.getElementById('chaptersList');
 
-    const getAllChapters = async (code) => {
-      const allItems = [];
-      let page = 1;
-      let hasMore = true;
-
-      while (hasMore) {
-        const url = `${API.BASE}/manga/${code}/chapters?limit=100&page=${page}&order[number]=asc`;
-        const data = await fetchRetry(url);
-        const items = data.result?.items || [];
-        
-        if (!items.length) {
-          hasMore = false;
-        } else {
-          allItems.push(...items);
-          hasMore = items.length === 100;
-          page++;
-        }
-        await new Promise(r => setTimeout(r, 100));
-      }
-
-      // ✅ FIXED: Robust numeric sort that handles number/string types
-      return allItems.sort((a, b) => {
-        const na = parseFloat(a.number);
-        const nb = parseFloat(b.number);
-        
-        // If both are valid numbers, sort numerically
-        if (!isNaN(na) && !isNaN(nb)) {
-          return na - nb;
-        }
-        // Fallback: string compare (with numeric-aware sorting)
-        return String(a.number).localeCompare(String(b.number), undefined, { numeric: true, sensitivity: 'base' });
-      });
-    };
-
-    // ===== UI FUNCTIONS =====
-    const statusEl = document.getElementById('status');
-    const outputEl = document.getElementById('jsonOutput');
-    const actionsEl = document.getElementById('actions');
-    const fetchBtn = document.getElementById('fetchBtn');
-    const urlInput = document.getElementById('urlInput');
-
-    const showStatus = (msg, type) => {
-      statusEl.textContent = msg;
-      statusEl.className = type;
-    };
-
-    const fetchManga = async () => {
-      const url = urlInput.value.trim();
       if (!url.includes('comix.to/title/')) {
-        showStatus('❌ Please enter a valid comix.to manga URL', 'error');
+        alert('Please enter a valid comix.to URL');
         return;
       }
 
-      fetchBtn.disabled = true;
-      actionsEl.style.display = 'none';
-      outputEl.textContent = 'Loading...';
-      showStatus('📥 Fetching manga info...', 'loading');
+      btn.disabled = true;
+      loading.classList.add('active');
+      list.innerHTML = '';
+      allChapters = [];
+      selectedChapters.clear();
+      scanlators.clear();
 
       try {
         const code = extractCode(url);
         
         // Fetch manga info
-        const manga = await getMangaInfo(code);
-        showStatus(`📚 Found: ${manga.title} — Fetching chapters...`, 'loading');
+        const mangaRes = await fetchRetry(`${API_BASE}/manga/${code}/`);
+        const manga = mangaRes.result;
         
+        // Display manga info
+        document.getElementById('mangaInfo').style.display = 'block';
+        document.getElementById('coverImg').src = manga.poster?.large || manga.poster?.medium || '';
+        document.getElementById('mangaTitle').textContent = manga.title;
+        document.getElementById('mangaType').textContent = manga.type || 'Unknown';
+        document.getElementById('mangaLang').textContent = manga.original_language || 'Unknown';
+        document.getElementById('mangaStatus').textContent = manga.status || 'Unknown';
+        document.getElementById('mangaYear').textContent = manga.year || '?';
+        document.getElementById('mangaLatest').textContent = manga.latest_chapter || '?';
+        document.getElementById('mangaFollowers').textContent = manga.follows_total?.toLocaleString() || '0';
+        document.getElementById('mangaDesc').textContent = manga.synopsis || 'No description available.';
+
         // Fetch all chapters
-        const chapters = await getAllChapters(code);
-        showStatus(`✅ ${chapters.length} chapters fetched`, 'success');
-        
-        // Build output
-        const output = {
-          manga: manga,
-          chapters: chapters.map(ch => ({
-            chapter_id: ch.chapter_id,
-            number: ch.number,
-            name: ch.name || ch.title || null,
-            language: ch.language,
-            group: ch.scanlation_group?.name || null,
-            created_at: ch.created_at,
-            is_official: !!ch.is_official
-          })),
-          meta: {
-            total_chapters: chapters.length,
-            exported_at: new Date().toISOString(),
-            source_url: url
+        let page = 1, hasMore = true;
+        while (hasMore) {
+          const chapRes = await fetchRetry(`${API_BASE}/manga/${code}/chapters?limit=100&page=${page}&order[number]=asc`);
+          const items = chapRes.result?.items || [];
+          if (!items.length) hasMore = false;
+          else {
+            allChapters.push(...items);
+            items.forEach(ch => {
+              const group = ch.scanlation_group?.name || 'Unknown';
+              scanlators.add(group);
+            });
+            hasMore = items.length === 100;
+            page++;
+          }
+          await new Promise(r => setTimeout(r, 100));
+        }
+
+        // Sort chapters
+        allChapters.sort((a, b) => {
+          const na = parseFloat(a.number);
+          const nb = parseFloat(b.number);
+          if (!isNaN(na) && !isNaN(nb)) return na - nb;
+          return String(a.number).localeCompare(String(b.number), undefined, { numeric: true });
+        });
+
+        // Populate scanlator filter
+        const filterSelect = document.getElementById('scanlatorFilter');
+        filterSelect.innerHTML = '<option value="">All Scanlators</option>';
+        Array.from(scanlators).sort().forEach(group => {
+          const opt = document.createElement('option');
+          opt.value = group;
+          opt.textContent = group;
+          filterSelect.appendChild(opt);
+        });
+
+        filteredChapters = [...allChapters];
+        renderChapters();
+        updateCount();
+
+      } catch (err) {
+        alert('Error: ' + err.message);
+        console.error(err);
+      } finally {
+        btn.disabled = false;
+        loading.classList.remove('active');
+      }
+    }
+
+    function renderChapters() {
+      const list = document.getElementById('chaptersList');
+      list.innerHTML = '';
+
+      if (filteredChapters.length === 0) {
+        list.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-secondary);">No chapters found</div>';
+        return;
+      }
+
+      filteredChapters.forEach(chapter => {
+        const div = document.createElement('div');
+        div.className = 'chapter-item' + (selectedChapters.has(chapter.chapter_id) ? ' selected' : '');
+        div.onclick = (e) => {
+          if (e.target.type !== 'checkbox') {
+            toggleChapter(chapter.chapter_id);
           }
         };
-        
-        // Display JSON
-        outputEl.textContent = JSON.stringify(output, null, 2);
-        actionsEl.style.display = 'flex';
-        
-      } catch (err) {
-        showStatus(`❌ Error: ${err.message}`, 'error');
-        outputEl.textContent = `Error: ${err.message}\n\nCheck browser console (F12) for details.`;
-        console.error('Fetch error:', err);
-      } finally {
-        fetchBtn.disabled = false;
+
+        const group = chapter.scanlation_group?.name || 'Unknown';
+        const isOfficial = chapter.is_official || group.toLowerCase() === 'official';
+
+        div.innerHTML = `
+          <input type="checkbox" class="chapter-checkbox" 
+            ${selectedChapters.has(chapter.chapter_id) ? 'checked' : ''} 
+            onchange="toggleChapter(${chapter.chapter_id})">
+          <div class="chapter-info">
+            <div class="chapter-number">Ch. ${chapter.number}${chapter.name ? ' — ' + chapter.name : ''}</div>
+            <div class="chapter-group ${isOfficial ? 'official' : ''}">${group}</div>
+          </div>
+        `;
+
+        list.appendChild(div);
+      });
+
+      document.getElementById('chaptersCount').textContent = `${filteredChapters.length} shown (of ${allChapters.length})`;
+    }
+
+    function toggleChapter(id) {
+      if (selectedChapters.has(id)) {
+        selectedChapters.delete(id);
+      } else {
+        selectedChapters.add(id);
       }
-    };
+      renderChapters();
+      updateCount();
+    }
 
-    const copyJSON = async () => {
-      try {
-        await navigator.clipboard.writeText(outputEl.textContent);
-        const btn = document.querySelector('.btn-secondary');
-        const original = btn.textContent;
-        btn.textContent = '✅ Copied!';
-        setTimeout(() => btn.textContent = original, 2000);
-      } catch (e) {
-        alert('Copy failed: ' + e.message);
+    function selectAll() {
+      filteredChapters.forEach(ch => selectedChapters.add(ch.chapter_id));
+      renderChapters();
+      updateCount();
+    }
+
+    function deselectAll() {
+      selectedChapters.clear();
+      renderChapters();
+      updateCount();
+    }
+
+    function filterChapters() {
+      const filter = document.getElementById('scanlatorFilter').value;
+      if (!filter) {
+        filteredChapters = [...allChapters];
+      } else {
+        filteredChapters = allChapters.filter(ch => ch.scanlation_group?.name === filter);
       }
-    };
+      renderChapters();
+      updateCount();
+    }
 
-    const downloadJSON = () => {
-      const mangaTitle = (urlInput.value.match(/title\/[^/]+/)?.[0] || 'manga').replace('title/', '');
-      const blob = new Blob([outputEl.textContent], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${mangaTitle}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-    };
+    function updateCount() {
+      document.getElementById('selectedCount').textContent = selectedChapters.size;
+      document.getElementById('downloadBtn').disabled = selectedChapters.size === 0;
+    }
 
-    const clearOutput = () => {
-      outputEl.textContent = '// JSON result will appear here...';
-      actionsEl.style.display = 'none';
-      statusEl.style.display = 'none';
-      urlInput.focus();
-    };
+    function downloadSelected() {
+      if (selectedChapters.size === 0) return;
+      
+      const selected = allChapters.filter(ch => selectedChapters.has(ch.chapter_id));
+      const data = {
+        manga: document.getElementById('mangaTitle').textContent,
+        chapters: selected.map(ch => ({
+          id: ch.chapter_id,
+          number: ch.number,
+          name: ch.name,
+          group: ch.scanlation_group?.name
+        })),
+        total: selected.length
+      };
 
-    // Allow Enter key to trigger fetch
-    urlInput.addEventListener('keypress', (e) => {
+      console.log('Downloading:', data);
+      alert(`Would download ${selected.length} chapters\n\n(In a real app, this would start the download process)`);
+    }
+
+    // Enter key to fetch
+    document.getElementById('urlInput').addEventListener('keypress', (e) => {
       if (e.key === 'Enter') fetchManga();
     });
-
-    // Auto-focus input on load
-    window.addEventListener('load', () => urlInput.focus());
   </script>
 </body>
-</html>
+            </html>
