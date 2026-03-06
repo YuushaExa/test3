@@ -510,18 +510,47 @@
       }
     };
 
-    const fetchImageBlob = async (url, retries = 3) => {
-      for (let i = 1; i <= retries; i++) {
-        try {
-          const res = await fetch(url);
-          if (!res.ok) throw new Error('HTTP ' + res.status);
-          return await res.blob();
-        } catch (e) {
-          if (i === retries) throw e;
-          await new Promise(r => setTimeout(r, 1000));
-        }
+// Add at the top with other constants
+const CORS_PROXIES = [
+  'https://api.allorigins.win/raw?url=',
+  'https://corsproxy.io/?',
+  'https://api.codetabs.com/v1/proxy?quest='
+];
+
+const fetchImageBlob = async (url, retries = 3) => {
+  // Try direct fetch first
+  try {
+    const res = await fetch(url, {
+      mode: 'cors',
+      headers: {
+        'Referer': 'https://comix.to/'
       }
-    };
+    });
+    if (res.ok) return await res.blob();
+  } catch (e) {
+    console.log('Direct fetch failed, trying proxy...');
+  }
+  
+  // Try CORS proxies
+  for (const proxy of CORS_PROXIES) {
+    try {
+      const proxiedUrl = proxy + encodeURIComponent(url);
+      const res = await fetch(proxiedUrl, {
+        headers: {
+          'Referer': 'https://comix.to/'
+        }
+      });
+      if (res.ok) {
+        const blob = await res.blob();
+        if (blob.size > 0) return blob;
+      }
+    } catch (e) {
+      console.warn(`Proxy ${proxy} failed:`, e.message);
+    }
+  }
+  
+  throw new Error('All fetch methods failed');
+};
 
     async function fetchManga() {
       const url = document.getElementById('urlInput').value.trim();
