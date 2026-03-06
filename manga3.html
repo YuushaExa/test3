@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Comix JSON Exporter</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, sans-serif;
+      background: #1a1b26;
+      color: #c0caf5;
+      padding: 20px;
+      line-height: 1.5;
+    }
+    .header {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    input {
+      flex: 1;
+      min-width: 200px;
+      padding: 10px;
+      background: #24283b;
+      border: 1px solid #414868;
+      border-radius: 6px;
+      color: #c0caf5;
+    }
+    button {
+      padding: 10px 20px;
+      background: #e0af68;
+      border: none;
+      border-radius: 6px;
+      color: #1a1b26;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:hover { background: #f0bf78; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-secondary { background: #2f3549; color: #c0caf5; border: 1px solid #414868; }
+    .btn-secondary:hover { background: #414868; }
+    .btn-success { background: #9ece6a; }
+    .btn-success:hover { background: #a8d880; }
+    
+    .container { display: grid; grid-template-columns: 250px 1fr; gap: 20px; }
+    @media (max-width: 800px) { .container { grid-template-columns: 1fr; } }
+    
+    .cover { width: 100%; border-radius: 8px; margin-bottom: 15px; }
+    .cover img { width: 100%; border-radius: 8px; }
+    .info { font-size: 13px; color: #7982a9; margin: 5px 0; }
+    .info span { color: #c0caf5; }
+    
+    .chapters {
+      background: #24283b;
+      border-radius: 8px;
+      border: 1px solid #414868;
+      display: flex;
+      flex-direction: column;
+      min-height: 500px;
+    }
+    .chapters-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid #414868;
+      display: flex;
+      justify-content: space-between;
+      font-size: 14px;
+    }
+    .list { flex: 1; overflow-y: auto; padding: 8px; }
+    
+    .chapter {
+      display: flex;
+      align-items: center;
+      padding: 10px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .chapter:hover { background: #2f3549; }
+    .chapter.selected { background: rgba(224,175,104,0.2); border: 1px solid #e0af68; }
+    .chapter input { margin-right: 10px; accent-color: #e0af68; }
+    .chapter-num { font-weight: 600; }
+    .chapter-group { font-size: 12px; color: #7982a9; }
+    
+    .footer {
+      padding: 12px 16px;
+      border-top: 1px solid #414868;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .footer-left, .footer-right { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    
+    .loading { text-align: center; padding: 30px; color: #7982a9; display: none; }
+    .loading.active { display: block; }
+    .spinner {
+      width: 30px; height: 30px;
+      border: 3px solid #414868;
+      border-top-color: #e0af68;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 15px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    
+    /* Modal */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.7);
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 100;
+    }
+    .modal.active { display: flex; }
+    .modal-content {
+      background: #24283b;
+      border-radius: 10px;
+      border: 1px solid #414868;
+      width: 100%;
+      max-width: 800px;
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .modal-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid #414868;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .modal-close {
+      background: none; border: none; color: #7982a9;
+      font-size: 20px; cursor: pointer; padding: 5px;
+    }
+    .modal-close:hover { color: #c0caf5; }
+    .modal-body {
+      flex: 1; overflow: auto; padding: 16px;
+      background: #1a1b26; font-family: monospace; font-size: 12px;
+      white-space: pre-wrap; word-break: break-all;
+    }
+    .modal-footer {
+      padding: 12px 16px;
+      border-top: 1px solid #414868;
+      display: flex; justify-content: flex-end; gap: 10px;
+    }
+    .copied { color: #9ece6a; font-size: 12px; margin-right: auto; align-self: center; opacity: 0; transition: opacity 0.3s; }
+    .copied.show { opacity: 1; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <strong>📚 Comix JSON</strong>
+    <input type="text" id="url" placeholder="https://comix.to/title/..." value="https://comix.to/title/93q1r-the-summoner-apocalypse-rewinds">
+    <button onclick="loadManga()">Load</button>
+  </div>
+
+  <div class="container">
+    <div>
+      <div id="mangaInfo" style="display:none">
+        <div class="cover"><img id="cover" src="" alt=""></div>
+        <strong id="title"></strong>
+        <div class="info">Type: <span id="type"></span></div>
+        <div class="info">Lang: <span id="lang"></span></div>
+        <div class="info">Status: <span id="status"></span></div>
+        <div class="info">Chapters: <span id="latest"></span></div>
+      </div>
+    </div>
+
+    <div class="chapters">
+      <div class="chapters-header">
+        <span>Chapters</span>
+        <span id="count">0 / 0</span>
+      </div>
+      <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <div>Loading...</div>
+      </div>
+      <div class="list" id="list">
+        <div style="text-align:center;padding:40px;color:#7982a9">Enter URL and click Load</div>
+      </div>
+      <div class="footer">
+        <div class="footer-left">
+          <button class="btn-secondary" onclick="selectAll()">All</button>
+          <button class="btn-secondary" onclick="deselectAll()">None</button>
+          <select id="filter" onchange="render()" style="padding:8px;background:#1a1b26;border:1px solid #414868;border-radius:4px;color:#c0caf5">
+            <option value="">All Groups</option>
+          </select>
+        </div>
+        <div class="footer-right">
+          <span id="selected">0 selected</span>
+          <button class="btn-success" id="jsonBtn" onclick="showJSON()" disabled>📋 Show JSON</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- JSON Modal -->
+  <div class="modal" id="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <strong>Chapter Images</strong>
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
+      <div class="modal-body" id="jsonOut"></div>
+      <div class="modal-footer">
+        <span class="copied" id="copied">✓ Copied!</span>
+        <button class="btn-secondary" onclick="closeModal()">Close</button>
+        <button class="btn-success" onclick="copyJSON()">📋 Copy</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API = 'https://comix.to/api/v2';
+    const headers = { 'Referer': 'https://comix.to/' };
+    
+    let chapters = [], filtered = [], selected = new Set(), groups = new Set(), jsonData = null;
+
+    const getCode = url => url.trim().replace(/\/$/,'').split('/').pop()?.split('-')[0] || '';
+    
+    const fetchJSON = async (url, retries = 3) => {
+      for (let i = 1; i <= retries; i++) {
+        try {
+          const r = await fetch(url, { headers });
+          if (!r.ok) throw new Error(r.status);
+          return await r.json();
+        } catch (e) { if (i === retries) throw e; await new Promise(r => setTimeout(r, 500 * i)); }
+      }
+    };
+
+    async function loadManga() {
+      const url = document.getElementById('url').value.trim();
+      if (!url.includes('comix.to/title/')) return alert('Invalid URL');
+      
+      document.getElementById('loading').classList.add('active');
+      document.getElementById('list').innerHTML = '';
+      chapters = []; selected.clear(); groups.clear();
+      
+      try {
+        const code = getCode(url);
+        const manga = (await fetchJSON(`${API}/manga/${code}/`)).result;
+        
+        // Show info
+        document.getElementById('mangaInfo').style.display = 'block';
+        document.getElementById('cover').src = manga.poster?.large || '';
+        document.getElementById('title').textContent = manga.title;
+        document.getElementById('type').textContent = manga.type || '?';
+        document.getElementById('lang').textContent = manga.original_language || '?';
+        document.getElementById('status').textContent = manga.status || '?';
+        document.getElementById('latest').textContent = manga.latest_chapter || '?';
+
+        // Load chapters
+        let page = 1, more = true;
+        while (more) {
+          const res = await fetchJSON(`${API}/manga/${code}/chapters?limit=100&page=${page}&order[number]=asc`);
+          const items = res.result?.items || [];
+          if (!items.length) more = false;
+          else {
+            chapters.push(...items);
+            items.forEach(c => groups.add(c.scanlation_group?.name || 'Unknown'));
+            more = items.length === 100; page++;
+          }
+        }
+        
+        // Sort & render
+        chapters.sort((a,b) => (parseFloat(a.number)||0) - (parseFloat(b.number)||0));
+        const filter = document.getElementById('filter');
+        filter.innerHTML = '<option value="">All Groups</option>' + 
+          [...groups].sort().map(g => `<option value="${g}">${g}</option>`).join('');
+        filtered = [...chapters];
+        render();
+        
+      } catch (e) { alert('Error: ' + e.message); console.error(e); }
+      finally { document.getElementById('loading').classList.remove('active'); }
+    }
+
+    function render() {
+      const filter = document.getElementById('filter').value;
+      filtered = filter ? chapters.filter(c => c.scanlation_group?.name === filter) : [...chapters];
+      
+      const list = document.getElementById('list');
+      list.innerHTML = filtered.length ? '' : '<div style="text-align:center;padding:40px;color:#7982a9">No chapters</div>';
+      
+      filtered.forEach(c => {
+        const div = document.createElement('div');
+        div.className = 'chapter' + (selected.has(c.chapter_id) ? ' selected' : '');
+        div.innerHTML = `
+          <input type="checkbox" ${selected.has(c.chapter_id)?'checked':''} 
+            onchange="toggle('${c.chapter_id}', event)">
+          <div>
+            <div class="chapter-num">Ch. ${c.number}${c.name?': '+c.name:''}</div>
+            <div class="chapter-group">${c.scanlation_group?.name||'Unknown'}</div>
+          </div>`;
+        div.onclick = e => { if (e.target.tagName !== 'INPUT') toggle(c.chapter_id); };
+        list.appendChild(div);
+      });
+      
+      document.getElementById('count').textContent = `${filtered.length} / ${chapters.length}`;
+      document.getElementById('selected').textContent = `${selected.size} selected`;
+      document.getElementById('jsonBtn').disabled = !selected.size;
+    }
+
+    function toggle(id, e) {
+      if (e) e.stopPropagation();
+      selected.has(id) ? selected.delete(id) : selected.add(id);
+      render();
+    }
+    function selectAll() { filtered.forEach(c => selected.add(c.chapter_id)); render(); }
+    function deselectAll() { selected.clear(); render(); }
+
+    async function showJSON() {
+      if (!selected.size) return;
+      const modal = document.getElementById('modal');
+      const out = document.getElementById('jsonOut');
+      modal.classList.add('active');
+      out.textContent = 'Loading...';
+      
+      try {
+        const data = {
+          manga: { title: document.getElementById('title').textContent, url: document.getElementById('url').value.trim() },
+          chapters: []
+        };
+        
+        const selectedList = chapters.filter(c => selected.has(c.chapter_id));
+        for (let i = 0; i < selectedList.length; i++) {
+          const c = selectedList[i];
+          out.textContent = `Fetching ${i+1}/${selectedList.length}: Ch. ${c.number}`;
+          
+          try {
+            const pages = (await fetchJSON(`${API}/chapter/${c.chapter_id}/pages`)).result;
+            const images = (pages.pages || pages.images || []).map(p => p.image_url || p.url || p).filter(Boolean);
+            data.chapters.push({
+              id: c.chapter_id, number: c.number, name: c.name || null,
+              group: c.scanlation_group?.name || 'Unknown',
+              images
+            });
+          } catch (e) {
+            data.chapters.push({ id: c.chapter_id, number: c.number, error: e.message, images: [] });
+          }
+          if (i < selectedList.length - 1) await new Promise(r => setTimeout(r, 200));
+        }
+        
+        jsonData = data;
+        out.textContent = JSON.stringify(data, null, 2);
+      } catch (e) {
+        out.textContent = 'Error: ' + e.message;
+      }
+    }
+
+    function closeModal() {
+      document.getElementById('modal').classList.remove('active');
+      document.getElementById('copied').classList.remove('show');
+      jsonData = null;
+    }
+
+    async function copyJSON() {
+      if (!jsonData) return;
+      try {
+        await navigator.clipboard.writeText(JSON.stringify(jsonData, null, 2));
+      } catch {
+        const ta = document.createElement('textarea');
+        ta.value = JSON.stringify(jsonData, null, 2);
+        document.body.appendChild(ta); ta.select(); document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      const s = document.getElementById('copied');
+      s.classList.add('show');
+      setTimeout(() => s.classList.remove('show'), 2000);
+    }
+
+    // Close modal on click outside or Escape
+    document.getElementById('modal').onclick = e => { if (e.target.id === 'modal') closeModal(); };
+    document.onkeydown = e => { if (e.key === 'Escape') closeModal(); };
+    document.getElementById('url').onkeypress = e => { if (e.key === 'Enter') loadManga(); };
+  </script>
+</body>
+</html>
