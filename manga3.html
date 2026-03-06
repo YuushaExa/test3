@@ -675,7 +675,7 @@
           try {
             // Fetch chapter pages/images
             // Note: Adjust endpoint based on actual comix.to API structure
-            const pagesRes = await fetchRetry(`${API_BASE}/chapter/${chapter.chapter_id}/pages`);
+            const pagesRes = await fetchRetry(`${API_BASE}/chapters/${chapter.chapter_id}/`);
             const pages = pagesRes.result?.pages || pagesRes.result?.images || [];
             
             // Extract image URLs - adjust based on actual response structure
