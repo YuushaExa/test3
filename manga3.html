@@ -3,381 +3,770 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Comix JSON Exporter</title>
+  <title>Comix Downloader</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: system-ui, sans-serif;
-      background: #1a1b26;
-      color: #c0caf5;
-      padding: 20px;
-      line-height: 1.5;
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg-primary: #1a1b26;
+      --bg-secondary: #24283b;
+      --bg-tertiary: #2f3549;
+      --text-primary: #c0caf5;
+      --text-secondary: #7982a9;
+      --accent: #e0af68;
+      --accent-hover: #f0bf78;
+      --success: #9ece6a;
+      --border: #414868;
+      --error: #f7768e;
     }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+    }
+
+    /* Header */
     .header {
+      background: var(--bg-secondary);
+      padding: 12px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .logo {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .url-input-container {
+      flex: 1;
       display: flex;
       gap: 10px;
-      margin-bottom: 20px;
-      flex-wrap: wrap;
+      max-width: 1200px;
     }
-    input {
+
+    #urlInput {
       flex: 1;
-      min-width: 200px;
-      padding: 10px;
-      background: #24283b;
-      border: 1px solid #414868;
+      padding: 10px 16px;
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
       border-radius: 6px;
-      color: #c0caf5;
+      color: var(--text-primary);
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s;
     }
-    button {
-      padding: 10px 20px;
-      background: #e0af68;
+
+    #urlInput:focus { border-color: var(--accent); }
+
+    .btn {
+      padding: 10px 24px;
+      background: var(--accent);
+      color: var(--bg-primary);
       border: none;
       border-radius: 6px;
-      color: #1a1b26;
       font-weight: 600;
       cursor: pointer;
+      font-size: 13px;
+      transition: background 0.2s;
     }
-    button:hover { background: #f0bf78; }
-    button:disabled { opacity: 0.5; cursor: not-allowed; }
-    .btn-secondary { background: #2f3549; color: #c0caf5; border: 1px solid #414868; }
-    .btn-secondary:hover { background: #414868; }
-    .btn-success { background: #9ece6a; }
-    .btn-success:hover { background: #a8d880; }
-    
-    .container { display: grid; grid-template-columns: 250px 1fr; gap: 20px; }
-    @media (max-width: 800px) { .container { grid-template-columns: 1fr; } }
-    
-    .cover { width: 100%; border-radius: 8px; margin-bottom: 15px; }
-    .cover img { width: 100%; border-radius: 8px; }
-    .info { font-size: 13px; color: #7982a9; margin: 5px 0; }
-    .info span { color: #c0caf5; }
-    
-    .chapters {
-      background: #24283b;
+
+    .btn:hover { background: var(--accent-hover); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-secondary {
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover { background: var(--border); }
+    .btn-copy {
+      background: var(--success);
+      padding: 8px 16px;
+      font-size: 12px;
+    }
+    .btn-copy:hover { background: #a8d880; }
+
+    /* Main Container */
+    .container {
+      display: flex;
+      padding: 20px;
+      gap: 20px;
+      max-width: 1600px;
+      margin: 0 auto;
+    }
+
+    /* Sidebar */
+    .sidebar { width: 280px; flex-shrink: 0; }
+    .manga-cover {
+      width: 100%;
       border-radius: 8px;
-      border: 1px solid #414868;
+      overflow: hidden;
+      margin-bottom: 16px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    .manga-cover img { width: 100%; height: auto; display: block; }
+    .manga-title { font-size: 18px; font-weight: 700; margin-bottom: 12px; line-height: 1.3; }
+    .manga-info { font-size: 13px; color: var(--text-secondary); margin-bottom: 8px; }
+    .manga-info span { color: var(--text-primary); font-weight: 500; }
+    .manga-description {
+      font-size: 12px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+      margin-top: 12px;
+      max-height: 150px;
+      overflow-y: auto;
+    }
+
+    /* Chapters Panel */
+    .chapters-panel {
+      flex: 1;
+      background: var(--bg-secondary);
+      border-radius: 8px;
+      border: 1px solid var(--border);
       display: flex;
       flex-direction: column;
-      min-height: 500px;
+      min-height: 600px;
     }
+
     .chapters-header {
-      padding: 12px 16px;
-      border-bottom: 1px solid #414868;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
       display: flex;
       justify-content: space-between;
-      font-size: 14px;
-    }
-    .list { flex: 1; overflow-y: auto; padding: 8px; }
-    
-    .chapter {
-      display: flex;
       align-items: center;
-      padding: 10px;
+    }
+
+    .chapters-title {
+      font-size: 16px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .chapters-count { font-size: 13px; color: var(--text-secondary); }
+
+    .chapters-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px;
+    }
+
+    .chapter-item {
+      display: flex;
+      align-items: flex-start;
+      padding: 12px;
+      margin-bottom: 4px;
       border-radius: 6px;
       cursor: pointer;
+      transition: background 0.15s;
     }
-    .chapter:hover { background: #2f3549; }
-    .chapter.selected { background: rgba(224,175,104,0.2); border: 1px solid #e0af68; }
-    .chapter input { margin-right: 10px; accent-color: #e0af68; }
-    .chapter-num { font-weight: 600; }
-    .chapter-group { font-size: 12px; color: #7982a9; }
-    
+
+    .chapter-item:hover { background: var(--bg-tertiary); }
+    .chapter-item.selected {
+      background: rgba(224, 175, 104, 0.15);
+      border: 1px solid var(--accent);
+    }
+
+    .chapter-checkbox {
+      margin-right: 12px;
+      margin-top: 2px;
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+      accent-color: var(--accent);
+    }
+
+    .chapter-info { flex: 1; }
+    .chapter-number { font-weight: 600; color: var(--text-primary); margin-bottom: 4px; }
+    .chapter-group { font-size: 12px; color: var(--text-secondary); }
+    .chapter-group.official { color: var(--success); }
+
+    /* Footer */
     .footer {
-      padding: 12px 16px;
-      border-top: 1px solid #414868;
+      background: var(--bg-secondary);
+      border-top: 1px solid var(--border);
+      padding: 16px 20px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      gap: 10px;
-      flex-wrap: wrap;
+      gap: 20px;
     }
-    .footer-left, .footer-right { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-    
-    .loading { text-align: center; padding: 30px; color: #7982a9; display: none; }
+
+    .footer-left { display: flex; gap: 10px; align-items: center; }
+    .footer-right { display: flex; gap: 10px; align-items: center; }
+    .select-count { font-size: 13px; color: var(--text-secondary); }
+    .select-count strong { color: var(--accent); }
+
+    select {
+      padding: 8px 12px;
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text-primary);
+      font-size: 13px;
+      outline: none;
+      cursor: pointer;
+    }
+    select:focus { border-color: var(--accent); }
+
+    .btn-show-json {
+      padding: 12px 24px;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--success);
+    }
+    .btn-show-json:hover { background: #a8d880; }
+
+    /* Loading */
+    .loading {
+      display: none;
+      text-align: center;
+      padding: 40px;
+      color: var(--text-secondary);
+    }
     .loading.active { display: block; }
     .spinner {
-      width: 30px; height: 30px;
-      border: 3px solid #414868;
-      border-top-color: #e0af68;
+      width: 40px;
+      height: 40px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
       border-radius: 50%;
       animation: spin 1s linear infinite;
-      margin: 0 auto 15px;
+      margin: 0 auto 16px;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
-    
+
     /* Modal */
-    .modal {
+    .modal-overlay {
       display: none;
       position: fixed;
       top: 0; left: 0; right: 0; bottom: 0;
       background: rgba(0,0,0,0.7);
+      z-index: 1000;
       align-items: center;
       justify-content: center;
       padding: 20px;
-      z-index: 100;
     }
-    .modal.active { display: flex; }
-    .modal-content {
-      background: #24283b;
-      border-radius: 10px;
-      border: 1px solid #414868;
+    .modal-overlay.active { display: flex; }
+    
+    .modal {
+      background: var(--bg-secondary);
+      border-radius: 12px;
+      border: 1px solid var(--border);
       width: 100%;
-      max-width: 800px;
-      max-height: 80vh;
+      max-width: 900px;
+      max-height: 85vh;
       display: flex;
       flex-direction: column;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.4);
     }
+
     .modal-header {
-      padding: 12px 16px;
-      border-bottom: 1px solid #414868;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
       display: flex;
       justify-content: space-between;
       align-items: center;
     }
+
+    .modal-title {
+      font-size: 16px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
     .modal-close {
-      background: none; border: none; color: #7982a9;
-      font-size: 20px; cursor: pointer; padding: 5px;
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 24px;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 4px;
     }
-    .modal-close:hover { color: #c0caf5; }
+    .modal-close:hover {
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+    }
+
     .modal-body {
-      flex: 1; overflow: auto; padding: 16px;
-      background: #1a1b26; font-family: monospace; font-size: 12px;
-      white-space: pre-wrap; word-break: break-all;
+      flex: 1;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
     }
+
+    .modal-loading {
+      padding: 40px;
+      text-align: center;
+      color: var(--text-secondary);
+    }
+
+    .modal-error {
+      padding: 20px;
+      color: var(--error);
+      text-align: center;
+    }
+
+    .json-container {
+      flex: 1;
+      overflow: auto;
+      padding: 16px 20px;
+      background: var(--bg-primary);
+      font-family: 'Consolas', 'Monaco', monospace;
+      font-size: 12px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
     .modal-footer {
-      padding: 12px 16px;
-      border-top: 1px solid #414868;
-      display: flex; justify-content: flex-end; gap: 10px;
+      padding: 12px 20px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      background: var(--bg-secondary);
     }
-    .copied { color: #9ece6a; font-size: 12px; margin-right: auto; align-self: center; opacity: 0; transition: opacity 0.3s; }
-    .copied.show { opacity: 1; }
+
+    .copy-status {
+      font-size: 12px;
+      color: var(--success);
+      margin-right: auto;
+      align-self: center;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .copy-status.show { opacity: 1; }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: var(--bg-primary); }
+    ::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text-secondary); }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      .container { flex-direction: column; }
+      .sidebar { width: 100%; }
+    }
   </style>
 </head>
 <body>
   <div class="header">
-    <strong>📚 Comix JSON</strong>
-    <input type="text" id="url" placeholder="https://comix.to/title/..." value="https://comix.to/title/93q1r-the-summoner-apocalypse-rewinds">
-    <button onclick="loadManga()">Load</button>
+    <div class="logo">Comix Downloader</div>
+    <div class="url-input-container">
+      <input type="text" id="urlInput" placeholder="https://comix.to/title/... " value="https://comix.to/title/93q1r-the-summoner-apocalypse-rewinds ">
+      <button class="btn" id="fetchBtn" onclick="fetchManga()">FETCH</button>
+    </div>
   </div>
 
   <div class="container">
-    <div>
-      <div id="mangaInfo" style="display:none">
-        <div class="cover"><img id="cover" src="" alt=""></div>
-        <strong id="title"></strong>
-        <div class="info">Type: <span id="type"></span></div>
-        <div class="info">Lang: <span id="lang"></span></div>
-        <div class="info">Status: <span id="status"></span></div>
-        <div class="info">Chapters: <span id="latest"></span></div>
+    <div class="sidebar">
+      <div id="mangaInfo" style="display: none;">
+        <div class="manga-cover">
+          <img id="coverImg" src="" alt="Cover">
+        </div>
+        <div class="manga-title" id="mangaTitle"></div>
+        <div class="manga-info">Type: <span id="mangaType"></span></div>
+        <div class="manga-info">Language: <span id="mangaLang"></span></div>
+        <div class="manga-info">Status: <span id="mangaStatus"></span></div>
+        <div class="manga-info">Year: <span id="mangaYear"></span></div>
+        <div class="manga-info">Latest: <span id="mangaLatest"></span></div>
+        <div class="manga-info">Followers: <span id="mangaFollowers"></span></div>
+        <div class="manga-description" id="mangaDesc"></div>
       </div>
     </div>
 
-    <div class="chapters">
+    <div class="chapters-panel">
       <div class="chapters-header">
-        <span>Chapters</span>
-        <span id="count">0 / 0</span>
+        <div class="chapters-title">Chapters</div>
+        <div class="chapters-count" id="chaptersCount">0 shown (of 0)</div>
       </div>
+
       <div class="loading" id="loading">
         <div class="spinner"></div>
-        <div>Loading...</div>
+        <div>Fetching chapters...</div>
       </div>
-      <div class="list" id="list">
-        <div style="text-align:center;padding:40px;color:#7982a9">Enter URL and click Load</div>
+
+      <div class="chapters-list" id="chaptersList">
+        <div style="text-align: center; padding: 60px 20px; color: var(--text-secondary);">
+          Enter a manga URL and click FETCH to load chapters
+        </div>
       </div>
+
       <div class="footer">
         <div class="footer-left">
-          <button class="btn-secondary" onclick="selectAll()">All</button>
-          <button class="btn-secondary" onclick="deselectAll()">None</button>
-          <select id="filter" onchange="render()" style="padding:8px;background:#1a1b26;border:1px solid #414868;border-radius:4px;color:#c0caf5">
-            <option value="">All Groups</option>
+          <button class="btn btn-secondary" onclick="selectAll()">Select All</button>
+          <button class="btn btn-secondary" onclick="deselectAll()">None</button>
+          <select id="scanlatorFilter" onchange="filterChapters()">
+            <option value="">All Scanlators</option>
           </select>
         </div>
         <div class="footer-right">
-          <span id="selected">0 selected</span>
-          <button class="btn-success" id="jsonBtn" onclick="showJSON()" disabled>📋 Show JSON</button>
+          <div class="select-count"><strong id="selectedCount">0</strong> selected</div>
+          <button class="btn btn-show-json" onclick="showJsonSelected()" id="showJsonBtn" disabled>
+            <span>📋</span> SHOW JSON
+          </button>
         </div>
       </div>
     </div>
   </div>
 
   <!-- JSON Modal -->
-  <div class="modal" id="modal">
-    <div class="modal-content">
+  <div class="modal-overlay" id="jsonModal">
+    <div class="modal">
       <div class="modal-header">
-        <strong>Chapter Images</strong>
-        <button class="modal-close" onclick="closeModal()">&times;</button>
+        <div class="modal-title">Chapter Images JSON</div>
+        <button class="modal-close" onclick="closeJsonModal()">&times;</button>
       </div>
-      <div class="modal-body" id="jsonOut"></div>
+      <div class="modal-body">
+        <div class="modal-loading" id="jsonLoading" style="display: none;">
+          <div class="spinner"></div>
+          <div>Fetching image links for <strong id="fetchingCount">0</strong> chapters...</div>
+          <div style="font-size: 11px; margin-top: 8px; color: var(--text-secondary);" id="fetchProgress"></div>
+        </div>
+        <div class="modal-error" id="jsonError" style="display: none;"></div>
+        <pre class="json-container" id="jsonOutput"></pre>
+      </div>
       <div class="modal-footer">
-        <span class="copied" id="copied">✓ Copied!</span>
-        <button class="btn-secondary" onclick="closeModal()">Close</button>
-        <button class="btn-success" onclick="copyJSON()">📋 Copy</button>
+        <span class="copy-status" id="copyStatus">✓ Copied to clipboard!</span>
+        <button class="btn btn-secondary" onclick="closeJsonModal()">Close</button>
+        <button class="btn btn-copy" id="copyJsonBtn" onclick="copyJsonToClipboard()">📋 Copy JSON</button>
       </div>
     </div>
   </div>
 
   <script>
-    const API = 'https://comix.to/api/v2';
-    const headers = { 'Referer': 'https://comix.to/' };
-    
-    let chapters = [], filtered = [], selected = new Set(), groups = new Set(), jsonData = null;
+    const API_BASE = 'https://comix.to/api/v2';
+    const HEADERS = { 'Referer': 'https://comix.to/', 'User-Agent': 'Mozilla/5.0' };
 
-    const getCode = url => url.trim().replace(/\/$/,'').split('/').pop()?.split('-')[0] || '';
-    
-    const fetchJSON = async (url, retries = 3) => {
+    let allChapters = [];
+    let filteredChapters = [];
+    let selectedChapters = new Set();
+    let scanlators = new Set();
+    let currentJsonData = null;
+
+    const extractCode = (url) => url.replace(/\/$/, '').split('/').pop()?.split('-')[0] || '';
+
+    const fetchRetry = async (url, retries = 3) => {
       for (let i = 1; i <= retries; i++) {
         try {
-          const r = await fetch(url, { headers });
-          if (!r.ok) throw new Error(r.status);
-          return await r.json();
-        } catch (e) { if (i === retries) throw e; await new Promise(r => setTimeout(r, 500 * i)); }
+          const res = await fetch(url, { headers: HEADERS });
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          return await res.json();
+        } catch (e) {
+          if (i === retries) throw e;
+          await new Promise(r => setTimeout(r, 1000 * i));
+        }
       }
     };
 
-    async function loadManga() {
-      const url = document.getElementById('url').value.trim();
-      if (!url.includes('comix.to/title/')) return alert('Invalid URL');
-      
-      document.getElementById('loading').classList.add('active');
-      document.getElementById('list').innerHTML = '';
-      chapters = []; selected.clear(); groups.clear();
-      
-      try {
-        const code = getCode(url);
-        const manga = (await fetchJSON(`${API}/manga/${code}/`)).result;
-        
-        // Show info
-        document.getElementById('mangaInfo').style.display = 'block';
-        document.getElementById('cover').src = manga.poster?.large || '';
-        document.getElementById('title').textContent = manga.title;
-        document.getElementById('type').textContent = manga.type || '?';
-        document.getElementById('lang').textContent = manga.original_language || '?';
-        document.getElementById('status').textContent = manga.status || '?';
-        document.getElementById('latest').textContent = manga.latest_chapter || '?';
+    async function fetchManga() {
+      const url = document.getElementById('urlInput').value.trim();
+      const btn = document.getElementById('fetchBtn');
+      const loading = document.getElementById('loading');
+      const list = document.getElementById('chaptersList');
 
-        // Load chapters
-        let page = 1, more = true;
-        while (more) {
-          const res = await fetchJSON(`${API}/manga/${code}/chapters?limit=100&page=${page}&order[number]=asc`);
-          const items = res.result?.items || [];
-          if (!items.length) more = false;
+      if (!url.includes('comix.to/title/')) {
+        alert('Please enter a valid comix.to URL');
+        return;
+      }
+
+      btn.disabled = true;
+      loading.classList.add('active');
+      list.innerHTML = '';
+      allChapters = [];
+      selectedChapters.clear();
+      scanlators.clear();
+
+      try {
+        const code = extractCode(url);
+        
+        // Fetch manga info
+        const mangaRes = await fetchRetry(`${API_BASE}/manga/${code}/`);
+        const manga = mangaRes.result;
+        
+        // Display manga info
+        document.getElementById('mangaInfo').style.display = 'block';
+        document.getElementById('coverImg').src = manga.poster?.large || manga.poster?.medium || '';
+        document.getElementById('mangaTitle').textContent = manga.title;
+        document.getElementById('mangaType').textContent = manga.type || 'Unknown';
+        document.getElementById('mangaLang').textContent = manga.original_language || 'Unknown';
+        document.getElementById('mangaStatus').textContent = manga.status || 'Unknown';
+        document.getElementById('mangaYear').textContent = manga.year || '?';
+        document.getElementById('mangaLatest').textContent = manga.latest_chapter || '?';
+        document.getElementById('mangaFollowers').textContent = manga.follows_total?.toLocaleString() || '0';
+        document.getElementById('mangaDesc').textContent = manga.synopsis || 'No description available.';
+
+        // Fetch all chapters
+        let page = 1, hasMore = true;
+        while (hasMore) {
+          const chapRes = await fetchRetry(`${API_BASE}/manga/${code}/chapters?limit=100&page=${page}&order[number]=asc`);
+          const items = chapRes.result?.items || [];
+          if (!items.length) hasMore = false;
           else {
-            chapters.push(...items);
-            items.forEach(c => groups.add(c.scanlation_group?.name || 'Unknown'));
-            more = items.length === 100; page++;
+            allChapters.push(...items);
+            items.forEach(ch => {
+              const group = ch.scanlation_group?.name || 'Unknown';
+              scanlators.add(group);
+            });
+            hasMore = items.length === 100;
+            page++;
           }
+          await new Promise(r => setTimeout(r, 100));
         }
-        
-        // Sort & render
-        chapters.sort((a,b) => (parseFloat(a.number)||0) - (parseFloat(b.number)||0));
-        const filter = document.getElementById('filter');
-        filter.innerHTML = '<option value="">All Groups</option>' + 
-          [...groups].sort().map(g => `<option value="${g}">${g}</option>`).join('');
-        filtered = [...chapters];
-        render();
-        
-      } catch (e) { alert('Error: ' + e.message); console.error(e); }
-      finally { document.getElementById('loading').classList.remove('active'); }
+
+        // Sort chapters
+        allChapters.sort((a, b) => {
+          const na = parseFloat(a.number);
+          const nb = parseFloat(b.number);
+          if (!isNaN(na) && !isNaN(nb)) return na - nb;
+          return String(a.number).localeCompare(String(b.number), undefined, { numeric: true });
+        });
+
+        // Populate scanlator filter
+        const filterSelect = document.getElementById('scanlatorFilter');
+        filterSelect.innerHTML = '<option value="">All Scanlators</option>';
+        Array.from(scanlators).sort().forEach(group => {
+          const opt = document.createElement('option');
+          opt.value = group;
+          opt.textContent = group;
+          filterSelect.appendChild(opt);
+        });
+
+        filteredChapters = [...allChapters];
+        renderChapters();
+        updateCount();
+
+      } catch (err) {
+        alert('Error: ' + err.message);
+        console.error(err);
+      } finally {
+        btn.disabled = false;
+        loading.classList.remove('active');
+      }
     }
 
-    function render() {
-      const filter = document.getElementById('filter').value;
-      filtered = filter ? chapters.filter(c => c.scanlation_group?.name === filter) : [...chapters];
-      
-      const list = document.getElementById('list');
-      list.innerHTML = filtered.length ? '' : '<div style="text-align:center;padding:40px;color:#7982a9">No chapters</div>';
-      
-      filtered.forEach(c => {
+    function renderChapters() {
+      const list = document.getElementById('chaptersList');
+      list.innerHTML = '';
+
+      if (filteredChapters.length === 0) {
+        list.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-secondary);">No chapters found</div>';
+        return;
+      }
+
+      filteredChapters.forEach(chapter => {
         const div = document.createElement('div');
-        div.className = 'chapter' + (selected.has(c.chapter_id) ? ' selected' : '');
+        div.className = 'chapter-item' + (selectedChapters.has(chapter.chapter_id) ? ' selected' : '');
+        div.onclick = (e) => {
+          if (e.target.type !== 'checkbox') {
+            toggleChapter(chapter.chapter_id);
+          }
+        };
+
+        const group = chapter.scanlation_group?.name || 'Unknown';
+        const isOfficial = chapter.is_official || group.toLowerCase() === 'official';
+
         div.innerHTML = `
-          <input type="checkbox" ${selected.has(c.chapter_id)?'checked':''} 
-            onchange="toggle('${c.chapter_id}', event)">
-          <div>
-            <div class="chapter-num">Ch. ${c.number}${c.name?': '+c.name:''}</div>
-            <div class="chapter-group">${c.scanlation_group?.name||'Unknown'}</div>
-          </div>`;
-        div.onclick = e => { if (e.target.tagName !== 'INPUT') toggle(c.chapter_id); };
+          <input type="checkbox" class="chapter-checkbox" 
+            ${selectedChapters.has(chapter.chapter_id) ? 'checked' : ''} 
+            onchange="toggleChapter('${chapter.chapter_id}')">
+          <div class="chapter-info">
+            <div class="chapter-number">Ch. ${chapter.number}${chapter.name ? ' — ' + chapter.name : ''}</div>
+            <div class="chapter-group ${isOfficial ? 'official' : ''}">${group}</div>
+          </div>
+        `;
+
         list.appendChild(div);
       });
+
+      document.getElementById('chaptersCount').textContent = `${filteredChapters.length} shown (of ${allChapters.length})`;
+    }
+
+    function toggleChapter(id) {
+      if (selectedChapters.has(id)) {
+        selectedChapters.delete(id);
+      } else {
+        selectedChapters.add(id);
+      }
+      renderChapters();
+      updateCount();
+    }
+
+    function selectAll() {
+      filteredChapters.forEach(ch => selectedChapters.add(ch.chapter_id));
+      renderChapters();
+      updateCount();
+    }
+
+    function deselectAll() {
+      selectedChapters.clear();
+      renderChapters();
+      updateCount();
+    }
+
+    function filterChapters() {
+      const filter = document.getElementById('scanlatorFilter').value;
+      if (!filter) {
+        filteredChapters = [...allChapters];
+      } else {
+        filteredChapters = allChapters.filter(ch => ch.scanlation_group?.name === filter);
+      }
+      renderChapters();
+      updateCount();
+    }
+
+    function updateCount() {
+      document.getElementById('selectedCount').textContent = selectedChapters.size;
+      document.getElementById('showJsonBtn').disabled = selectedChapters.size === 0;
+    }
+
+    // ============ JSON FEATURE ============
+    
+    async function showJsonSelected() {
+      if (selectedChapters.size === 0) return;
       
-      document.getElementById('count').textContent = `${filtered.length} / ${chapters.length}`;
-      document.getElementById('selected').textContent = `${selected.size} selected`;
-      document.getElementById('jsonBtn').disabled = !selected.size;
-    }
-
-    function toggle(id, e) {
-      if (e) e.stopPropagation();
-      selected.has(id) ? selected.delete(id) : selected.add(id);
-      render();
-    }
-    function selectAll() { filtered.forEach(c => selected.add(c.chapter_id)); render(); }
-    function deselectAll() { selected.clear(); render(); }
-
-    async function showJSON() {
-      if (!selected.size) return;
-      const modal = document.getElementById('modal');
-      const out = document.getElementById('jsonOut');
+      const modal = document.getElementById('jsonModal');
+      const loading = document.getElementById('jsonLoading');
+      const error = document.getElementById('jsonError');
+      const output = document.getElementById('jsonOutput');
+      const copyBtn = document.getElementById('copyJsonBtn');
+      const progress = document.getElementById('fetchProgress');
+      
+      // Reset modal state
       modal.classList.add('active');
-      out.textContent = 'Loading...';
+      loading.style.display = 'block';
+      error.style.display = 'none';
+      output.textContent = '';
+      copyBtn.disabled = true;
+      document.getElementById('fetchingCount').textContent = selectedChapters.size;
+      progress.textContent = '';
       
       try {
-        const data = {
-          manga: { title: document.getElementById('title').textContent, url: document.getElementById('url').value.trim() },
+        const selected = allChapters.filter(ch => selectedChapters.has(ch.chapter_id));
+        const result = {
+          manga: {
+            title: document.getElementById('mangaTitle').textContent,
+            url: document.getElementById('urlInput').value.trim()
+          },
           chapters: []
         };
-        
-        const selectedList = chapters.filter(c => selected.has(c.chapter_id));
-        for (let i = 0; i < selectedList.length; i++) {
-          const c = selectedList[i];
-          out.textContent = `Fetching ${i+1}/${selectedList.length}: Ch. ${c.number}`;
+
+        // Fetch images for each selected chapter with progress
+        for (let i = 0; i < selected.length; i++) {
+          const chapter = selected[i];
+          progress.textContent = `Fetching ${i + 1} of ${selected.length}: Ch. ${chapter.number}`;
           
           try {
-            const pages = (await fetchJSON(`${API}/chapter/${c.chapter_id}/pages`)).result;
-            const images = (pages.pages || pages.images || []).map(p => p.image_url || p.url || p).filter(Boolean);
-            data.chapters.push({
-              id: c.chapter_id, number: c.number, name: c.name || null,
-              group: c.scanlation_group?.name || 'Unknown',
-              images
+            // Fetch chapter pages/images
+            // Note: Adjust endpoint based on actual comix.to API structure
+            const pagesRes = await fetchRetry(`${API_BASE}/chapter/${chapter.chapter_id}/pages`);
+            const pages = pagesRes.result?.pages || pagesRes.result?.images || [];
+            
+            // Extract image URLs - adjust based on actual response structure
+            const imageUrls = pages.map(page => 
+              page.image_url || page.url || page.src || page
+            ).filter(url => url);
+
+            result.chapters.push({
+              chapter_id: chapter.chapter_id,
+              number: chapter.number,
+              name: chapter.name || null,
+              scanlation_group: chapter.scanlation_group?.name || 'Unknown',
+              language: chapter.language || 'en',
+              pages_count: imageUrls.length,
+              images: imageUrls
             });
-          } catch (e) {
-            data.chapters.push({ id: c.chapter_id, number: c.number, error: e.message, images: [] });
+          } catch (err) {
+            console.warn(`Failed to fetch images for chapter ${chapter.chapter_id}:`, err);
+            result.chapters.push({
+              chapter_id: chapter.chapter_id,
+              number: chapter.number,
+              name: chapter.name || null,
+              scanlation_group: chapter.scanlation_group?.name || 'Unknown',
+              error: `Failed to fetch images: ${err.message}`,
+              images: []
+            });
           }
-          if (i < selectedList.length - 1) await new Promise(r => setTimeout(r, 200));
+          
+          // Small delay to avoid rate limiting
+          if (i < selected.length - 1) {
+            await new Promise(r => setTimeout(r, 300));
+          }
         }
+
+        currentJsonData = result;
+        output.textContent = JSON.stringify(result, null, 2);
+        copyBtn.disabled = false;
         
-        jsonData = data;
-        out.textContent = JSON.stringify(data, null, 2);
-      } catch (e) {
-        out.textContent = 'Error: ' + e.message;
+      } catch (err) {
+        error.textContent = 'Error: ' + err.message;
+        error.style.display = 'block';
+        output.textContent = '';
+        console.error(err);
+      } finally {
+        loading.style.display = 'none';
       }
     }
 
-    function closeModal() {
-      document.getElementById('modal').classList.remove('active');
-      document.getElementById('copied').classList.remove('show');
-      jsonData = null;
+    function closeJsonModal() {
+      document.getElementById('jsonModal').classList.remove('active');
+      document.getElementById('copyStatus').classList.remove('show');
+      currentJsonData = null;
     }
 
-    async function copyJSON() {
-      if (!jsonData) return;
+    async function copyJsonToClipboard() {
+      if (!currentJsonData) return;
+      
       try {
-        await navigator.clipboard.writeText(JSON.stringify(jsonData, null, 2));
-      } catch {
-        const ta = document.createElement('textarea');
-        ta.value = JSON.stringify(jsonData, null, 2);
-        document.body.appendChild(ta); ta.select(); document.execCommand('copy');
-        document.body.removeChild(ta);
+        await navigator.clipboard.writeText(JSON.stringify(currentJsonData, null, 2));
+        const status = document.getElementById('copyStatus');
+        status.classList.add('show');
+        setTimeout(() => status.classList.remove('show'), 2000);
+      } catch (err) {
+        // Fallback for older browsers
+        const textarea = document.createElement('textarea');
+        textarea.value = JSON.stringify(currentJsonData, null, 2);
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        
+        const status = document.getElementById('copyStatus');
+        status.classList.add('show');
+        setTimeout(() => status.classList.remove('show'), 2000);
       }
-      const s = document.getElementById('copied');
-      s.classList.add('show');
-      setTimeout(() => s.classList.remove('show'), 2000);
     }
 
-    // Close modal on click outside or Escape
-    document.getElementById('modal').onclick = e => { if (e.target.id === 'modal') closeModal(); };
-    document.onkeydown = e => { if (e.key === 'Escape') closeModal(); };
-    document.getElementById('url').onkeypress = e => { if (e.key === 'Enter') loadManga(); };
+    // Close modal on overlay click
+    document.getElementById('jsonModal').addEventListener('click', (e) => {
+      if (e.target.id === 'jsonModal') closeJsonModal();
+    });
+
+    // Close modal on Escape key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeJsonModal();
+    });
+
+    // Enter key to fetch
+    document.getElementById('urlInput').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') fetchManga();
+    });
   </script>
 </body>
 </html>
