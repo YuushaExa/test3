@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Comix Downloader</title>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
   <style>
     * {
       margin: 0;
@@ -30,7 +31,6 @@
       min-height: 100vh;
     }
 
-    /* Header */
     .header {
       background: var(--bg-secondary);
       padding: 12px 24px;
@@ -102,7 +102,6 @@
       background: var(--border);
     }
 
-    /* Main Container */
     .container {
       display: flex;
       padding: 20px;
@@ -111,7 +110,6 @@
       margin: 0 auto;
     }
 
-    /* Sidebar */
     .sidebar {
       width: 280px;
       flex-shrink: 0;
@@ -158,7 +156,6 @@
       overflow-y: auto;
     }
 
-    /* Chapters Panel */
     .chapters-panel {
       flex: 1;
       background: var(--bg-secondary);
@@ -242,7 +239,6 @@
       color: var(--success);
     }
 
-    /* Footer */
     .footer {
       background: var(--bg-secondary);
       border-top: 1px solid var(--border);
@@ -297,7 +293,6 @@
       gap: 8px;
     }
 
-    /* Loading */
     .loading {
       display: none;
       text-align: center;
@@ -323,7 +318,72 @@
       to { transform: rotate(360deg); }
     }
 
-    /* Scrollbar */
+    /* Progress Modal */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.8);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .modal-overlay.active {
+      display: flex;
+    }
+
+    .modal {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 30px;
+      max-width: 500px;
+      width: 90%;
+      text-align: center;
+    }
+
+    .modal h3 {
+      margin-bottom: 20px;
+      color: var(--accent);
+    }
+
+    .progress-info {
+      margin-bottom: 15px;
+      font-size: 14px;
+      color: var(--text-secondary);
+    }
+
+    .progress-bar {
+      width: 100%;
+      height: 8px;
+      background: var(--bg-tertiary);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 15px;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: var(--accent);
+      transition: width 0.3s;
+      width: 0%;
+    }
+
+    .progress-details {
+      font-size: 12px;
+      color: var(--text-secondary);
+      text-align: left;
+      background: var(--bg-primary);
+      padding: 10px;
+      border-radius: 4px;
+      max-height: 150px;
+      overflow-y: auto;
+    }
+
     ::-webkit-scrollbar {
       width: 8px;
     }
@@ -341,7 +401,6 @@
       background: var(--text-secondary);
     }
 
-    /* Responsive */
     @media (max-width: 900px) {
       .container {
         flex-direction: column;
@@ -413,6 +472,18 @@
     </div>
   </div>
 
+  <!-- Progress Modal -->
+  <div class="modal-overlay" id="progressModal">
+    <div class="modal">
+      <h3 id="modalTitle">Downloading...</h3>
+      <div class="progress-info" id="progressInfo">Preparing...</div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+      <div class="progress-details" id="progressDetails"></div>
+    </div>
+  </div>
+
   <script>
     const API_BASE = 'https://comix.to/api/v2';
     const HEADERS = { 'Referer': 'https://comix.to/', 'User-Agent': 'Mozilla/5.0' };
@@ -421,8 +492,10 @@
     let filteredChapters = [];
     let selectedChapters = new Set();
     let scanlators = new Set();
+    let currentManga = null;
 
     const extractCode = (url) => url.replace(/\/$/, '').split('/').pop()?.split('-')[0] || '';
+    const safeFilename = (str) => str.replace(/[^a-z0-9\-_]/gi, '_').substring(0, 100);
 
     const fetchRetry = async (url, retries = 3) => {
       for (let i = 1; i <= retries; i++) {
@@ -433,6 +506,19 @@
         } catch (e) {
           if (i === retries) throw e;
           await new Promise(r => setTimeout(r, 1000 * i));
+        }
+      }
+    };
+
+    const fetchImageBlob = async (url, retries = 3) => {
+      for (let i = 1; i <= retries; i++) {
+        try {
+          const res = await fetch(url);
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          return await res.blob();
+        } catch (e) {
+          if (i === retries) throw e;
+          await new Promise(r => setTimeout(r, 1000));
         }
       }
     };
@@ -458,23 +544,20 @@
       try {
         const code = extractCode(url);
         
-        // Fetch manga info
         const mangaRes = await fetchRetry(`${API_BASE}/manga/${code}/`);
-        const manga = mangaRes.result;
+        currentManga = mangaRes.result;
         
-        // Display manga info
         document.getElementById('mangaInfo').style.display = 'block';
-        document.getElementById('coverImg').src = manga.poster?.large || manga.poster?.medium || '';
-        document.getElementById('mangaTitle').textContent = manga.title;
-        document.getElementById('mangaType').textContent = manga.type || 'Unknown';
-        document.getElementById('mangaLang').textContent = manga.original_language || 'Unknown';
-        document.getElementById('mangaStatus').textContent = manga.status || 'Unknown';
-        document.getElementById('mangaYear').textContent = manga.year || '?';
-        document.getElementById('mangaLatest').textContent = manga.latest_chapter || '?';
-        document.getElementById('mangaFollowers').textContent = manga.follows_total?.toLocaleString() || '0';
-        document.getElementById('mangaDesc').textContent = manga.synopsis || 'No description available.';
+        document.getElementById('coverImg').src = currentManga.poster?.large || currentManga.poster?.medium || '';
+        document.getElementById('mangaTitle').textContent = currentManga.title;
+        document.getElementById('mangaType').textContent = currentManga.type || 'Unknown';
+        document.getElementById('mangaLang').textContent = currentManga.original_language || 'Unknown';
+        document.getElementById('mangaStatus').textContent = currentManga.status || 'Unknown';
+        document.getElementById('mangaYear').textContent = currentManga.year || '?';
+        document.getElementById('mangaLatest').textContent = currentManga.latest_chapter || '?';
+        document.getElementById('mangaFollowers').textContent = currentManga.follows_total?.toLocaleString() || '0';
+        document.getElementById('mangaDesc').textContent = currentManga.synopsis || 'No description available.';
 
-        // Fetch all chapters
         let page = 1, hasMore = true;
         while (hasMore) {
           const chapRes = await fetchRetry(`${API_BASE}/manga/${code}/chapters?limit=100&page=${page}&order[number]=asc`);
@@ -492,7 +575,6 @@
           await new Promise(r => setTimeout(r, 100));
         }
 
-        // Sort chapters
         allChapters.sort((a, b) => {
           const na = parseFloat(a.number);
           const nb = parseFloat(b.number);
@@ -500,7 +582,6 @@
           return String(a.number).localeCompare(String(b.number), undefined, { numeric: true });
         });
 
-        // Populate scanlator filter
         const filterSelect = document.getElementById('scanlatorFilter');
         filterSelect.innerHTML = '<option value="">All Scanlators</option>';
         Array.from(scanlators).sort().forEach(group => {
@@ -598,29 +679,128 @@
       document.getElementById('downloadBtn').disabled = selectedChapters.size === 0;
     }
 
-    function downloadSelected() {
+    async function downloadSelected() {
       if (selectedChapters.size === 0) return;
-      
-      const selected = allChapters.filter(ch => selectedChapters.has(ch.chapter_id));
-      const data = {
-        manga: document.getElementById('mangaTitle').textContent,
-        chapters: selected.map(ch => ({
-          id: ch.chapter_id,
-          number: ch.number,
-          name: ch.name,
-          group: ch.scanlation_group?.name
-        })),
-        total: selected.length
-      };
 
-      console.log('Downloading:', data);
-      alert(`Would download ${selected.length} chapters\n\n(In a real app, this would start the download process)`);
+      const selected = allChapters.filter(ch => selectedChapters.has(ch.chapter_id));
+      
+      // Sort selected chapters numerically
+      selected.sort((a, b) => {
+        const na = parseFloat(a.number);
+        const nb = parseFloat(b.number);
+        if (!isNaN(na) && !isNaN(nb)) return na - nb;
+        return String(a.number).localeCompare(String(b.number), undefined, { numeric: true });
+      });
+
+      const modal = document.getElementById('progressModal');
+      const progressFill = document.getElementById('progressFill');
+      const progressInfo = document.getElementById('progressInfo');
+      const progressDetails = document.getElementById('progressDetails');
+      const modalTitle = document.getElementById('modalTitle');
+
+      modal.classList.add('active');
+      const zip = new JSZip();
+      const mangaName = safeFilename(currentManga.title);
+      const firstChap = selected[0].number;
+      const lastChap = selected[selected.length - 1].number;
+      const zipName = `${mangaName} ch${firstChap}-${lastChap}.zip`;
+
+      let completedChapters = 0;
+      let totalImages = 0;
+      let downloadedImages = 0;
+
+      try {
+        for (let [idx, chapter] of selected.entries()) {
+          const chapNum = chapter.number;
+          const chapTitle = chapter.name || '';
+          const group = chapter.scanlation_group?.name || 'Unknown';
+          const safeChapName = `Chapter_${chapNum}${chapTitle ? '_' + safeFilename(chapTitle).substring(0, 50) : ''}`;
+          
+          progressInfo.textContent = `Fetching chapter ${chapNum} (${idx + 1}/${selected.length})...`;
+          progressDetails.innerHTML += `<div>📖 Chapter ${chapNum} - ${group}</div>`;
+          
+          // Fetch chapter images
+          const chapData = await fetchRetry(`${API_BASE}/chapters/${chapter.chapter_id}/`);
+          const images = chapData.result?.images || [];
+          
+          if (images.length === 0) {
+            progressDetails.innerHTML += `<div style="color: #f85149">⚠️ No images found</div>`;
+            continue;
+          }
+
+          totalImages += images.length;
+          progressDetails.innerHTML += `<div>  Found ${images.length} images</div>`;
+          progressDetails.scrollTop = progressDetails.scrollHeight;
+
+          // Download images
+          for (let [imgIdx, img] of images.entries()) {
+            const imgUrl = img.url?.trim();
+            if (!imgUrl) continue;
+
+            const ext = imgUrl.split('.').pop()?.split('?')[0] || 'jpg';
+            const filename = `${String(imgIdx + 1).padStart(3, '0')}.${ext}`;
+            
+            try {
+              const blob = await fetchImageBlob(imgUrl);
+              zip.file(`${safeChapName}/${filename}`, blob);
+              downloadedImages++;
+              
+              const percent = Math.round((completedChapters / selected.length) * 100);
+              progressFill.style.width = percent + '%';
+              progressInfo.textContent = `Downloading: Chapter ${chapNum} - Image ${imgIdx + 1}/${images.length}`;
+            } catch (e) {
+              progressDetails.innerHTML += `<div style="color: #f85149">  ⚠️ Failed: ${filename}</div>`;
+            }
+          }
+
+          completedChapters++;
+          const totalPercent = Math.round((completedChapters / selected.length) * 100);
+          progressFill.style.width = totalPercent + '%';
+          progressDetails.scrollTop = progressDetails.scrollHeight;
+          
+          await new Promise(r => setTimeout(r, 200));
+        }
+
+        // Generate ZIP
+        modalTitle.textContent = 'Creating ZIP...';
+        progressInfo.textContent = 'Compressing files...';
+        
+        const content = await zip.generateAsync({
+          type: 'blob',
+          compression: 'DEFLATE',
+          compressionOptions: { level: 6 }
+        }, (metadata) => {
+          progressInfo.textContent = `Compressing: ${metadata.percent.toFixed(0)}%`;
+        });
+
+        // Download
+        const url = URL.createObjectURL(content);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = zipName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        modalTitle.textContent = '✅ Complete!';
+        progressInfo.textContent = `Downloaded ${selected.length} chapters (${downloadedImages} images)`;
+        progressDetails.innerHTML += `<div style="color: #9ece6a; margin-top: 10px">✅ Saved as: ${zipName}</div>`;
+        
+        setTimeout(() => {
+          modal.classList.remove('active');
+        }, 3000);
+
+      } catch (err) {
+        modalTitle.textContent = '❌ Error';
+        progressInfo.textContent = err.message;
+        console.error(err);
+      }
     }
 
-    // Enter key to fetch
     document.getElementById('urlInput').addEventListener('keypress', (e) => {
       if (e.key === 'Enter') fetchManga();
     });
   </script>
 </body>
-            </html>
+</html>
