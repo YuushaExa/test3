@@ -367,13 +367,27 @@
 </head>
 <body>
   <div class="header">
-    <div class="logo">Comix Downloader</div>
     <div class="url-input-container">
       <input type="text" id="urlInput" placeholder="https://comix.to/title/...   " value="https://comix.to/title/93q1r-the-summoner-apocalypse-rewinds   ">
       <button class="btn" id="fetchBtn" onclick="fetchManga()">FETCH</button>
     </div>
   </div>
 
+  <button id="refreshBtn">Refresh Status</button>
+  <div id="error" class="error"></div>
+  <div id="statusDisplay">
+    <div class="status-line">
+      <span class="icon" id="statusIcon"></span>
+      <strong id="statusText"></strong>
+    </div>
+    <div class="status-line moscow-time">
+      Time: <span id="moscowTime"></span>
+    </div>
+    <div class="summary" id="summaryBlock">
+      <strong>Summary:</strong> <span id="summaryText"></span>
+    </div>
+  </div>
+  
   <div class="container">
     <div class="sidebar">
       <div id="mangaInfo" style="display: none;">
@@ -929,6 +943,77 @@
     document.getElementById('urlInput').addEventListener('keypress', (e) => {
       if (e.key === 'Enter') fetchManga();
     });
+
+      const STATUS_URL = 'https://raw.githubusercontent.com/YuushaExa/man-com/refs/heads/main/status.json';
+    const refreshBtn = document.getElementById('refreshBtn');
+    const statusDisplay = document.getElementById('statusDisplay');
+    const errorBox = document.getElementById('error');
+
+    // Format date to Moscow timezone (UTC+3)
+    function formatMoscowTime(isoString) {
+      try {
+        const date = new Date(isoString);
+        return date.toLocaleString('ru-RU', {
+          timeZone: 'Europe/Moscow',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false
+        }).replace(',', ',');
+      } catch (e) {
+        return 'Invalid date';
+      }
+    }
+
+    async function fetchStatus() {
+      refreshBtn.disabled = true;
+      errorBox.classList.remove('visible');
+      errorBox.textContent = '';
+
+      try {
+        const response = await fetch(STATUS_URL, {
+          cache: 'no-store' // Avoid cached responses
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+
+        // Update UI
+        document.getElementById('statusIcon').textContent = data.icon || '❓';
+        document.getElementById('statusText').textContent = data.status || 'Unknown';
+        document.getElementById('moscowTime').textContent = formatMoscowTime(data.timestamp);
+
+        const summaryEl = document.getElementById('summaryText');
+        const summaryBlock = document.getElementById('summaryBlock');
+        if (data.summary === null || data.summary === undefined || data.summary === '') {
+          summaryEl.textContent = 'No summary available';
+          summaryBlock.classList.add('empty');
+        } else {
+          summaryEl.textContent = data.summary;
+          summaryBlock.classList.remove('empty');
+        }
+
+        statusDisplay.classList.add('visible');
+
+      } catch (err) {
+        console.error('Fetch error:', err);
+        errorBox.textContent = `⚠️ Failed to load status: ${err.message}`;
+        errorBox.classList.add('visible');
+        statusDisplay.classList.remove('visible');
+      } finally {
+        refreshBtn.disabled = false;
+      }
+    }
+
+    refreshBtn.addEventListener('click', fetchStatus);
+
+    fetchStatus();
   </script>
 </body>
 </html>
