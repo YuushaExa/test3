@@ -463,6 +463,16 @@
 
     const extractCode = (url) => url.replace(/\/$/, '').split('/').pop()?.split('-')[0] || '';
 
+// Genre ID → Name mapping (from your API response)
+const GENRE_MAP = {
+  6: "Action", 87264: "Adult", 7: "Adventure", 9: "Comedy", 11: "Drama",
+  87265: "Ecchi", 12: "Fantasy", 14: "Historical", 15: "Horror", 16: "Isekai",
+  87267: "Mature", 18: "Mecha", 20: "Mystery", 22: "Psychological", 23: "Romance",
+  24: "Sci-Fi", 25: "Slice of Life", 87268: "Smut", 26: "Sports", 27: "Superhero",
+  28: "Thriller", 29: "Tragedy", 30: "Wuxia"
+};
+const KNOWN_GENRE_IDS = new Set(Object.keys(GENRE_MAP).map(Number));
+      
     const fetchRetry = async (url, retries = 3, delay = 1000) => {
       for (let i = 1; i <= retries; i++) {
         try {
@@ -491,6 +501,28 @@
       }
     };
 
+// Fetch term names by type (author/artist) for multiple IDs at once
+async function fetchTermNames(termIds, type) {
+  if (!termIds?.length) return [];
+  
+  // Filter out already-known genre IDs
+  const unknownIds = termIds.filter(id => !KNOWN_GENRE_IDS.has(Number(id)));
+  if (!unknownIds.length) return [];
+  
+  try {
+    // Build query: ids[]=123&ids[]=456
+    const params = unknownIds.map(id => `ids[]=${id}`).join('&');
+    const url = `${API_BASE}/terms?type=${type}&${params}`;
+    const res = await fetchRetry(url);
+    
+    // Return array of names from result.items
+    return (res.result?.items || []).map(item => item.title).filter(Boolean);
+  } catch (err) {
+    console.warn(`Failed to fetch ${type} terms:`, err);
+    return [];
+  }
+}
+    
     async function fetchManga() {
       const url = document.getElementById('urlInput').value.trim();
       const btn = document.getElementById('fetchBtn');
@@ -515,20 +547,74 @@
         
         // Fetch manga info
         const mangaRes = await fetchRetry(`${API_BASE}/manga/${code}/`);
-        const manga = mangaRes.result;
-        mangaDataCache = manga; // Cache for JSON export
-        
-        // Display manga info
-        document.getElementById('mangaInfo').style.display = 'block';
-        document.getElementById('coverImg').src = manga.poster?.large || manga.poster?.medium || '';
-        document.getElementById('mangaTitle').textContent = manga.title;
-        document.getElementById('mangaType').textContent = manga.type || 'Unknown';
-        document.getElementById('mangaLang').textContent = manga.original_language || 'Unknown';
-        document.getElementById('mangaStatus').textContent = manga.status || 'Unknown';
-        document.getElementById('mangaYear').textContent = manga.year || '?';
-        document.getElementById('mangaLatest').textContent = manga.latest_chapter || '?';
-        document.getElementById('mangaFollowers').textContent = manga.follows_total?.toLocaleString() || '0';
-        document.getElementById('mangaDesc').textContent = manga.synopsis || 'No description available.';
+const manga = mangaRes.result;
+mangaDataCache = manga;
+
+// ===== PROCESS TERMS (Genres/Authors/Artists) =====
+const termIds = manga.term_ids || [];
+const genreNames = [];
+const authorIds = [];
+const artistIds = [];
+
+// Separate term IDs by type
+for (const id of termIds) {
+  const numId = Number(id);
+  if (KNOWN_GENRE_IDS.has(numId)) {
+    genreNames.push(GENRE_MAP[numId]);
+  } else {
+    // Assume unknown IDs could be author OR artist - we'll fetch both
+    authorIds.push(id);
+    artistIds.push(id);
+  }
+}
+
+// Fetch author and artist names in parallel
+const [authors, artists] = await Promise.all([
+  fetchTermNames(authorIds, 'author'),
+  fetchTermNames(artistIds, 'artist')
+]);
+
+// Cache resolved terms
+mangaDataCache.resolvedGenres = [...new Set(genreNames)]; // dedupe
+mangaDataCache.resolvedAuthors = [...new Set(authors)];
+mangaDataCache.resolvedArtists = [...new Set(artists)];
+// ===== END TERMS PROCESSING =====
+
+// Display manga info (ADD these new lines)
+document.getElementById('mangaInfo').style.display = 'block';
+document.getElementById('coverImg').src = manga.poster?.large || manga.poster?.medium || '';
+document.getElementById('mangaTitle').textContent = manga.title;
+document.getElementById('mangaType').textContent = manga.type || 'Unknown';
+document.getElementById('mangaLang').textContent = manga.original_language || 'Unknown';
+document.getElementById('mangaStatus').textContent = manga.status || 'Unknown';
+document.getElementById('mangaYear').textContent = manga.year || '?';
+document.getElementById('mangaLatest').textContent = manga.latest_chapter || '?';
+document.getElementById('mangaFollowers').textContent = manga.follows_total?.toLocaleString() || '0';
+
+// ADD: Genres, Authors, Artists display
+const infoContainer = document.querySelector('.sidebar .manga-info:last-child');
+if (mangaDataCache.resolvedGenres.length) {
+  const genreDiv = document.createElement('div');
+  genreDiv.className = 'manga-info';
+  genreDiv.innerHTML = `Genres: <span>${mangaDataCache.resolvedGenres.join(', ')}</span>`;
+  infoContainer.parentNode.insertBefore(genreDiv, infoContainer.nextSibling);
+}
+if (mangaDataCache.resolvedAuthors.length) {
+  const authorDiv = document.createElement('div');
+  authorDiv.className = 'manga-info';
+  authorDiv.innerHTML = `Authors: <span>${mangaDataCache.resolvedAuthors.join(', ')}</span>`;
+  genreDiv?.parentNode?.insertBefore(authorDiv, genreDiv?.nextSibling) || 
+  infoContainer.parentNode.insertBefore(authorDiv, infoContainer.nextSibling);
+}
+if (mangaDataCache.resolvedArtists.length) {
+  const artistDiv = document.createElement('div');
+  artistDiv.className = 'manga-info';
+  artistDiv.innerHTML = `Artists: <span>${mangaDataCache.resolvedArtists.join(', ')}</span>`;
+  authorDiv?.parentNode?.insertBefore(artistDiv, authorDiv?.nextSibling) ||
+  infoContainer.parentNode.insertBefore(artistDiv, infoContainer.nextSibling);
+}
+
+document.getElementById('mangaDesc').textContent = manga.synopsis || 'No description available.';
 
         // Fetch all chapters
         let page = 1, hasMore = true;
@@ -742,7 +828,10 @@ async function showJsonSelected() {
       language: mangaDataCache?.original_language || document.getElementById('mangaLang').textContent || '',
       status: mangaDataCache?.status || document.getElementById('mangaStatus').textContent || '',
       year: mangaDataCache?.year || document.getElementById('mangaYear').textContent || '',
-      latest_chapter: mangaDataCache?.latest_chapter || document.getElementById('mangaLatest').textContent || ''
+      latest_chapter: mangaDataCache?.latest_chapter || document.getElementById('mangaLatest').textContent || '',
+       genres: mangaDataCache?.resolvedGenres || [],
+  authors: mangaDataCache?.resolvedAuthors || [],
+  artists: mangaDataCache?.resolvedArtists || []
     };
 
     const result = {
