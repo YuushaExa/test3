@@ -1068,24 +1068,28 @@
       }
     }
 
-    // Safely convert summary to string (handles null, objects, arrays, etc.)
-    function formatSummary(value) {
-      if (value === null || value === undefined || value === '') {
-        return null; // Signal "empty"
-      }
-      if (typeof value === 'string') {
-        return value.trim();
-      }
-      if (typeof value === 'object') {
-        try {
-          // Pretty-print objects, but limit depth to avoid huge output
-          return JSON.stringify(value, null, 2);
-        } catch {
-          return String(value);
-        }
-      }
+function formatSummary(value) {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+  if (typeof value === 'string') {
+    // Try to parse and prettify if it looks like JSON
+    try {
+      const parsed = JSON.parse(value.trim());
+      return JSON.stringify(parsed, null, 2);
+    } catch {
+      return value.trim();
+    }
+  }
+  if (typeof value === 'object') {
+    try {
+      return JSON.stringify(value, null, 2);
+    } catch {
       return String(value);
     }
+  }
+  return String(value);
+}
 
     async function fetchStatus() {
       refreshBtn.disabled = true;
@@ -1115,17 +1119,16 @@
         document.getElementById('statusText').textContent = data.status || 'Unknown';
         document.getElementById('moscowTime').textContent = formatMoscowTime(data.timestamp);
 
-        const summaryEl = document.getElementById('summaryText');
-        const summaryBlock = document.getElementById('summaryBlock');
-        const formattedSummary = formatSummary(data.summary);
-        
-        if (formattedSummary === null) {
-          summaryEl.textContent = 'No summary available';
-          summaryBlock.classList.add('empty');
-        } else {
-          summaryEl.textContent = formattedSummary;
-          summaryBlock.classList.remove('empty');
-        }
+  const summaryEl = document.getElementById('summaryText');
+const summaryBlock = document.getElementById('summaryBlock');
+const formattedSummary = formatSummary(data.summary);
+
+if (formattedSummary === null) {
+  summaryBlock.classList.add('empty');
+} else {
+  summaryEl.textContent = formattedSummary;
+  summaryBlock.classList.remove('empty');
+}
 
         statusDisplay.classList.add('visible');
 
