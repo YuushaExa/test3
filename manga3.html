@@ -679,97 +679,125 @@
       return [];
     }
 
-    async function showJsonSelected() {
-      if (selectedChapters.size === 0) return;
-      
-      const modal = document.getElementById('jsonModal');
-      const loading = document.getElementById('jsonLoading');
-      const error = document.getElementById('jsonError');
-      const output = document.getElementById('jsonOutput');
-      const copyBtn = document.getElementById('copyJsonBtn');
-      const progress = document.getElementById('fetchProgress');
-      
-      // Reset modal state
-      modal.classList.add('active');
-      loading.style.display = 'block';
-      error.style.display = 'none';
-      output.textContent = '';
-      copyBtn.disabled = true;
-      document.getElementById('fetchingCount').textContent = selectedChapters.size;
-      progress.textContent = '';
+   // Concurrency-limited fetcher
+async function fetchWithConcurrency(items, fetchFn, concurrency = 3, onProgress) {
+  const results = [];
+  const executing = new Set();
+  
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    const promise = fetchFn(item, i, items.length).then(result => {
+      executing.delete(promise);
+      return result;
+    });
+    executing.add(promise);
+    results.push(promise);
+    
+    // When we hit concurrency limit, wait for one to finish
+    if (executing.size >= concurrency) {
+      await Promise.race(executing);
+    }
+    
+    // Optional progress callback
+    if (onProgress) onProgress(i + 1, items.length);
+  }
+  
+  return Promise.all(results);
+}
+
+async function showJsonSelected() {
+  if (selectedChapters.size === 0) return;
+  
+  const modal = document.getElementById('jsonModal');
+  const loading = document.getElementById('jsonLoading');
+  const error = document.getElementById('jsonError');
+  const output = document.getElementById('jsonOutput');
+  const copyBtn = document.getElementById('copyJsonBtn');
+  const progress = document.getElementById('fetchProgress');
+  
+  modal.classList.add('active');
+  loading.style.display = 'block';
+  error.style.display = 'none';
+  output.textContent = '';
+  copyBtn.disabled = true;
+  document.getElementById('fetchingCount').textContent = selectedChapters.size;
+  progress.textContent = '';
+  
+  try {
+    const selected = allChapters.filter(ch => selectedChapters.has(ch.chapter_id));
+    
+    const mangaObj = {
+      title: mangaDataCache?.title || document.getElementById('mangaTitle').textContent,
+      url: document.getElementById('urlInput').value.trim(),
+      cover: mangaDataCache?.poster?.large || mangaDataCache?.poster?.medium || '',
+      description: mangaDataCache?.synopsis || document.getElementById('mangaDesc').textContent || '',
+      type: mangaDataCache?.type || document.getElementById('mangaType').textContent || '',
+      language: mangaDataCache?.original_language || document.getElementById('mangaLang').textContent || '',
+      status: mangaDataCache?.status || document.getElementById('mangaStatus').textContent || '',
+      year: mangaDataCache?.year || document.getElementById('mangaYear').textContent || '',
+      latest_chapter: mangaDataCache?.latest_chapter || document.getElementById('mangaLatest').textContent || ''
+    };
+
+    const result = {
+      manga: mangaObj,
+      chapters: []
+    };
+
+    // Fetch function for a single chapter
+    const fetchChapterData = async (chapter, index, total) => {
+      progress.textContent = `Fetching ${index + 1} of ${total}: Ch. ${chapter.number}`;
       
       try {
-        const selected = allChapters.filter(ch => selectedChapters.has(ch.chapter_id));
-        
-        // Build manga object with extended info
-        const mangaObj = {
-          title: mangaDataCache?.title || document.getElementById('mangaTitle').textContent,
-          url: document.getElementById('urlInput').value.trim(),
-          cover: mangaDataCache?.poster?.large || mangaDataCache?.poster?.medium || '',
-          description: mangaDataCache?.synopsis || document.getElementById('mangaDesc').textContent || '',
-          type: mangaDataCache?.type || document.getElementById('mangaType').textContent || '',
-          language: mangaDataCache?.original_language || document.getElementById('mangaLang').textContent || '',
-          status: mangaDataCache?.status || document.getElementById('mangaStatus').textContent || '',
-          year: mangaDataCache?.year || document.getElementById('mangaYear').textContent || '',
-          latest_chapter: mangaDataCache?.latest_chapter || document.getElementById('mangaLatest').textContent || ''
+        const chapterRes = await fetchChapterWithRetry(chapter.chapter_id);
+        const imageUrls = extractImageUrls(chapterRes);
+
+        return {
+          chapter_id: chapter.chapter_id,
+          number: chapter.number,
+          name: chapter.name || null,
+          scanlation_group: chapter.scanlation_group?.name || 'Unknown',
+          language: chapter.language || 'en',
+          pages_count: imageUrls.length,
+          images: imageUrls
         };
-
-        const result = {
-          manga: mangaObj,
-          chapters: []
-        };
-
-        // Fetch images for each selected chapter with progress
-        for (let i = 0; i < selected.length; i++) {
-          const chapter = selected[i];
-          progress.textContent = `Fetching ${i + 1} of ${selected.length}: Ch. ${chapter.number}`;
-          
-          try {
-            // Fetch chapter data using correct endpoint with 5s retry on failure
-            const chapterRes = await fetchChapterWithRetry(chapter.chapter_id);
-            const imageUrls = extractImageUrls(chapterRes);
-
-            result.chapters.push({
-              chapter_id: chapter.chapter_id,
-              number: chapter.number,
-              name: chapter.name || null,
-              scanlation_group: chapter.scanlation_group?.name || 'Unknown',
-              language: chapter.language || 'en',
-              pages_count: imageUrls.length,
-              images: imageUrls
-            });
-          } catch (err) {
-            console.warn(`Failed to fetch images for chapter ${chapter.chapter_id}:`, err);
-            result.chapters.push({
-              chapter_id: chapter.chapter_id,
-              number: chapter.number,
-              name: chapter.name || null,
-              scanlation_group: chapter.scanlation_group?.name || 'Unknown',
-              error: `Failed to fetch images after retries: ${err.message}`,
-              images: []
-            });
-          }
-          
-          // Small delay between requests to avoid rate limiting
-          if (i < selected.length - 1) {
-            await new Promise(r => setTimeout(r, 300));
-          }
-        }
-
-        currentJsonData = result;
-        output.textContent = JSON.stringify(result, null, 2);
-        copyBtn.disabled = false;
-        
       } catch (err) {
-        error.textContent = 'Error: ' + err.message;
-        error.style.display = 'block';
-        output.textContent = '';
-        console.error(err);
-      } finally {
-        loading.style.display = 'none';
+        console.warn(`Failed to fetch images for chapter ${chapter.chapter_id}:`, err);
+        return {
+          chapter_id: chapter.chapter_id,
+          number: chapter.number,
+          name: chapter.name || null,
+          scanlation_group: chapter.scanlation_group?.name || 'Unknown',
+          error: `Failed to fetch images after retries: ${err.message}`,
+          images: []
+        };
       }
-    }
+    };
 
+    // Fetch all chapters with concurrency limit of 4 (adjust as needed)
+    const CONCURRENCY = 4;
+    const chapterResults = await fetchWithConcurrency(
+      selected, 
+      fetchChapterData, 
+      CONCURRENCY,
+      (done, total) => {
+        progress.textContent = `Progress: ${done}/${total} chapters fetched`;
+      }
+    );
+
+    result.chapters = chapterResults;
+    currentJsonData = result;
+    output.textContent = JSON.stringify(result, null, 2);
+    copyBtn.disabled = false;
+    
+  } catch (err) {
+    error.textContent = 'Error: ' + err.message;
+    error.style.display = 'block';
+    output.textContent = '';
+    console.error(err);
+  } finally {
+    loading.style.display = 'none';
+  }
+}
     function closeJsonModal() {
       document.getElementById('jsonModal').classList.remove('active');
       document.getElementById('copyStatus').classList.remove('show');
