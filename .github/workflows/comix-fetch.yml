@@ -1,0 +1,335 @@
+name: Comix Downloader API Fetch
+
+on:
+  workflow_dispatch:
+    inputs:
+      manga_url:
+        description: 'Comix.to manga URL (e.g., https://comix.to/title/93q1r-the-summoner-apocalypse-rewinds)'
+        required: true
+        type: string
+      fetch_images:
+        description: 'Fetch image URLs for chapters? (WARNING: Can be slow for many chapters)'
+        required: false
+        type: boolean
+        default: false
+      chapter_limit:
+        description: 'Limit number of chapters to process (0 = all)'
+        required: false
+        type: number
+        default: 0
+
+jobs:
+  fetch-manga-data:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq curl
+
+      - name: Set up environment
+        run: |
+          echo "API_BASE=https://comix.to/api/v2" >> $GITHUB_ENV
+          echo "REFERER=https://comix.to/" >> $GITHUB_ENV
+          echo "USER_AGENT=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" >> $GITHUB_ENV
+          
+          # Extract manga code from URL
+          MANGA_URL="${{ inputs.manga_url }}"
+          MANGA_CODE=$(echo "$MANGA_URL" | sed 's/\/$//' | awk -F'/' '{print $NF}' | awk -F'-' '{print $1}')
+          echo "MANGA_CODE=$MANGA_CODE" >> $GITHUB_ENV
+          echo "MANGA_URL=$MANGA_URL" >> $GITHUB_ENV
+          
+          echo "✅ Extracted manga code: $MANGA_CODE"
+
+      - name: Fetch manga info
+        id: manga_info
+        run: |
+          echo "📦 Fetching manga info..."
+          
+          RESPONSE=$(curl -s -L \
+            -H "Referer: $REFERER" \
+            -H "User-Agent: $USER_AGENT" \
+            "$API_BASE/manga/$MANGA_CODE/")
+          
+          if echo "$RESPONSE" | jq -e '.result' > /dev/null 2>&1; then
+            echo "$RESPONSE" | jq '.result' > manga_info.json
+            
+            # Extract key fields for logging
+            TITLE=$(jq -r '.title // "Unknown"' manga_info.json)
+            STATUS=$(jq -r '.status // "Unknown"' manga_info.json)
+            YEAR=$(jq -r '.year // "?"' manga_info.json)
+            LANG=$(jq -r '.original_language // "Unknown"' manga_info.json)
+            
+            echo "✅ Manga: $TITLE"
+            echo "✅ Status: $STATUS | Year: $YEAR | Language: $LANG"
+            
+            # Output for later steps
+            echo "title=$TITLE" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Failed to fetch manga info"
+            echo "Response: $RESPONSE"
+            exit 1
+          fi
+
+      - name: Fetch all chapters (with pagination)
+        id: chapters
+        run: |
+          echo "📚 Fetching chapters..."
+          
+          PAGE=1
+          ALL_CHAPTERS="[]"
+          
+          while true; do
+            echo "   → Fetching page $PAGE..."
+            
+            RESPONSE=$(curl -s -L \
+              -H "Referer: $REFERER" \
+              -H "User-Agent: $USER_AGENT" \
+              "$API_BASE/manga/$MANGA_CODE/chapters?limit=100&page=$PAGE&order[number]=asc")
+            
+            ITEMS=$(echo "$RESPONSE" | jq -r '.result.items // []')
+            ITEM_COUNT=$(echo "$ITEMS" | jq 'length')
+            
+            if [ "$ITEM_COUNT" -eq 0 ]; then
+              echo "   → No more chapters found"
+              break
+            fi
+            
+            # Merge chapters
+            ALL_CHAPTERS=$(echo "$ALL_CHAPTERS" "$ITEMS" | jq -s 'add')
+            
+            if [ "$ITEM_COUNT" -lt 100 ]; then
+              echo "   → Last page reached"
+              break
+            fi
+            
+            PAGE=$((PAGE + 1))
+            # Small delay to avoid rate limiting
+            sleep 0.1
+          done
+          
+          # Sort chapters by number
+          SORTED_CHAPTERS=$(echo "$ALL_CHAPTERS" | jq 'sort_by(.number | tonumber? // 0)')
+          echo "$SORTED_CHAPTERS" > chapters.json
+          
+          TOTAL=$(echo "$SORTED_CHAPTERS" | jq 'length')
+          echo "✅ Fetched $TOTAL chapters"
+          echo "total=$TOTAL" >> $GITHUB_OUTPUT
+          
+          # Apply chapter limit if set
+          LIMIT=${{ inputs.chapter_limit }}
+          if [ "$LIMIT" -gt 0 ] && [ "$TOTAL" -gt "$LIMIT" ]; then
+            echo "⚠️ Limiting to $LIMIT chapters (of $TOTAL)"
+            echo "$SORTED_CHAPTERS" | jq ".[:$LIMIT]" > chapters_limited.json
+            mv chapters_limited.json chapters.json
+          fi
+
+      - name: Display chapter list
+        run: |
+          echo "📋 Chapters found:"
+          echo ""
+          jq -r '.[] | "  • Ch. \(.number)\(.name ? " — \(.name)" : "") [\(.scanlation_group.name // "Unknown")]"' chapters.json | head -50
+          
+          COUNT=$(jq 'length' chapters.json)
+          if [ "$COUNT" -gt 50 ]; then
+            echo "  ... and $((COUNT - 50)) more"
+          fi
+
+      - name: Fetch chapter images (if enabled)
+        if: inputs.fetch_images == true
+        run: |
+          echo "🖼️ Fetching image URLs for chapters..."
+          
+          CHAPTERS=$(jq -c '.[]' chapters.json)
+          RESULT='{"manga": '
+          
+          # Add manga info to result
+          RESULT+=$(jq -c '{
+            title: .title,
+            url: env.MANGA_URL,
+            cover: (.poster.large // .poster.medium // ""),
+            description: (.synopsis // ""),
+            type: (.type // ""),
+            language: (.original_language // ""),
+            status: (.status // ""),
+            year: (.year // ""),
+            latest_chapter: (.latest_chapter // "")
+          }' manga_info.json)
+          RESULT+=', "chapters": ['
+          
+          FIRST=true
+          COUNT=0
+          TOTAL=$(jq 'length' chapters.json)
+          
+          while IFS= read -r chapter; do
+            COUNT=$((COUNT + 1))
+            CHAPTER_ID=$(echo "$chapter" | jq -r '.chapter_id')
+            CH_NUM=$(echo "$chapter" | jq -r '.number')
+            
+            echo "   [$COUNT/$TOTAL] Fetching images for Ch. $CH_NUM..."
+            
+            # Fetch chapter with retry logic
+            MAX_RETRIES=3
+            RETRY=0
+            SUCCESS=false
+            
+            while [ $RETRY -lt $MAX_RETRIES ]; do
+              RESP=$(curl -s -L \
+                -H "Referer: $REFERER" \
+                -H "User-Agent: $USER_AGENT" \
+                "$API_BASE/chapters/$CHAPTER_ID/" 2>/dev/null)
+              
+              if echo "$RESP" | jq -e '.' > /dev/null 2>&1; then
+                SUCCESS=true
+                break
+              fi
+              
+              RETRY=$((RETRY + 1))
+              if [ $RETRY -lt $MAX_RETRIES ]; then
+                echo "      ⚠️ Retry $RETRY/$MAX_RETRIES in 5s..."
+                sleep 5
+              fi
+            done
+            
+            if [ "$SUCCESS" = true ]; then
+              # Extract image URLs from various possible response structures
+              IMAGES=$(echo "$RESP" | jq '
+                def extract:
+                  if type == "array" then 
+                    [.[] | .image_url // .url // .src // .data // .] | 
+                    map(select(type == "string" and startswith("http")))
+                  elif .pages and (.pages | type == "array") then
+                    [.pages[] | .image_url // .url // .src // .data // .] |
+                    map(select(type == "string" and startswith("http")))
+                  elif .images and (.images | type == "array") then
+                    [.images[] | .image_url // .url // .src // .data // .] |
+                    map(select(type == "string" and startswith("http")))
+                  elif .result then .result | extract
+                  else [] end;
+                extract
+              ')
+            else
+              echo "      ❌ Failed after $MAX_RETRIES attempts"
+              IMAGES="[]"
+            fi
+            
+            # Build chapter entry
+            ENTRY=$(jq -n \
+              --arg cid "$CHAPTER_ID" \
+              --arg num "$CH_NUM" \
+              --arg name "$(echo "$chapter" | jq -r '.name // ""')" \
+              --arg group "$(echo "$chapter" | jq -r '.scanlation_group.name // "Unknown"')" \
+              --arg lang "$(echo "$chapter" | jq -r '.language // "en"')" \
+              --argjson imgs "$IMAGES" \
+              '{
+                chapter_id: $cid,
+                number: $num,
+                name: (if $name == "" then null else $name end),
+                scanlation_group: $group,
+                language: $lang,
+                pages_count: ($imgs | length),
+                images: $imgs
+              }')
+            
+            if [ "$FIRST" = true ]; then
+              FIRST=false
+            else
+              RESULT+=","
+            fi
+            RESULT+="$ENTRY"
+            
+            # Rate limiting delay
+            if [ $COUNT -lt $TOTAL ]; then
+              sleep 0.3
+            fi
+          done <<< "$CHAPTERS"
+          
+          RESULT+=']}'
+          
+          # Save and format output
+          echo "$RESULT" | jq '.' > final_output.json
+          
+          echo "✅ Image fetching complete!"
+          echo ""
+          echo "📊 Summary:"
+          jq -r '.chapters[] | "  • Ch. \(.number): \(.pages_count) pages"' final_output.json
+
+      - name: Output final JSON (without images if skipped)
+        if: inputs.fetch_images != true
+        run: |
+          echo "📄 Generating output JSON (chapter metadata only)..."
+          
+          jq -n \
+            --slurpfile manga manga_info.json \
+            --slurpfile chapters chapters.json \
+            --arg url "$MANGA_URL" \
+            '{
+              manga: {
+                title: $manga[0].title,
+                url: $url,
+                cover: ($manga[0].poster.large // $manga[0].poster.medium // ""),
+                description: ($manga[0].synopsis // ""),
+                type: ($manga[0].type // ""),
+                language: ($manga[0].original_language // ""),
+                status: ($manga[0].status // ""),
+                year: ($manga[0].year // ""),
+                latest_chapter: ($manga[0].latest_chapter // "")
+              },
+              chapters: [
+                $chapters[0][] | {
+                  chapter_id: .chapter_id,
+                  number: .number,
+                  name: (.name // null),
+                  scanlation_group: (.scanlation_group.name // "Unknown"),
+                  language: (.language // "en"),
+                  note: "Use fetch_images=true to get image URLs"
+                }
+              ]
+            }' > final_output.json
+            
+          echo "✅ Output generated with $(jq '.chapters | length' final_output.json) chapters"
+
+      - name: Display output summary
+        run: |
+          echo ""
+          echo "═══════════════════════════════════════"
+          echo "📦 COMIX DOWNLOADER - FETCH COMPLETE"
+          echo "═══════════════════════════════════════"
+          echo ""
+          jq -r '"📚 Manga: \(.manga.title)\n🔗 URL: \(.manga.url)\n📖 Chapters: \(.chapters | length)\n"' final_output.json
+          
+          if [ "${{ inputs.fetch_images }}" = "true" ]; then
+            TOTAL_PAGES=$(jq '[.chapters[].pages_count] | add // 0' final_output.json)
+            echo "🖼️ Total image URLs fetched: $TOTAL_PAGES"
+          fi
+          echo ""
+          echo "───────────────────────────────────────"
+          echo "📋 First 3 chapters preview:"
+          echo "───────────────────────────────────────"
+          jq -r '.chapters[:3][] | "  Ch. \(.number)\(.name ? " — \(.name)" : "")\n     Group: \(.scanlation_group)\n     Pages: \(.pages_count // "N/A")\n"' final_output.json
+
+      - name: Upload JSON artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: comix-output-${{ env.MANGA_CODE }}
+          path: final_output.json
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Save to repository (optional)
+        if: false  # Set to true to enable auto-commit
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
+          mkdir -p output
+          cp final_output.json "output/${{ env.MANGA_CODE }}-$(date +%Y%m%d-%H%M%S).json"
+          
+          git add output/
+          git commit -m "chore: fetch comix data for $MANGA_CODE" || echo "No changes to commit"
+          git push || echo "Push skipped (may require token)"
