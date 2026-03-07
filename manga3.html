@@ -27,30 +27,22 @@
       min-height: 100vh;
     }
 
-    /* Header */
-    .header {
-      background: var(--bg-secondary);
-      padding: 12px 24px;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      gap: 20px;
-    }
+.header {
+  background: var(--bg-secondary);
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center; 
+  gap: 20px;
+}
 
-    .logo {
-      font-size: 18px;
-      font-weight: 700;
-      color: var(--accent);
-      text-transform: uppercase;
-      letter-spacing: 1px;
-    }
-
-    .url-input-container {
-      flex: 1;
-      display: flex;
-      gap: 10px;
-      max-width: 1200px;
-    }
+.url-input-container {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  max-width: 900px; 
+}
 
     #urlInput {
       flex: 1;
@@ -65,7 +57,113 @@
     }
 
     #urlInput:focus { border-color: var(--accent); }
+/* Status Bar Container */
+#statusDisplay {
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 24px;
+  display: none; /* Hidden by default, shown via JS */
+}
+#statusDisplay.visible {
+  display: block;
+}
 
+.status-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+.status-line:last-child { margin-bottom: 0; }
+
+.status-line .icon {
+  font-size: 14px;
+}
+
+.status-line strong {
+  color: var(--success);
+  font-weight: 600;
+}
+
+.moscow-time {
+  font-size: 12px;
+  opacity: 0.9;
+}
+
+/* Summary Block */
+.summary {
+  margin-top: 8px;
+  padding: 10px 14px;
+  background: var(--bg-tertiary);
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--text-primary);
+  font-family: 'Consolas', 'Monaco', monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-width: 100%;
+  overflow-x: auto;
+}
+.summary.empty {
+  display: none;
+}
+.summary strong {
+  color: var(--accent);
+  margin-right: 6px;
+}
+
+/* Refresh Button */
+#refreshBtn {
+  position: fixed;
+  top: 14px;
+  right: 24px;
+  padding: 8px 16px;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  z-index: 100;
+}
+#refreshBtn:hover {
+  background: var(--border);
+  border-color: var(--accent);
+}
+#refreshBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Error Box */
+#error {
+  position: fixed;
+  top: 50px;
+  right: 24px;
+  padding: 10px 16px;
+  background: var(--error);
+  color: var(--bg-primary);
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  display: none;
+  z-index: 101;
+  max-width: 400px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+#error.visible {
+  display: block;
+  animation: slideIn 0.3s ease;
+}
+@keyframes slideIn {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
     .btn {
       padding: 10px 24px;
       background: var(--accent);
@@ -373,20 +471,21 @@
     </div>
   </div>
 
-  <button id="refreshBtn">Refresh Status</button>
-  <div id="error" class="error"></div>
-  <div id="statusDisplay">
-    <div class="status-line">
-      <span class="icon" id="statusIcon"></span>
-      <strong id="statusText"></strong>
-    </div>
-    <div class="status-line moscow-time">
-      Time: <span id="moscowTime"></span>
-    </div>
-    <div class="summary" id="summaryBlock">
-      <strong>Summary:</strong> <span id="summaryText"></span>
-    </div>
+<button id="refreshBtn" title="Refresh status">⟳ Refresh</button>
+<div id="error" class="error"></div>
+
+<div id="statusDisplay">
+  <div class="status-line">
+    <span class="icon" id="statusIcon">🟢</span>
+    <strong id="statusText">Ready</strong>
   </div>
+  <div class="status-line moscow-time">
+    Time: <span id="moscowTime">08.03.2026, 02:37:35</span>
+  </div>
+  <div class="summary" id="summaryBlock">
+    <strong>Summary:</strong><span id="summaryText">{ "downloads": "228/228", "optimizations": "228/228", "total_time": "96.0s" }</span>
+  </div>
+</div>
   
   <div class="container">
     <div class="sidebar">
