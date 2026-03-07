@@ -944,7 +944,7 @@
       if (e.key === 'Enter') fetchManga();
     });
 
-      const STATUS_URL = 'https://raw.githubusercontent.com/YuushaExa/man-com/refs/heads/main/status.json';
+    const STATUS_URL = 'https://raw.githubusercontent.com/YuushaExa/man-com/refs/heads/main/status.json';
     const refreshBtn = document.getElementById('refreshBtn');
     const statusDisplay = document.getElementById('statusDisplay');
     const errorBox = document.getElementById('error');
@@ -953,6 +953,7 @@
     function formatMoscowTime(isoString) {
       try {
         const date = new Date(isoString);
+        if (isNaN(date)) return 'Invalid date';
         return date.toLocaleString('ru-RU', {
           timeZone: 'Europe/Moscow',
           year: 'numeric',
@@ -962,20 +963,46 @@
           minute: '2-digit',
           second: '2-digit',
           hour12: false
-        }).replace(',', ',');
+        });
       } catch (e) {
         return 'Invalid date';
       }
+    }
+
+    // Safely convert summary to string (handles null, objects, arrays, etc.)
+    function formatSummary(value) {
+      if (value === null || value === undefined || value === '') {
+        return null; // Signal "empty"
+      }
+      if (typeof value === 'string') {
+        return value.trim();
+      }
+      if (typeof value === 'object') {
+        try {
+          // Pretty-print objects, but limit depth to avoid huge output
+          return JSON.stringify(value, null, 2);
+        } catch {
+          return String(value);
+        }
+      }
+      return String(value);
     }
 
     async function fetchStatus() {
       refreshBtn.disabled = true;
       errorBox.classList.remove('visible');
       errorBox.textContent = '';
+      
+      // Show loading state optionally
+      const originalBtnText = refreshBtn.textContent;
+      refreshBtn.textContent = '⏳ Loading...';
 
       try {
-        const response = await fetch(STATUS_URL, {
-          cache: 'no-store' // Avoid cached responses
+        // 🔥 Cache busting: add timestamp query param
+        const fetchUrl = `${STATUS_URL}?t=${Date.now()}`;
+        
+        const response = await fetch(fetchUrl, {
+          cache: 'no-store'
         });
 
         if (!response.ok) {
@@ -991,11 +1018,13 @@
 
         const summaryEl = document.getElementById('summaryText');
         const summaryBlock = document.getElementById('summaryBlock');
-        if (data.summary === null || data.summary === undefined || data.summary === '') {
+        const formattedSummary = formatSummary(data.summary);
+        
+        if (formattedSummary === null) {
           summaryEl.textContent = 'No summary available';
           summaryBlock.classList.add('empty');
         } else {
-          summaryEl.textContent = data.summary;
+          summaryEl.textContent = formattedSummary;
           summaryBlock.classList.remove('empty');
         }
 
@@ -1008,11 +1037,11 @@
         statusDisplay.classList.remove('visible');
       } finally {
         refreshBtn.disabled = false;
+        refreshBtn.textContent = originalBtnText;
       }
     }
 
     refreshBtn.addEventListener('click', fetchStatus);
-
     fetchStatus();
   </script>
 </body>
