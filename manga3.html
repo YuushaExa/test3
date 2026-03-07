@@ -638,16 +638,23 @@
       updateCount();
     }
 
-    function filterChapters() {
-      const filter = document.getElementById('scanlatorFilter').value;
-      if (!filter) {
-        filteredChapters = [...allChapters];
-      } else {
-        filteredChapters = allChapters.filter(ch => ch.scanlation_group?.name === filter);
-      }
-      renderChapters();
-      updateCount();
-    }
+function filterChapters() {
+  const filter = document.getElementById('scanlatorFilter').value;
+  
+  if (!filter) {
+    // No filter = show all
+    filteredChapters = [...allChapters];
+  } else {
+    // Use normalized group name for comparison (same logic as rendering)
+    filteredChapters = allChapters.filter(ch => {
+      const group = ch.scanlation_group?.name || 'Unknown';
+      return group === filter;
+    });
+  }
+  
+  renderChapters();
+  updateCount();
+}
 
     function updateCount() {
       document.getElementById('selectedCount').textContent = selectedChapters.size;
