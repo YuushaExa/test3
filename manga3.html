@@ -57,112 +57,63 @@
     }
 
     #urlInput:focus { border-color: var(--accent); }
-/* Status Bar Container */
+/* Status Display Container - Centered, Fixed Size */
 #statusDisplay {
+  display: none;
+  position: relative;
+  width: 500px;
+  height: 100px;
+  margin: 16px auto; /* Center horizontally */
   background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border);
-  padding: 10px 24px;
-  display: none; /* Hidden by default, shown via JS */
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
 }
 #statusDisplay.visible {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
+/* Status line (icon + text + time) */
 .status-line {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   font-size: 13px;
   color: var(--text-secondary);
-  margin-bottom: 4px;
+  line-height: 1;
+  white-space: nowrap;
 }
-.status-line:last-child { margin-bottom: 0; }
-
-.status-line .icon {
-  font-size: 14px;
-}
-
 .status-line strong {
   color: var(--success);
   font-weight: 600;
 }
-
+.status-line .icon {
+  font-size: 14px;
+}
 .moscow-time {
   font-size: 12px;
-  opacity: 0.9;
+  opacity: 0.85;
 }
-
-/* Summary Block */
 .summary {
-  margin-top: 8px;
-  padding: 10px 14px;
+  margin-top: 6px;
+  padding: 6px 10px;
   background: var(--bg-tertiary);
   border-radius: 6px;
   border: 1px solid var(--border);
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-primary);
-  font-family: 'Consolas', 'Monaco', monospace;
-  white-space: pre-wrap;
-  word-break: break-word;
-  max-width: 100%;
-  overflow-x: auto;
-}
-.summary.empty {
-  display: none;
-}
-.summary strong {
-  color: var(--accent);
-  margin-right: 6px;
-}
-
-/* Refresh Button */
-#refreshBtn {
-  position: fixed;
-  top: 14px;
-  right: 24px;
-  padding: 8px 16px;
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-  z-index: 100;
-}
-#refreshBtn:hover {
-  background: var(--border);
-  border-color: var(--accent);
-}
-#refreshBtn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* Error Box */
-#error {
-  position: fixed;
-  top: 50px;
-  right: 24px;
-  padding: 10px 16px;
-  background: var(--error);
-  color: var(--bg-primary);
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 500;
-  display: none;
-  z-index: 101;
-  max-width: 400px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+…  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
 }
 #error.visible {
   display: block;
-  animation: slideIn 0.3s ease;
+  animation: slideIn 0.25s ease;
 }
 @keyframes slideIn {
-  from { transform: translateX(100%); opacity: 0; }
-  to { transform: translateX(0); opacity: 1; }
+  from { opacity: 0; transform: translate(-50%, -10px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
 }
     .btn {
       padding: 10px 24px;
@@ -533,21 +484,22 @@
     </div>
   </div>
 
+<!-- Refresh Button + Error (positioned relative to centered block) -->
 <button id="refreshBtn" title="Refresh status">⟳ Refresh</button>
-<div id="error" class="error"></div>
+<div id="error"></div>
 
+<!-- Centered Status/Summary Block (500×100) -->
 <div id="statusDisplay">
   <div class="status-line">
     <span class="icon" id="statusIcon">🟢</span>
     <strong id="statusText">Ready</strong>
+    <span style="margin-left:auto; opacity:0.8">Time:</span>
+    <span id="moscowTime" style="margin-left:4px">08.03.2026, 02:37:35</span>
   </div>
-  <div class="status-line moscow-time">
-    Time: <span id="moscowTime">0</span>
+  <div class="summary" id="summaryBlock">
+    <strong>Summary:</strong>
+    <div id="summaryContent"></div>
   </div>
-<div class="summary" id="summaryBlock">
-  <strong>Summary:</strong>
-  <div id="summaryContent" class="summary-grid"></div>
-</div>
 </div>
   
   <div class="container">
@@ -1136,39 +1088,33 @@ function renderSummary(value) {
   const container = document.getElementById('summaryContent');
   const summaryBlock = document.getElementById('summaryBlock');
   
-  // Handle empty/null/undefined
   if (value === null || value === undefined || value === '') {
     summaryBlock.classList.add('empty');
-    container.innerHTML = '<span class="summary-empty">No summary available</span>';
+    container.innerHTML = '<span class="summary-empty">No summary</span>';
     return;
   }
 
-  // Parse if string
   let stats;
   try {
     stats = typeof value === 'string' ? JSON.parse(value.trim()) : value;
   } catch {
-    // Fallback: show raw text if not valid JSON
-    container.innerHTML = `<pre class="summary-raw">${String(value)}</pre>`;
+    container.innerHTML = `<span class="summary-raw">${String(value)}</span>`;
     summaryBlock.classList.remove('empty');
     return;
   }
 
-  // Config for known stats: label + CSS class for coloring
   const statConfig = {
-    downloads: { label: 'Downloads', class: 'downloads' },
-    optimizations: { label: 'Optimizations', class: 'optimizations' },
-    total_time: { label: 'Total Time', class: 'total_time' }
+    downloads: { label: 'DL', class: 'downloads' },
+    optimizations: { label: 'Opt', class: 'optimizations' },
+    total_time: { label: 'Time', class: 'total_time' }
   };
 
-  // Build card items
   const items = Object.entries(stats).map(([key, value]) => {
-    const cfg = statConfig[key] || { label: key.replace(/_/g, ' '), class: '' };
-    const displayValue = typeof value === 'string' ? value : String(value);
+    const cfg = statConfig[key] || { label: key, class: '' };
     return `
       <div class="summary-item ${cfg.class}">
         <span class="summary-label">${cfg.label}</span>
-        <span class="summary-value">${displayValue}</span>
+        <span class="summary-value">${value}</span>
       </div>
     `;
   }).join('');
