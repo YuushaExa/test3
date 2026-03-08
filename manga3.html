@@ -57,60 +57,7 @@
     }
 
     #urlInput:focus { border-color: var(--accent); }
-/* Status Display Container - Centered, Fixed Size */
-#statusDisplay {
-  display: none;
-  position: relative;
-  width: 500px;
-  height: 100px;
-  margin: 16px auto; /* Center horizontally */
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 12px 16px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
-}
-#statusDisplay.visible {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-}
 
-/* Status line (icon + text + time) */
-.status-line {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: var(--text-secondary);
-  line-height: 1;
-  white-space: nowrap;
-}
-.status-line strong {
-  color: var(--success);
-  font-weight: 600;
-}
-.status-line .icon {
-  font-size: 14px;
-}
-.moscow-time {
-  font-size: 12px;
-  opacity: 0.85;
-}
-.summary {
-  margin-top: 6px;
-  padding: 6px 10px;
-  background: var(--bg-tertiary);
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  font-size: 11px;
-  color: var(--text-primary);
-…  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-}
-#error.visible {
-  display: block;
-  animation: slideIn 0.25s ease;
-}
 @keyframes slideIn {
   from { opacity: 0; transform: translate(-50%, -10px); }
   to { opacity: 1; transform: translate(-50%, 0); }
@@ -378,69 +325,7 @@
       white-space: pre-wrap;
       word-break: break-all;
     }
-/* Summary Grid Cards */
-.summary-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-  gap: 10px;
-  margin-top: 8px;
-}
 
-.summary-item {
-  background: var(--bg-primary);
-  padding: 12px 14px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  text-align: center;
-  transition: border-color 0.2s, transform 0.15s;
-}
-.summary-item:hover {
-  border-color: var(--accent);
-  transform: translateY(-2px);
-}
-
-.summary-label {
-  display: block;
-  font-size: 11px;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-  margin-bottom: 6px;
-  font-weight: 500;
-}
-
-.summary-value {
-  display: block;
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--text-primary);
-  font-family: 'Consolas', 'Monaco', monospace;
-}
-
-/* Color accents for specific stats */
-.summary-item.downloads .summary-value { color: var(--success); }
-.summary-item.optimizations .summary-value { color: #7aa2f7; }
-.summary-item.total_time .summary-value { color: var(--accent); }
-
-/* Empty & fallback states */
-.summary-empty {
-  display: block;
-  color: var(--text-secondary);
-  font-size: 13px;
-  padding: 8px 0;
-}
-.summary-raw {
-  margin: 8px 0 0;
-  font-size: 11px;
-  color: var(--text-secondary);
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-/* Hide summary block when empty */
-.summary.empty {
-  display: none;
-}
     .modal-footer {
       padding: 12px 20px;
       border-top: 1px solid var(--border);
@@ -475,29 +360,7 @@
       .sidebar { width: 100%; }
     }
 
-    #refreshBtn {
-  position: absolute;
-  top: 12px;
-  right: calc(50% - 250px + 12px); /* Align with 500px centered block */
-  padding: 6px 14px;
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  font-size: 11px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-  z-index: 10;
-}
-#refreshBtn:hover {
-  background: var(--border);
-  border-color: var(--accent);
-}
-#refreshBtn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
+
   </style>
 </head>
 <body>
@@ -508,24 +371,6 @@
     </div>
   </div>
 
-<!-- Refresh Button + Error (positioned relative to centered block) -->
-<button id="refreshBtn" title="Refresh status">⟳ Refresh</button>
-<div id="error"></div>
-
-<!-- Centered Status/Summary Block (500×100) -->
-<div id="statusDisplay">
-  <div class="status-line">
-    <span class="icon" id="statusIcon">🟢</span>
-    <strong id="statusText">Ready</strong>
-    <span style="margin-left:auto; opacity:0.8">Time:</span>
-    <span id="moscowTime" style="margin-left:4px">08.03.2026, 02:37:35</span>
-  </div>
-  <div class="summary" id="summaryBlock">
-    <strong>Summary:</strong>
-    <div id="summaryContent"></div>
-  </div>
-</div>
-  
   <div class="container">
     <div class="sidebar">
       <div id="mangaInfo" style="display: none;">
@@ -1082,114 +927,6 @@
       if (e.key === 'Enter') fetchManga();
     });
 
- const STATUS_URL = 'https://raw.githubusercontent.com/YuushaExa/man-com/refs/heads/main/status.json';
-const refreshBtn = document.getElementById('refreshBtn');
-const statusDisplay = document.getElementById('statusDisplay');
-const errorBox = document.getElementById('error');
-
-// Format date to Moscow timezone (UTC+3)
-function formatMoscowTime(isoString) {
-  try {
-    const date = new Date(isoString);
-    if (isNaN(date)) return 'Invalid date';
-    return date.toLocaleString('ru-RU', {
-      timeZone: 'Europe/Moscow',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false
-    });
-  } catch (e) {
-    return 'Invalid date';
-  }
-}
-
-// Render summary as styled cards instead of raw JSON
-function renderSummary(value) {
-  const container = document.getElementById('summaryContent');
-  const summaryBlock = document.getElementById('summaryBlock');
-  
-  if (value === null || value === undefined || value === '') {
-    summaryBlock.classList.add('empty');
-    container.innerHTML = '<span class="summary-empty">No summary</span>';
-    return;
-  }
-
-  let stats;
-  try {
-    stats = typeof value === 'string' ? JSON.parse(value.trim()) : value;
-  } catch {
-    container.innerHTML = `<span class="summary-raw">${String(value)}</span>`;
-    summaryBlock.classList.remove('empty');
-    return;
-  }
-
-  const statConfig = {
-    downloads: { label: 'DL', class: 'downloads' },
-    optimizations: { label: 'Opt', class: 'optimizations' },
-    total_time: { label: 'Time', class: 'total_time' }
-  };
-
-  const items = Object.entries(stats).map(([key, value]) => {
-    const cfg = statConfig[key] || { label: key, class: '' };
-    return `
-      <div class="summary-item ${cfg.class}">
-        <span class="summary-label">${cfg.label}</span>
-        <span class="summary-value">${value}</span>
-      </div>
-    `;
-  }).join('');
-
-  container.innerHTML = `<div class="summary-grid">${items}</div>`;
-  summaryBlock.classList.remove('empty');
-}
-
-async function fetchStatus() {
-  refreshBtn.disabled = true;
-  errorBox.classList.remove('visible');
-  errorBox.textContent = '';
-  
-  const originalBtnText = refreshBtn.textContent;
-  refreshBtn.textContent = '⏳ Loading...';
-
-  try {
-    // Cache busting
-    const fetchUrl = `${STATUS_URL}?t=${Date.now()}`;
-    
-    const response = await fetch(fetchUrl, { cache: 'no-store' });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-
-    const data = await response.json();
-
-    // Update status UI
-    document.getElementById('statusIcon').textContent = data.icon || '❓';
-    document.getElementById('statusText').textContent = data.status || 'Unknown';
-    document.getElementById('moscowTime').textContent = formatMoscowTime(data.timestamp);
-
-    // Render summary as cards
-    renderSummary(data.summary);
-
-    statusDisplay.classList.add('visible');
-
-  } catch (err) {
-    console.error('Fetch error:', err);
-    errorBox.textContent = `⚠️ Failed to load status: ${err.message}`;
-    errorBox.classList.add('visible');
-    statusDisplay.classList.remove('visible');
-  } finally {
-    refreshBtn.disabled = false;
-    refreshBtn.textContent = originalBtnText;
-  }
-}
-
-refreshBtn.addEventListener('click', fetchStatus);
-fetchStatus();
   </script>
 </body>
 </html>
