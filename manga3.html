@@ -427,7 +427,69 @@
       white-space: pre-wrap;
       word-break: break-all;
     }
+/* Summary Grid Cards */
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px;
+  margin-top: 8px;
+}
 
+.summary-item {
+  background: var(--bg-primary);
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  text-align: center;
+  transition: border-color 0.2s, transform 0.15s;
+}
+.summary-item:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+}
+
+.summary-label {
+  display: block;
+  font-size: 11px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-bottom: 6px;
+  font-weight: 500;
+}
+
+.summary-value {
+  display: block;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-family: 'Consolas', 'Monaco', monospace;
+}
+
+/* Color accents for specific stats */
+.summary-item.downloads .summary-value { color: var(--success); }
+.summary-item.optimizations .summary-value { color: #7aa2f7; }
+.summary-item.total_time .summary-value { color: var(--accent); }
+
+/* Empty & fallback states */
+.summary-empty {
+  display: block;
+  color: var(--text-secondary);
+  font-size: 13px;
+  padding: 8px 0;
+}
+.summary-raw {
+  margin: 8px 0 0;
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Hide summary block when empty */
+.summary.empty {
+  display: none;
+}
     .modal-footer {
       padding: 12px 20px;
       border-top: 1px solid var(--border);
@@ -480,11 +542,12 @@
     <strong id="statusText">Ready</strong>
   </div>
   <div class="status-line moscow-time">
-    Time: <span id="moscowTime">08.03.2026, 02:37:35</span>
+    Time: <span id="moscowTime">0</span>
   </div>
-  <div class="summary" id="summaryBlock">
-    <strong>Summary:</strong><span id="summaryText">{ "downloads": "228/228", "optimizations": "228/228", "total_time": "96.0s" }</span>
-  </div>
+<div class="summary" id="summaryBlock">
+  <strong>Summary:</strong>
+  <div id="summaryContent" class="summary-grid"></div>
+</div>
 </div>
   
   <div class="container">
@@ -1043,108 +1106,120 @@
       if (e.key === 'Enter') fetchManga();
     });
 
-    const STATUS_URL = 'https://raw.githubusercontent.com/YuushaExa/man-com/refs/heads/main/status.json';
-    const refreshBtn = document.getElementById('refreshBtn');
-    const statusDisplay = document.getElementById('statusDisplay');
-    const errorBox = document.getElementById('error');
+ const STATUS_URL = 'https://raw.githubusercontent.com/YuushaExa/man-com/refs/heads/main/status.json';
+const refreshBtn = document.getElementById('refreshBtn');
+const statusDisplay = document.getElementById('statusDisplay');
+const errorBox = document.getElementById('error');
 
-    // Format date to Moscow timezone (UTC+3)
-    function formatMoscowTime(isoString) {
-      try {
-        const date = new Date(isoString);
-        if (isNaN(date)) return 'Invalid date';
-        return date.toLocaleString('ru-RU', {
-          timeZone: 'Europe/Moscow',
-          year: 'numeric',
-          month: '2-digit',
-          day: '2-digit',
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit',
-          hour12: false
-        });
-      } catch (e) {
-        return 'Invalid date';
-      }
-    }
-
-function formatSummary(value) {
-  if (value === null || value === undefined || value === '') {
-    return null;
+// Format date to Moscow timezone (UTC+3)
+function formatMoscowTime(isoString) {
+  try {
+    const date = new Date(isoString);
+    if (isNaN(date)) return 'Invalid date';
+    return date.toLocaleString('ru-RU', {
+      timeZone: 'Europe/Moscow',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    });
+  } catch (e) {
+    return 'Invalid date';
   }
-  if (typeof value === 'string') {
-    // Try to parse and prettify if it looks like JSON
-    try {
-      const parsed = JSON.parse(value.trim());
-      return JSON.stringify(parsed, null, 2);
-    } catch {
-      return value.trim();
-    }
-  }
-  if (typeof value === 'object') {
-    try {
-      return JSON.stringify(value, null, 2);
-    } catch {
-      return String(value);
-    }
-  }
-  return String(value);
 }
 
-    async function fetchStatus() {
-      refreshBtn.disabled = true;
-      errorBox.classList.remove('visible');
-      errorBox.textContent = '';
-      
-      // Show loading state optionally
-      const originalBtnText = refreshBtn.textContent;
-      refreshBtn.textContent = '⏳ Loading...';
+// Render summary as styled cards instead of raw JSON
+function renderSummary(value) {
+  const container = document.getElementById('summaryContent');
+  const summaryBlock = document.getElementById('summaryBlock');
+  
+  // Handle empty/null/undefined
+  if (value === null || value === undefined || value === '') {
+    summaryBlock.classList.add('empty');
+    container.innerHTML = '<span class="summary-empty">No summary available</span>';
+    return;
+  }
 
-      try {
-        // 🔥 Cache busting: add timestamp query param
-        const fetchUrl = `${STATUS_URL}?t=${Date.now()}`;
-        
-        const response = await fetch(fetchUrl, {
-          cache: 'no-store'
-        });
+  // Parse if string
+  let stats;
+  try {
+    stats = typeof value === 'string' ? JSON.parse(value.trim()) : value;
+  } catch {
+    // Fallback: show raw text if not valid JSON
+    container.innerHTML = `<pre class="summary-raw">${String(value)}</pre>`;
+    summaryBlock.classList.remove('empty');
+    return;
+  }
 
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
+  // Config for known stats: label + CSS class for coloring
+  const statConfig = {
+    downloads: { label: 'Downloads', class: 'downloads' },
+    optimizations: { label: 'Optimizations', class: 'optimizations' },
+    total_time: { label: 'Total Time', class: 'total_time' }
+  };
 
-        const data = await response.json();
+  // Build card items
+  const items = Object.entries(stats).map(([key, value]) => {
+    const cfg = statConfig[key] || { label: key.replace(/_/g, ' '), class: '' };
+    const displayValue = typeof value === 'string' ? value : String(value);
+    return `
+      <div class="summary-item ${cfg.class}">
+        <span class="summary-label">${cfg.label}</span>
+        <span class="summary-value">${displayValue}</span>
+      </div>
+    `;
+  }).join('');
 
-        // Update UI
-        document.getElementById('statusIcon').textContent = data.icon || '❓';
-        document.getElementById('statusText').textContent = data.status || 'Unknown';
-        document.getElementById('moscowTime').textContent = formatMoscowTime(data.timestamp);
-
-  const summaryEl = document.getElementById('summaryText');
-const summaryBlock = document.getElementById('summaryBlock');
-const formattedSummary = formatSummary(data.summary);
-
-if (formattedSummary === null) {
-  summaryBlock.classList.add('empty');
-} else {
-  summaryEl.textContent = formattedSummary;
+  container.innerHTML = `<div class="summary-grid">${items}</div>`;
   summaryBlock.classList.remove('empty');
 }
 
-        statusDisplay.classList.add('visible');
+async function fetchStatus() {
+  refreshBtn.disabled = true;
+  errorBox.classList.remove('visible');
+  errorBox.textContent = '';
+  
+  const originalBtnText = refreshBtn.textContent;
+  refreshBtn.textContent = '⏳ Loading...';
 
-      } catch (err) {
-        console.error('Fetch error:', err);
-        errorBox.textContent = `⚠️ Failed to load status: ${err.message}`;
-        errorBox.classList.add('visible');
-        statusDisplay.classList.remove('visible');
-      } finally {
-        refreshBtn.disabled = false;
-        refreshBtn.textContent = originalBtnText;
-      }
+  try {
+    // Cache busting
+    const fetchUrl = `${STATUS_URL}?t=${Date.now()}`;
+    
+    const response = await fetch(fetchUrl, { cache: 'no-store' });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
 
-    refreshBtn.addEventListener('click', fetchStatus);
-    fetchStatus();
+    const data = await response.json();
+
+    // Update status UI
+    document.getElementById('statusIcon').textContent = data.icon || '❓';
+    document.getElementById('statusText').textContent = data.status || 'Unknown';
+    document.getElementById('moscowTime').textContent = formatMoscowTime(data.timestamp);
+
+    // Render summary as cards
+    renderSummary(data.summary);
+
+    statusDisplay.classList.add('visible');
+
+  } catch (err) {
+    console.error('Fetch error:', err);
+    errorBox.textContent = `⚠️ Failed to load status: ${err.message}`;
+    errorBox.classList.add('visible');
+    statusDisplay.classList.remove('visible');
+  } finally {
+    refreshBtn.disabled = false;
+    refreshBtn.textContent = originalBtnText;
+  }
+}
+
+refreshBtn.addEventListener('click', fetchStatus);
+fetchStatus();
   </script>
 </body>
 </html>
