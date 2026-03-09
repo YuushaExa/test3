@@ -27,22 +27,22 @@
       min-height: 100vh;
     }
 
-.header {
-  background: var(--bg-secondary);
-  padding: 12px 24px;
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  justify-content: center; 
-  gap: 20px;
-}
+    .header {
+      background: var(--bg-secondary);
+      padding: 12px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center; 
+      gap: 20px;
+    }
 
-.url-input-container {
-  display: flex;
-  gap: 10px;
-  width: 100%;
-  max-width: 900px; 
-}
+    .url-input-container {
+      display: flex;
+      gap: 10px;
+      width: 100%;
+      max-width: 900px; 
+    }
 
     #urlInput {
       flex: 1;
@@ -58,10 +58,11 @@
 
     #urlInput:focus { border-color: var(--accent); }
 
-@keyframes slideIn {
-  from { opacity: 0; transform: translate(-50%, -10px); }
-  to { opacity: 1; transform: translate(-50%, 0); }
-}
+    @keyframes slideIn {
+      from { opacity: 0; transform: translate(-50%, -10px); }
+      to { opacity: 1; transform: translate(-50%, 0); }
+    }
+
     .btn {
       padding: 10px 24px;
       background: var(--accent);
@@ -120,6 +121,55 @@
       overflow-y: auto;
     }
 
+    /* Preview Panel */
+    #previewPanel {
+      display: none;
+      margin-top: 20px;
+      background: var(--bg-secondary);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      overflow: hidden;
+      transition: all 0.2s ease;
+    }
+    #previewPanel .preview-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    #previewPanel .preview-title {
+      font-weight: 600;
+      font-size: 14px;
+    }
+    #previewPanel .preview-btn-close {
+      padding: 6px 12px;
+      font-size: 12px;
+    }
+    #previewLoading {
+      padding: 20px;
+      text-align: center;
+      color: var(--text-secondary);
+    }
+    #previewLoading .spinner {
+      width: 30px;
+      height: 30px;
+      margin: 0 auto 12px;
+    }
+    #previewError {
+      padding: 16px;
+      color: var(--error);
+      text-align: center;
+    }
+    #previewFrame {
+      width: 100%;
+      height: 500px;
+      border: none;
+      background: var(--bg-primary);
+      display: none;
+      border-radius: 0 0 8px 8px;
+    }
+
     /* Chapters Panel */
     .chapters-panel {
       flex: 1;
@@ -156,12 +206,14 @@
 
     .chapter-item {
       display: flex;
-      align-items: flex-start;
+      align-items: center;
       padding: 12px;
       margin-bottom: 4px;
       border-radius: 6px;
       cursor: pointer;
       transition: background 0.15s;
+      flex-wrap: wrap;
+      gap: 8px;
     }
 
     .chapter-item:hover { background: var(--bg-tertiary); }
@@ -171,18 +223,28 @@
     }
 
     .chapter-checkbox {
-      margin-right: 12px;
-      margin-top: 2px;
+      margin-right: 8px;
       width: 18px;
       height: 18px;
       cursor: pointer;
       accent-color: var(--accent);
+      flex-shrink: 0;
     }
 
-    .chapter-info { flex: 1; }
+    .chapter-info { 
+      flex: 1; 
+      min-width: 0;
+    }
     .chapter-number { font-weight: 600; color: var(--text-primary); margin-bottom: 4px; }
     .chapter-group { font-size: 12px; color: var(--text-secondary); }
     .chapter-group.official { color: var(--success); }
+
+    .btn-preview {
+      padding: 6px 14px;
+      font-size: 11px;
+      margin-left: 8px;
+      flex-shrink: 0;
+    }
 
     /* Footer */
     .footer {
@@ -195,8 +257,8 @@
       gap: 20px;
     }
 
-    .footer-left { display: flex; gap: 10px; align-items: center; }
-    .footer-right { display: flex; gap: 10px; align-items: center; }
+    .footer-left { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .footer-right { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
     .select-count { font-size: 13px; color: var(--text-secondary); }
     .select-count strong { color: var(--accent); }
 
@@ -358,47 +420,29 @@
     @media (max-width: 900px) {
       .container { flex-direction: column; }
       .sidebar { width: 100%; }
+      #previewFrame { height: 400px; }
     }
-
-/* Add these CSS styles to your <style> section for better preview panel integration */
-
-#previewPanel {
-  transition: all 0.2s ease;
-}
-
-#previewFrame {
-  border-radius: 0 0 8px 8px;
-}
-
-/* Make chapter items wrap nicely with the new button */
-.chapter-item {
-  flex-wrap: wrap;
-}
-
-.chapter-info {
-  min-width: 0; /* Allows text truncation if needed */
-}
-
-/* Responsive adjustments */
-@media (max-width: 600px) {
-  .chapter-item {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  .chapter-item > div:last-child {
-    margin-top: 8px;
-    margin-left: 30px !important; /* Align with text after checkbox */
-  }
-  #previewFrame {
-    height: 400px;
-  }
-}
+    
+    @media (max-width: 600px) {
+      .chapter-item {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .chapter-item > .btn-preview {
+        margin-left: 26px;
+        margin-top: 4px;
+        align-self: flex-start;
+      }
+      .footer-left, .footer-right {
+        flex-wrap: wrap;
+      }
+    }
   </style>
 </head>
 <body>
   <div class="header">
     <div class="url-input-container">
-      <input type="text" id="urlInput">
+      <input type="text" id="urlInput" placeholder="Paste comix.to/title/... URL here">
       <button class="btn" id="fetchBtn" onclick="fetchManga()">FETCH</button>
     </div>
   </div>
@@ -416,27 +460,25 @@
         <div class="manga-info">Year: <span id="mangaYear"></span></div>
         <div class="manga-info">Latest: <span id="mangaLatest"></span></div>
         <div class="manga-info">Followers: <span id="mangaFollowers"></span></div>
-        <!-- Term rows (hidden by default, shown when data exists) -->
         <div class="manga-info" id="genresRow" style="display:none">Genres: <span id="mangaGenres"></span></div>
         <div class="manga-info" id="authorsRow" style="display:none">Authors: <span id="mangaAuthors"></span></div>
         <div class="manga-info" id="artistsRow" style="display:none">Artists: <span id="mangaArtists"></span></div>
         <div class="manga-description" id="mangaDesc"></div>
-
-  <div id="previewPanel" style="display: none; margin-top: 20px; background: var(--bg-secondary); border-radius: 8px; border: 1px solid var(--border); overflow: hidden;">
-    <div style="padding: 12px 16px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
-      <div style="font-weight: 600; font-size: 14px;">📖 Chapter Preview</div>
-      <button class="btn btn-secondary" onclick="closePreview()" style="padding: 6px 12px; font-size: 12px;">✕ Close</button>
-    </div>
-    <div id="previewLoading" style="padding: 20px; text-align: center; color: var(--text-secondary); display: none;">
-      <div class="spinner" style="width: 30px; height: 30px; margin: 0 auto 12px;"></div>
-      <div>Loading preview...</div>
-    </div>
-    <div id="previewError" style="padding: 16px; color: var(--error); text-align: center; display: none;"></div>
-    <iframe id="previewFrame" style="width: 100%; height: 500px; border: none; background: var(--bg-primary); display: none;"></iframe>
-        
       </div>
-
       
+      <!-- Chapter Preview Panel -->
+      <div id="previewPanel">
+        <div class="preview-header">
+          <div class="preview-title">📖 Chapter Preview</div>
+          <button class="btn btn-secondary preview-btn-close" onclick="closePreview()">✕ Close</button>
+        </div>
+        <div id="previewLoading" style="display: none;">
+          <div class="spinner"></div>
+          <div>Loading preview...</div>
+        </div>
+        <div id="previewError" style="display: none;"></div>
+        <iframe id="previewFrame"></iframe>
+      </div>
     </div>
 
     <div class="chapters-panel">
@@ -502,7 +544,6 @@
     const API_BASE = 'https://comix.to/api/v2';
     const HEADERS = { 'Referer': 'https://comix.to/', 'User-Agent': 'Mozilla/5.0' };
 
-    // Genre ID → Name mapping (from your API response)
     const GENRE_MAP = {
       6: "Action", 87264: "Adult", 7: "Adventure", 9: "Comedy", 11: "Drama",
       87265: "Ecchi", 12: "Fantasy", 14: "Historical", 15: "Horror", 16: "Isekai",
@@ -534,7 +575,6 @@
       }
     };
 
-    // Retry with 5 second delay specifically for chapter images
     const fetchChapterWithRetry = async (chapterId, maxRetries = 3) => {
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
@@ -548,7 +588,6 @@
       }
     };
 
-    // Fetch term names by type (author/artist) for multiple IDs at once
     async function fetchTermNames(termIds, type) {
       if (!termIds?.length) return [];
       const unknownIds = termIds.filter(id => !KNOWN_GENRE_IDS.has(Number(id)));
@@ -565,7 +604,6 @@
       }
     }
 
-    // Concurrency-limited fetcher for parallel chapter fetching
     async function fetchWithConcurrency(items, fetchFn, concurrency = 3, onProgress) {
       const results = [];
       const executing = new Set();
@@ -607,8 +645,8 @@
       selectedChapters.clear();
       scanlators.clear();
       mangaDataCache = null;
+      closePreview();
 
-      // Reset term rows before new fetch
       ['genresRow', 'authorsRow', 'artistsRow'].forEach(id => {
         const el = document.getElementById(id);
         if (el) {
@@ -621,12 +659,10 @@
       try {
         const code = extractCode(url);
         
-        // Fetch manga info
         const mangaRes = await fetchRetry(`${API_BASE}/manga/${code}/`);
         const manga = mangaRes.result;
         mangaDataCache = manga;
         
-        // ===== PROCESS TERMS (Genres/Authors/Artists) =====
         const termIds = manga.term_ids || [];
         const genreNames = [];
         const authorIds = [];
@@ -650,9 +686,7 @@
         mangaDataCache.resolvedGenres = [...new Set(genreNames)];
         mangaDataCache.resolvedAuthors = [...new Set(authors)];
         mangaDataCache.resolvedArtists = [...new Set(artists)];
-        // ===== END TERMS =====
 
-        // Display manga info
         document.getElementById('mangaInfo').style.display = 'block';
         document.getElementById('coverImg').src = manga.poster?.large || manga.poster?.medium || '';
         document.getElementById('mangaTitle').textContent = manga.title;
@@ -664,7 +698,6 @@
         document.getElementById('mangaFollowers').textContent = manga.follows_total?.toLocaleString() || '0';
         document.getElementById('mangaDesc').textContent = manga.synopsis || 'No description available.';
 
-        // ===== DISPLAY TERMS (SAFE VERSION) =====
         function updateInfoRow(rowId, spanId, items) {
           const row = document.getElementById(rowId);
           const span = document.getElementById(spanId);
@@ -678,9 +711,7 @@
         updateInfoRow('genresRow', 'mangaGenres', mangaDataCache.resolvedGenres);
         updateInfoRow('authorsRow', 'mangaAuthors', mangaDataCache.resolvedAuthors);
         updateInfoRow('artistsRow', 'mangaArtists', mangaDataCache.resolvedArtists);
-        // ===== END DISPLAY =====
 
-        // Fetch all chapters
         let page = 1, hasMore = true;
         while (hasMore) {
           const chapRes = await fetchRetry(`${API_BASE}/manga/${code}/chapters?limit=100&page=${page}&order[number]=asc`);
@@ -698,7 +729,6 @@
           await new Promise(r => setTimeout(r, 100));
         }
 
-        // Sort chapters
         allChapters.sort((a, b) => {
           const na = parseFloat(a.number);
           const nb = parseFloat(b.number);
@@ -706,7 +736,6 @@
           return String(a.number).localeCompare(String(b.number), undefined, { numeric: true });
         });
 
-        // Populate scanlator filter
         const filterSelect = document.getElementById('scanlatorFilter');
         filterSelect.innerHTML = '<option value="">All Scanlators</option>';
         Array.from(scanlators).sort().forEach(group => {
@@ -742,7 +771,7 @@
         const div = document.createElement('div');
         div.className = 'chapter-item' + (selectedChapters.has(chapter.chapter_id) ? ' selected' : '');
         div.onclick = (e) => {
-          if (e.target.type !== 'checkbox') {
+          if (e.target.tagName !== 'INPUT' && !e.target.closest('.btn-preview')) {
             toggleChapter(chapter.chapter_id);
           }
         };
@@ -753,11 +782,15 @@
         div.innerHTML = `
           <input type="checkbox" class="chapter-checkbox" 
             ${selectedChapters.has(chapter.chapter_id) ? 'checked' : ''} 
-            onchange="toggleChapter('${chapter.chapter_id}')">
+            onclick="event.stopPropagation(); toggleChapter('${chapter.chapter_id}')">
           <div class="chapter-info">
             <div class="chapter-number">Ch. ${chapter.number}${chapter.name ? ' — ' + chapter.name : ''}</div>
             <div class="chapter-group ${isOfficial ? 'official' : ''}">${group}</div>
           </div>
+          <button class="btn btn-secondary btn-preview" 
+            onclick="event.stopPropagation(); previewChapter('${chapter.chapter_id}')">
+            👁 Preview
+          </button>
         `;
 
         list.appendChild(div);
@@ -794,7 +827,6 @@
       if (!filter) {
         filteredChapters = [...allChapters];
       } else {
-        // Use normalized group name for comparison (same logic as rendering)
         filteredChapters = allChapters.filter(ch => {
           const group = ch.scanlation_group?.name || 'Unknown';
           return group === filter;
@@ -808,6 +840,153 @@
     function updateCount() {
       document.getElementById('selectedCount').textContent = selectedChapters.size;
       document.getElementById('showJsonBtn').disabled = selectedChapters.size === 0;
+    }
+
+    // ============ PREVIEW FEATURE ============
+    
+    async function previewChapter(chapterId) {
+      const panel = document.getElementById('previewPanel');
+      const loading = document.getElementById('previewLoading');
+      const error = document.getElementById('previewError');
+      const iframe = document.getElementById('previewFrame');
+      
+      panel.style.display = 'block';
+      loading.style.display = 'block';
+      error.style.display = 'none';
+      iframe.style.display = 'none';
+      iframe.srcdoc = '';
+      
+      if (window.innerWidth <= 900) {
+        panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+      
+      try {
+        const chapter = allChapters.find(ch => ch.chapter_id === chapterId);
+        if (!chapter) throw new Error('Chapter not found');
+        
+        const chapterRes = await fetchChapterWithRetry(chapterId);
+        const imageUrls = extractImageUrls(chapterRes);
+        
+        if (imageUrls.length === 0) {
+          throw new Error('No images found for this chapter');
+        }
+        
+        const htmlContent = buildPreviewHTML(chapter, imageUrls);
+        
+        iframe.srcdoc = htmlContent;
+        iframe.onload = () => {
+          loading.style.display = 'none';
+          iframe.style.display = 'block';
+        };
+        
+      } catch (err) {
+        console.error('Preview error:', err);
+        loading.style.display = 'none';
+        error.textContent = 'Error loading preview: ' + err.message;
+        error.style.display = 'block';
+      }
+    }
+
+    function buildPreviewHTML(chapter, imageUrls) {
+      const title = `Ch. ${chapter.number}${chapter.name ? ' — ' + chapter.name : ''}`;
+      const group = chapter.scanlation_group?.name || 'Unknown';
+      
+      return `
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>${title}</title>
+          <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+              background: #1a1b26;
+              color: #c0caf5;
+              padding: 16px;
+              line-height: 1.5;
+            }
+            .header {
+              position: sticky;
+              top: 0;
+              background: #24283b;
+              padding: 12px 16px;
+              border-radius: 8px;
+              margin-bottom: 16px;
+              border: 1px solid #414868;
+              z-index: 10;
+            }
+            .chapter-title { font-weight: 700; font-size: 16px; margin-bottom: 4px; }
+            .chapter-meta { font-size: 12px; color: #7982a9; }
+            .pages-container {
+              display: flex;
+              flex-direction: column;
+              gap: 12px;
+              max-width: 900px;
+              margin: 0 auto;
+            }
+            .page-card {
+              background: #2f3549;
+              border-radius: 8px;
+              overflow: hidden;
+              border: 1px solid #414868;
+            }
+            .page-card img {
+              width: 100%;
+              height: auto;
+              display: block;
+              max-height: 80vh;
+              object-fit: contain;
+            }
+            .page-number {
+              padding: 8px 12px;
+              font-size: 11px;
+              color: #7982a9;
+              background: #24283b;
+              text-align: center;
+            }
+            .loading-placeholder {
+              min-height: 200px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              color: #7982a9;
+              font-size: 13px;
+            }
+            @media (min-width: 768px) {
+              .pages-container {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 16px;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="chapter-title">${title}</div>
+            <div class="chapter-meta">${group} • ${imageUrls.length} pages</div>
+          </div>
+          <div class="pages-container">
+            ${imageUrls.map((url, idx) => `
+              <div class="page-card">
+                <img src="${url}" alt="Page ${idx + 1}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\\'loading-placeholder\\'>Failed to load image</div>'">
+                <div class="page-number">Page ${idx + 1}</div>
+              </div>
+            `).join('')}
+          </div>
+        </body>
+        </html>
+      `;
+    }
+
+    function closePreview() {
+      const panel = document.getElementById('previewPanel');
+      const iframe = document.getElementById('previewFrame');
+      panel.style.display = 'none';
+      iframe.srcdoc = '';
+      iframe.style.display = 'none';
     }
 
     // ============ JSON FEATURE ============
@@ -875,7 +1054,6 @@
           chapters: []
         };
 
-        // Fetch function for a single chapter
         const fetchChapterData = async (chapter, index, total) => {
           progress.textContent = `Fetching ${index + 1} of ${total}: Ch. ${chapter.number}`;
           
@@ -905,7 +1083,6 @@
           }
         };
 
-        // Fetch all chapters with concurrency limit of 4
         const CONCURRENCY = 4;
         const chapterResults = await fetchWithConcurrency(
           selected, 
@@ -959,205 +1136,21 @@
       }
     }
 
-    // Close modal on overlay click
     document.getElementById('jsonModal').addEventListener('click', (e) => {
       if (e.target.id === 'jsonModal') closeJsonModal();
     });
 
-    // Close modal on Escape key
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') closeJsonModal();
+      if (e.key === 'Escape') {
+        closeJsonModal();
+        closePreview();
+      }
     });
 
-    // Enter key to fetch
     document.getElementById('urlInput').addEventListener('keypress', (e) => {
       if (e.key === 'Enter') fetchManga();
     });
 
-    // Add these new functions to your <script> section
-
-// Preview functionality
-async function previewChapter(chapterId) {
-  const panel = document.getElementById('previewPanel');
-  const loading = document.getElementById('previewLoading');
-  const error = document.getElementById('previewError');
-  const iframe = document.getElementById('previewFrame');
-  
-  // Show panel, hide previous content
-  panel.style.display = 'block';
-  loading.style.display = 'block';
-  error.style.display = 'none';
-  iframe.style.display = 'none';
-  iframe.srcdoc = '';
-  
-  // Scroll preview into view on mobile
-  if (window.innerWidth <= 900) {
-    panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
-  
-  try {
-    const chapter = allChapters.find(ch => ch.chapter_id === chapterId);
-    if (!chapter) throw new Error('Chapter not found');
-    
-    // Fetch chapter data with retry
-    const chapterRes = await fetchChapterWithRetry(chapterId);
-    const imageUrls = extractImageUrls(chapterRes);
-    
-    if (imageUrls.length === 0) {
-      throw new Error('No images found for this chapter');
-    }
-    
-    // Build HTML content for iframe
-    const htmlContent = buildPreviewHTML(chapter, imageUrls);
-    
-    // Load into iframe
-    iframe.srcdoc = htmlContent;
-    iframe.onload = () => {
-      loading.style.display = 'none';
-      iframe.style.display = 'block';
-    };
-    
-  } catch (err) {
-    console.error('Preview error:', err);
-    loading.style.display = 'none';
-    error.textContent = 'Error loading preview: ' + err.message;
-    error.style.display = 'block';
-  }
-}
-
-function buildPreviewHTML(chapter, imageUrls) {
-  const title = `Ch. ${chapter.number}${chapter.name ? ' — ' + chapter.name : ''}`;
-  const group = chapter.scanlation_group?.name || 'Unknown';
-  
-  return `
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>${title}</title>
-      <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-          background: #1a1b26;
-          color: #c0caf5;
-          padding: 16px;
-          line-height: 1.5;
-        }
-        .header {
-          position: sticky;
-          top: 0;
-          background: #24283b;
-          padding: 12px 16px;
-          border-radius: 8px;
-          margin-bottom: 16px;
-          border: 1px solid #414868;
-          z-index: 10;
-        }
-        .chapter-title { font-weight: 700; font-size: 16px; margin-bottom: 4px; }
-        .chapter-meta { font-size: 12px; color: #7982a9; }
-        .pages-container {
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-          max-width: 900px;
-          margin: 0 auto;
-        }
-        .page-card {
-          background: #2f3549;
-          border-radius: 8px;
-          overflow: hidden;
-          border: 1px solid #414868;
-        }
-        .page-card img {
-          width: 100%;
-          height: auto;
-          display: block;
-          max-height: 80vh;
-          object-fit: contain;
-        }
-        .page-number {
-          padding: 8px 12px;
-          font-size: 11px;
-          color: #7982a9;
-          background: #24283b;
-          text-align: center;
-        }
-        .loading-placeholder {
-          min-height: 200px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: #7982a9;
-          font-size: 13px;
-        }
-        @media (min-width: 768px) {
-          .pages-container {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 16px;
-          }
-        }
-      </style>
-    </head>
-    <body>
-      <div class="header">
-        <div class="chapter-title">${title}</div>
-        <div class="chapter-meta">${group} • ${imageUrls.length} pages</div>
-      </div>
-      <div class="pages-container">
-        ${imageUrls.map((url, idx) => `
-          <div class="page-card">
-            <img src="${url}" alt="Page ${idx + 1}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\\'loading-placeholder\\'>Failed to load image</div>'">
-            <div class="page-number">Page ${idx + 1}</div>
-          </div>
-        `).join('')}
-      </div>
-    </body>
-    </html>
-  `;
-}
-
-function closePreview() {
-  const panel = document.getElementById('previewPanel');
-  const iframe = document.getElementById('previewFrame');
-  panel.style.display = 'none';
-  iframe.srcdoc = '';
-  iframe.style.display = 'none';
-}
-
-// Update renderChapters() to add the Preview button
-// Find this section in your existing renderChapters function and replace the innerHTML:
-
-/*
-OLD:
-div.innerHTML = `
-  <input type="checkbox" class="chapter-checkbox" 
-    ${selectedChapters.has(chapter.chapter_id) ? 'checked' : ''} 
-    onchange="toggleChapter('${chapter.chapter_id}')">
-  <div class="chapter-info">
-    <div class="chapter-number">Ch. ${chapter.number}${chapter.name ? ' — ' + chapter.name : ''}</div>
-    <div class="chapter-group ${isOfficial ? 'official' : ''}">${group}</div>
-  </div>
-`;
-
-REPLACE WITH:
-*/
-
-div.innerHTML = `
-  <input type="checkbox" class="chapter-checkbox" 
-    ${selectedChapters.has(chapter.chapter_id) ? 'checked' : ''} 
-    onchange="toggleChapter('${chapter.chapter_id}'); event.stopPropagation();">
-  <div class="chapter-info" style="flex:1; min-width:0;">
-    <div class="chapter-number">Ch. ${chapter.number}${chapter.name ? ' — ' + chapter.name : ''}</div>
-    <div class="chapter-group ${isOfficial ? 'official' : ''}">${group}</div>
-  </div>
-  <button class="btn btn-secondary" onclick="previewChapter('${chapter.chapter_id}'); event.stopPropagation();" 
-    style="padding: 6px 14px; font-size: 11px; margin-left: 10px; flex-shrink: 0;">
-    👁 Preview
-  </button>
-`;
   </script>
 </body>
 </html>
