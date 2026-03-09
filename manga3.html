@@ -460,6 +460,7 @@
         <div class="manga-info">Year: <span id="mangaYear"></span></div>
         <div class="manga-info">Latest: <span id="mangaLatest"></span></div>
         <div class="manga-info">Followers: <span id="mangaFollowers"></span></div>
+        <div class="manga-info">Id: <span id="mangaid"></span></div>
         <div class="manga-info" id="genresRow" style="display:none">Genres: <span id="mangaGenres"></span></div>
         <div class="manga-info" id="authorsRow" style="display:none">Authors: <span id="mangaAuthors"></span></div>
         <div class="manga-info" id="artistsRow" style="display:none">Artists: <span id="mangaArtists"></span></div>
@@ -696,6 +697,7 @@
         document.getElementById('mangaYear').textContent = manga.year || '?';
         document.getElementById('mangaLatest').textContent = manga.latest_chapter || '?';
         document.getElementById('mangaFollowers').textContent = manga.follows_total?.toLocaleString() || '0';
+        ocument.getElementById('mangaFollowers').textContent = manga.hash_id;
         document.getElementById('mangaDesc').textContent = manga.synopsis || 'No description available.';
 
         function updateInfoRow(rowId, spanId, items) {
