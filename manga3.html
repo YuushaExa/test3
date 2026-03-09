@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Comix Downloader</title>
+  <title> Downloader</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -787,10 +787,10 @@
             <div class="chapter-number">Ch. ${chapter.number}${chapter.name ? ' — ' + chapter.name : ''}</div>
             <div class="chapter-group ${isOfficial ? 'official' : ''}">${group}</div>
           </div>
-          <button class="btn btn-secondary btn-preview" 
-            onclick="event.stopPropagation(); previewChapter('${chapter.chapter_id}')">
-            👁 Preview
-          </button>
+<button class="btn btn-secondary btn-preview" 
+  onclick="event.stopPropagation(); previewChapter(${chapter.chapter_id})">
+  👁 Preview
+</button>
         `;
 
         list.appendChild(div);
@@ -844,48 +844,57 @@
 
     // ============ PREVIEW FEATURE ============
     
-    async function previewChapter(chapterId) {
-      const panel = document.getElementById('previewPanel');
-      const loading = document.getElementById('previewLoading');
-      const error = document.getElementById('previewError');
-      const iframe = document.getElementById('previewFrame');
-      
-      panel.style.display = 'block';
-      loading.style.display = 'block';
-      error.style.display = 'none';
-      iframe.style.display = 'none';
-      iframe.srcdoc = '';
-      
-      if (window.innerWidth <= 900) {
-        panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-      
-      try {
-        const chapter = allChapters.find(ch => ch.chapter_id === chapterId);
-        if (!chapter) throw new Error('Chapter not found');
-        
-        const chapterRes = await fetchChapterWithRetry(chapterId);
-        const imageUrls = extractImageUrls(chapterRes);
-        
-        if (imageUrls.length === 0) {
-          throw new Error('No images found for this chapter');
-        }
-        
-        const htmlContent = buildPreviewHTML(chapter, imageUrls);
-        
-        iframe.srcdoc = htmlContent;
-        iframe.onload = () => {
-          loading.style.display = 'none';
-          iframe.style.display = 'block';
-        };
-        
-      } catch (err) {
-        console.error('Preview error:', err);
-        loading.style.display = 'none';
-        error.textContent = 'Error loading preview: ' + err.message;
-        error.style.display = 'block';
-      }
+async function previewChapter(chapterId) {
+  const panel = document.getElementById('previewPanel');
+  const loading = document.getElementById('previewLoading');
+  const error = document.getElementById('previewError');
+  const iframe = document.getElementById('previewFrame');
+  
+  panel.style.display = 'block';
+  loading.style.display = 'block';
+  error.style.display = 'none';
+  iframe.style.display = 'none';
+  iframe.srcdoc = '';
+  
+  if (window.innerWidth <= 900) {
+    panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  
+  try {
+    // 🔍 Fix: Use loose equality or convert types for comparison
+    let chapter = allChapters.find(ch => ch.chapter_id == chapterId);
+    
+    // 🔄 Fallback: If not in cache, fetch chapter metadata directly
+    if (!chapter) {
+      console.log(`Chapter ${chapterId} not in cache, fetching directly...`);
+      const chapterRes = await fetchRetry(`${API_BASE}/chapters/${chapterId}/`);
+      chapter = chapterRes.result;
+      if (!chapter) throw new Error('Chapter not found in API response');
     }
+    
+    // 🔁 Fetch chapter images
+    const chapterRes = await fetchChapterWithRetry(chapterId);
+    const imageUrls = extractImageUrls(chapterRes);
+    
+    if (imageUrls.length === 0) {
+      throw new Error('No images found for this chapter');
+    }
+    
+    const htmlContent = buildPreviewHTML(chapter, imageUrls);
+    
+    iframe.srcdoc = htmlContent;
+    iframe.onload = () => {
+      loading.style.display = 'none';
+      iframe.style.display = 'block';
+    };
+    
+  } catch (err) {
+    console.error('Preview error:', err);
+    loading.style.display = 'none';
+    error.textContent = 'Error loading preview: ' + err.message;
+    error.style.display = 'block';
+  }
+}
 
     function buildPreviewHTML(chapter, imageUrls) {
       const title = `Ch. ${chapter.number}${chapter.name ? ' — ' + chapter.name : ''}`;
