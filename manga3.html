@@ -697,7 +697,7 @@
         document.getElementById('mangaYear').textContent = manga.year || '?';
         document.getElementById('mangaLatest').textContent = manga.latest_chapter || '?';
         document.getElementById('mangaFollowers').textContent = manga.follows_total?.toLocaleString() || '0';
-        ocument.getElementById('mangaFollowers').textContent = manga.hash_id;
+        document.getElementById('mangaFollowers').textContent = manga.hash_id;
         document.getElementById('mangaDesc').textContent = manga.synopsis || 'No description available.';
 
         function updateInfoRow(rowId, spanId, items) {
