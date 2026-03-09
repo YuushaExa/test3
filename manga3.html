@@ -483,7 +483,7 @@
     #countBadge {
       background: #6c757d;
       color: white;
-      padding: 2px 8px;
+      padding: 2px 5px;
       border-radius: 10px;
       font-size: 12px;
       min-width: 24px;
@@ -506,6 +506,13 @@
 </head>
 <body>
   <div class="header">
+    <div class="checker-container">
+    <button id="checkBtn">
+      Check ID
+      <span id="countBadge">-</span>
+    </button>
+    <span id="statusText"></span>
+  </div>
     <div class="url-input-container">
       <input type="text" id="urlInput" placeholder="Paste comix.to/title/... URL here">
       <button class="btn" id="fetchBtn" onclick="fetchManga()">FETCH</button>
@@ -546,13 +553,7 @@
         <iframe id="previewFrame"></iframe>
       </div>
     </div>
- <div class="checker-container">
-    <button id="checkBtn">
-      Check ID
-      <span id="countBadge">-</span>
-    </button>
-    <span id="statusText"></span>
-  </div>
+ 
   <div id="errorMsg" class="error"></div>
     <div class="chapters-panel">
       <div class="chapters-header">
