@@ -1402,7 +1402,7 @@ function selectUniqueChapters() {
     updateCount();
 }
 
-    // ============ AUTO-FETCH FROM URL PARAM ============
+// ============ AUTO-FETCH FROM URL PARAM ============
 document.addEventListener('DOMContentLoaded', () => {
     const params = new URLSearchParams(window.location.search);
     const hrefParam = params.get('href');
@@ -1410,11 +1410,18 @@ document.addEventListener('DOMContentLoaded', () => {
     if (hrefParam) {
         try {
             const decodedUrl = decodeURIComponent(hrefParam.trim());
+            
             if (decodedUrl.includes('/title/')) {
                 const urlInput = document.getElementById('urlInput');
                 urlInput.value = decodedUrl;
-                                setTimeout(() => {
+                
+                setTimeout(() => {
                     fetchManga();
+                    
+                    if (window.history.replaceState) {
+                        const cleanUrl = window.location.pathname;
+                        window.history.replaceState({}, document.title, cleanUrl);
+                    }
                 }, 300);
             }
         } catch (e) {
