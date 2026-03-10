@@ -1401,6 +1401,27 @@ function selectUniqueChapters() {
     renderChapters();
     updateCount();
 }
+
+    // ============ AUTO-FETCH FROM URL PARAM ============
+document.addEventListener('DOMContentLoaded', () => {
+    const params = new URLSearchParams(window.location.search);
+    const hrefParam = params.get('href');
+    
+    if (hrefParam) {
+        try {
+            const decodedUrl = decodeURIComponent(hrefParam.trim());
+            if (decodedUrl.includes('/title/')) {
+                const urlInput = document.getElementById('urlInput');
+                urlInput.value = decodedUrl;
+                                setTimeout(() => {
+                    fetchManga();
+                }, 300);
+            }
+        } catch (e) {
+            console.warn('Failed to parse href parameter:', e);
+        }
+    }
+});
   </script>
 </body>
 </html>
