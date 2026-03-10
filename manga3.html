@@ -1391,13 +1391,21 @@ function parseChapterRange(input) {
 
 function selectUniqueChapters() {
     selectedChapters.clear();
+    const seenChapterNums = new Set(); // Track unique whole chapter numbers
+    
     filteredChapters.forEach(ch => {
         const chapterNum = parseFloat(ch.number);
+        
         // Check if it's a whole number (1, 2, 3) not decimal (1.1, 2.5, etc.)
         if (!isNaN(chapterNum) && chapterNum === Math.floor(chapterNum)) {
-            selectedChapters.add(ch.chapter_id);
+            // Skip if this chapter number was already processed
+            if (!seenChapterNums.has(chapterNum)) {
+                seenChapterNums.add(chapterNum);
+                selectedChapters.add(ch.chapter_id);
+            }
         }
     });
+    
     renderChapters();
     updateCount();
 }
