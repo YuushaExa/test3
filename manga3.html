@@ -502,6 +502,25 @@
       font-size: 13px;
       margin-top: 5px;
     }
+
+    .range-selector {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+#chapterRange {
+    padding: 8px 12px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-size: 13px;
+    width: 180px;
+    outline: none;
+}
+#chapterRange:focus {
+    border-color: var(--accent);
+}
   </style>
 </head>
 <body>
@@ -575,7 +594,10 @@
       <div class="footer">
         <div class="footer-left">
           <button class="btn btn-secondary" onclick="selectAll()">Select All</button>
-           <button class="btn btn-secondary" onclick="selectFirst500()">First 500</button>
+ <div class="range-selector">
+        <input type="text" id="chapterRange" placeholder="e.g., 1-30 or 5,10,15">
+        <button class="btn btn-secondary" onclick="selectByRange()">Select Range</button>
+    </div>
     <button class="btn btn-secondary" onclick="selectUniqueChapters()">Unique Only</button>
           <button class="btn btn-secondary" onclick="deselectAll()">None</button>
           <select id="scanlatorFilter" onchange="filterChapters()">
@@ -1319,6 +1341,66 @@ async function previewChapter(chapterId) {
         btn.innerHTML = `Check ID <span id="countBadge">${countBadge.textContent}</span>`;
       }
     });
+
+    function selectByRange() {
+    const input = document.getElementById('chapterRange').value.trim();
+    if (!input) {
+        alert('Please enter a chapter range (e.g., 1-30 or 5,10,15)');
+        return;
+    }
+    
+    selectedChapters.clear();
+    const chaptersToSelect = parseChapterRange(input);
+    
+    chaptersToSelect.forEach(chapterNum => {
+        const chapter = filteredChapters.find(ch => {
+            const chNum = parseFloat(ch.number);
+            return !isNaN(chNum) && chNum === chapterNum;
+        });
+        if (chapter) {
+            selectedChapters.add(chapter.chapter_id);
+        }
+    });
+    
+    renderChapters();
+    updateCount();
+}
+
+function parseChapterRange(input) {
+    const chapters = new Set();
+    const parts = input.split(',').map(p => p.trim());
+    
+    parts.forEach(part => {
+        if (part.includes('-')) {
+            const [start, end] = part.split('-').map(n => parseFloat(n.trim()));
+            if (!isNaN(start) && !isNaN(end)) {
+                for (let i = Math.floor(start); i <= Math.floor(end); i++) {
+                    chapters.add(i);
+                }
+            }
+        } else {
+            const num = parseFloat(part);
+            if (!isNaN(num)) {
+                chapters.add(Math.floor(num));
+            }
+        }
+    });
+    
+    return Array.from(chapters).sort((a, b) => a - b);
+}
+
+function selectUniqueChapters() {
+    selectedChapters.clear();
+    filteredChapters.forEach(ch => {
+        const chapterNum = parseFloat(ch.number);
+        // Check if it's a whole number (1, 2, 3) not decimal (1.1, 2.5, etc.)
+        if (!isNaN(chapterNum) && chapterNum === Math.floor(chapterNum)) {
+            selectedChapters.add(ch.chapter_id);
+        }
+    });
+    renderChapters();
+    updateCount();
+}
   </script>
 </body>
 </html>
