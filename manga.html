@@ -903,10 +903,10 @@ div.innerHTML = `
     👁 Preview
   </button>
   <button class="btn btn-secondary btn-download"
-    onclick="event.stopPropagation(); downloadChapter('${chapter.chapter_id}', '${chapter.number.replace(/'/g, "\\'")}', '${chapter.name?.replace(/'/g, "\\'") || ''}')"
+    onclick="event.stopPropagation(); downloadChapter('${chapter.chapter_id}', '${String(chapter.number).replace(/'/g, "\\'")}', '${chapter.name ? String(chapter.name).replace(/'/g, "\\'") : ''}')"
     title="Download chapter images"
-    ${isDownloading.has(chapter.chapter_id) ? 'disabled' : ''}>
-    ${isDownloading.has(chapter.chapter_id) ? '⏳...' : '⬇ Download'}
+    ${isDownloading?.has(chapter.chapter_id) ? 'disabled' : ''}>
+    ${isDownloading?.has(chapter.chapter_id) ? '⏳...' : '⬇ Download'}
   </button>
 `;
 
